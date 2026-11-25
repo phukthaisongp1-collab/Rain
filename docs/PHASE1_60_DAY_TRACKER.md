@@ -1,0 +1,190 @@
+# RAIN Browser — Phase 1: 60-Day Work Tracker
+
+> **Project:** RAIN Browser  
+> **Plan:** v3.1  
+> **Repository:** `phukthaisongp1-collab/Rain`  
+> **Schedule:** 60 calendar days from the formally approved start date  
+> **Current status:** Not started  
+> **Progress:** 0/60 days (0%)
+
+## Tracking rules
+
+1. A day is marked `[x]` only after its stated work is actually completed and verified against the repository, build/test output, or other concrete evidence.
+2. Never mark work complete based only on an intention, an attempted change, or an unverified claim.
+3. When a day is complete, update this file with its checkbox, completion date, concise result, and evidence (commit SHA, file path, GitHub Actions run, test result, or APK verification result as applicable).
+4. Before doing work, check this tracker and the recorded evidence. If a task is already complete, do not repeat it; inspect its evidence and move to the next incomplete task.
+5. If a task fails verification, leave it unchecked and record the blocker. Fix the blocker before marking it complete.
+6. Work is sequential. Do not start the next round until the current round has been reviewed and accepted.
+7. The 60 days are a planning baseline, not a promise. Waiting for user input, credentials, Keystore setup, platform limitations, or unresolved defects may move the schedule. Do not reduce security or acceptance requirements to meet the target.
+8. Do not add Phase 2 features to Phase 1 without approval.
+
+## Progress summary
+
+| Workstream | Planned days | Completed | Status |
+|---|---:|---:|---|
+| Round A — Android foundation and build | 10 | 0 | Not started |
+| Round B — Browser features | 18 | 0 | Not started |
+| Round C — Privacy and network | 18 | 0 | Not started |
+| Round D — Data and settings | 10 | 0 | Not started |
+| Final verification and release | 4 | 0 | Not started |
+| **Total** | **60** | **0** | **0%** |
+
+> Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
+
+---
+
+## Round A — Android foundation and build (Days 1–10)
+
+**Round acceptance:** Android project builds; CI checks run; release signing is configured using the approved Android Keystore; signed APK verification succeeds. No unsigned release fallback.
+
+- [ ] **Day 1:** Inspect the RAIN repository, default branch, existing plan, and current GitHub project structure. Record the verified baseline and avoid overwriting existing work.
+- [ ] **Day 2:** Prepare the Android project structure in the existing repository, following the approved Android-only architecture.
+- [ ] **Day 3:** Configure Kotlin and Android SDK settings.
+- [ ] **Day 4:** Configure Gradle and Gradle Wrapper, pin compatible versions, and verify the build environment.
+- [ ] **Day 5:** Set the application identity: app name RAIN, applicationId `com.rain.browser`, initial versionName `0.1.0`, and initial versionCode policy.
+- [ ] **Day 6:** Create the starting Activity and initial application screen using the approved theme.
+- [ ] **Day 7:** Add the basic Android WebView and implement the agreed security baseline.
+- [ ] **Day 8:** Configure GitHub Actions for Android build, lint, tests, and build artifacts.
+- [ ] **Day 9:** Configure release signing with Android Keystore and GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Never commit or expose the Keystore or passwords.
+- [ ] **Day 10:** Build the APK, verify its signature with `apksigner`, review CI results, record evidence, and obtain Round A acceptance.
+
+**Round A review record**
+- Review status: Not reviewed
+- Review date:
+- Evidence / commit / Actions run:
+- Blockers or approved deviations:
+
+---
+
+## Round B — Browser features (Days 11–28)
+
+**Round acceptance:** Core browsing, tabs, navigation controls, search, zoom, and per-site Mobile/Desktop Mode behavior are tested.
+
+- [ ] **Day 11:** Design the Browser screen structure within the approved product scope.
+- [ ] **Day 12:** Implement the address bar.
+- [ ] **Day 13:** Implement URL and scheme validation.
+- [ ] **Day 14:** Implement DuckDuckGo as the default search engine.
+- [ ] **Day 15:** Add Google as a selectable search engine.
+- [ ] **Day 16:** Implement Back and Forward navigation.
+- [ ] **Day 17:** Implement Reload and Stop controls.
+- [ ] **Day 18:** Implement Home and New Tab controls.
+- [ ] **Day 19:** Implement browser tab creation and management.
+- [ ] **Day 20:** Implement switching between tabs.
+- [ ] **Day 21:** Handle WebView lifecycle and tab state safely.
+- [ ] **Day 22:** Implement website loading and page display behavior.
+- [ ] **Day 23:** Implement page zoom controls.
+- [ ] **Day 24:** Implement text scaling controls.
+- [ ] **Day 25:** Implement Desktop Mode using the supported WebView settings and user-agent behavior.
+- [ ] **Day 26:** Implement Mobile Mode and switching between Mobile/Desktop modes.
+- [ ] **Day 27:** Persist mode separately per website and reload the page when the mode changes; show the active mode clearly.
+- [ ] **Day 28:** Test the Browser feature set, record evidence, fix verified defects, and obtain Round B acceptance.
+
+**Round B review record**
+- Review status: Not reviewed
+- Review date:
+- Evidence / commit / Actions run:
+- Blockers or approved deviations:
+
+---
+
+## Round C — Privacy and network (Days 29–46)
+
+**Round acceptance:** Privacy and network behavior is verified on Android WebView. Unsupported behavior must be documented and submitted for approval; never claim unsupported guarantees.
+
+- [ ] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation.
+- [ ] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities.
+- [ ] **Day 31:** Implement Private Browsing data/session separation to the extent supported by the approved design.
+- [ ] **Day 32:** Handle Private Browsing cookies and verify their lifecycle.
+- [ ] **Day 33:** Handle Private Browsing cache and Web Storage.
+- [ ] **Day 34:** Inspect and handle Service Worker and other persistent website data relevant to private sessions.
+- [ ] **Day 35:** Test closing Private Browsing and cleanup of its data; do not claim RAM-only behavior unless proven.
+- [ ] **Day 36:** Verify HTTPS and SSL error handling; never bypass certificate errors.
+- [ ] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing.
+- [ ] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise.
+- [ ] **Day 39:** Validate external intents and URL schemes; restrict unsafe launches.
+- [ ] **Day 40:** Research and test DoH feasibility on the supported Android/WebView stack; record findings.
+- [ ] **Day 41:** Implement DoH only if a supported, secure approach is verified and remains within the approved specification; otherwise document the limitation and request a decision.
+- [ ] **Day 42:** Research and test Proxy feasibility and limitations on the supported Android/WebView stack.
+- [ ] **Day 43:** Implement Proxy only to the extent supported by a verified, approved approach; otherwise document the limitation and request a decision.
+- [ ] **Day 44:** Verify the planned network whitelist candidates: `*.scb.co.th`, `*.kbank.com`, `*.go.th`, `*.gmail.com`, and `*.outlook.com`. Record actual behavior and limitations.
+- [ ] **Day 45:** Run combined privacy and network tests; record reproducible results.
+- [ ] **Day 46:** Resolve verified defects, document remaining platform limitations, record evidence, and obtain Round C acceptance.
+
+**Round C review record**
+- Review status: Not reviewed
+- Review date:
+- Evidence / commit / Actions run:
+- Blockers or approved deviations:
+
+---
+
+## Round D — Data and settings (Days 47–56)
+
+**Round acceptance:** Data operations, History, Resume, New Tab, Settings, and Thai/English localization work and are tested against the agreed limits.
+
+- [ ] **Day 47:** Implement the agreed Data Layer structure and data access boundaries.
+- [ ] **Day 48:** Implement the required data operations: get, set, query, and delete.
+- [ ] **Day 49:** Implement browsing History persistence and retrieval.
+- [ ] **Day 50:** Enforce the History maximum of 5,000 entries and test cleanup behavior.
+- [ ] **Day 51:** Implement Resume persistence with a maximum of 10 entries.
+- [ ] **Day 52:** Implement cleanup of Resume entries older than 30 days and ensure Private Browsing sessions are excluded.
+- [ ] **Day 53:** Implement the New Tab page.
+- [ ] **Day 54:** Implement the Settings page and the settings defined in the approved plan.
+- [ ] **Day 55:** Implement Thai and English localization.
+- [ ] **Day 56:** Test the data layer and all Round D features, record evidence, and obtain Round D acceptance.
+
+**Round D review record**
+- Review status: Not reviewed
+- Review date:
+- Evidence / commit / Actions run:
+- Blockers or approved deviations:
+
+---
+
+## Final verification and release (Days 57–60)
+
+**Release acceptance:** Production APK is built and signed with the same protected Keystore, signature verification passes, required tests pass, and delivery evidence is recorded.
+
+- [ ] **Day 57:** Run end-to-end tests for all Phase 1 Browser features on the target Android device/environment.
+- [ ] **Day 58:** Perform the final security review: secrets exposure, private data handling, WebView configuration, permissions, URL handling, and known limitations.
+- [ ] **Day 59:** Build the Production Release APK, verify the APK signature with `apksigner`, and confirm the expected applicationId and version metadata.
+- [ ] **Day 60:** Review the complete acceptance checklist, record test/build/release evidence, document known issues, and obtain final Phase 1 acceptance.
+
+**Final release record**
+- Release status: Not released
+- Release date:
+- Version name:
+- Version code:
+- APK artifact / GitHub Actions run:
+- Signature verification result:
+- Final acceptance:
+
+---
+
+## Daily completion log
+
+Add one entry for each completed day. Keep the evidence precise enough that a future review can confirm the work without repeating it.
+
+| Day | Completion date | Result / evidence | Commit SHA or Actions run |
+|---:|---|---|---|
+| — | — | No days completed yet | — |
+
+## Blockers and approved changes
+
+Record blockers, platform limitations, and user-approved changes here. Do not silently change the scope or mark blocked work as complete.
+
+| Date | Related day | Blocker / limitation | Decision / approval | Resolution evidence |
+|---|---:|---|---|---|
+| — | — | None recorded | — | — |
+
+## Progress update protocol
+
+Whenever work is completed:
+1. Verify the actual code, configuration, test, or build result.
+2. Update the matching day from `[ ]` to `[x]`.
+3. Add its completion date and evidence to the Daily completion log.
+4. Recalculate the completed-day count and percentage in the Progress summary.
+5. Update the round status only when its acceptance checkpoint is passed.
+6. Commit the tracker update to the repository and report the commit and current progress to the project owner.
+
+**Important:** A checkbox means verified completion, not merely that work was attempted. Never check off a day without evidence.
