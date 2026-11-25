@@ -24,10 +24,10 @@
 |---|---:|---:|---|
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
-| Round C — Privacy and network | 18 | 0 | Not started |
+| Round C — Privacy and network | 18 | 2 | In progress |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **28** | **46.67%** |
+| **Total** | **60** | **30** | **50.00%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -91,8 +91,8 @@
 
 **Round acceptance:** Privacy and network behavior is verified on Android WebView. Unsupported behavior must be documented and submitted for approval; never claim unsupported guarantees.
 
-- [ ] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation.
-- [ ] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities.
+- [x] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation. **Completed: 2026-11-25.** Documented process-scoped WebView data directories, cookie/WebStorage scope, Service Worker limitations, and cleanup API constraints in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`.
+- [x] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities. **Completed: 2026-11-25.** Owner approved a dedicated `:private` Android process and unique `rain_private` WebView data-directory suffix. Architecture and limitations recorded in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; initial source implementation is tracked separately under Days 31–35.
 - [ ] **Day 31:** Implement Private Browsing data/session separation to the extent supported by the approved design.
 - [ ] **Day 32:** Handle Private Browsing cookies and verify their lifecycle.
 - [ ] **Day 33:** Handle Private Browsing cache and Web Storage.
@@ -195,6 +195,8 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 26 | 2026-11-25 | Added mode toggle, restoration of default mobile user-agent, and reload after switching. Evidence: `MainActivity.kt`, `DesktopModeManager.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
 | 27 | 2026-11-25 | Persisted desktop preference by website host and display active mode. Evidence: `DesktopModeManager.kt`, `MainActivity.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
 | 28 | 2026-11-25 | GitHub Actions run `45575054677` completed successfully: Gradle Wrapper validation, lint, `testDebugUnitTest`, `assembleDebug`, and artifact upload all passed. Artifact `rain-android-build` ID `15003498586`, 852,812 bytes; SHA-256 `e08afde4d599e9887c068b2d43709cb7674d3f821f7d71fcf50fbd8a94dabd55`. Cloud verification accepted; physical-device end-to-end testing remains scheduled for Day 57 and has not been claimed. | Actions run `45575054677`; artifact `15003498586`; commit `64c4f3efa87930c6a543d53a3deedde81871f7d8` |
+| 29 | 2026-11-25 | Inspected WebView process/data-directory isolation, cookie and WebStorage scope, Service Worker limitations, and cleanup API constraints. | `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; commit `3942596fe1706865de8d8141eb147f4493bd11aa` |
+| 30 | 2026-11-25 | Defined and recorded the owner-approved separate-process Private Browsing architecture; implementation work is tracked under Days 31–35. | Owner approval in conversation; `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; commit `3942596fe1706865de8d8141eb147f4493bd11aa` |
 
 ## Blockers and approved changes
 
