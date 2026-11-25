@@ -1,0 +1,54 @@
+package com.rain.browser.browser
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class BrowserUrlResolverTest {
+    @Test
+    fun keepsValidHttpsUrl() {
+        assertEquals(
+            "https://example.com/path",
+            BrowserUrlResolver.resolve("https://example.com/path", SearchEngine.DUCKDUCKGO)
+        )
+    }
+
+    @Test
+    fun upgradesBareDomainToHttps() {
+        assertEquals(
+            "https://example.com",
+            BrowserUrlResolver.resolve("example.com", SearchEngine.DUCKDUCKGO)
+        )
+    }
+
+    @Test
+    fun searchesPlainTextWithDuckDuckGoByDefault() {
+        assertEquals(
+            "https://duckduckgo.com/?q=rain+browser",
+            BrowserUrlResolver.resolve("rain browser", SearchEngine.DUCKDUCKGO)
+        )
+    }
+
+    @Test
+    fun supportsGoogleSearchSelection() {
+        assertEquals(
+            "https://www.google.com/search?q=rain",
+            BrowserUrlResolver.resolve("rain", SearchEngine.GOOGLE)
+        )
+    }
+
+    @Test
+    fun doesNotPassUnsafeSchemesToWebView() {
+        assertEquals(
+            "https://duckduckgo.com/?q=javascript%3Aalert%281%29",
+            BrowserUrlResolver.resolve("javascript:alert(1)", SearchEngine.DUCKDUCKGO)
+        )
+    }
+
+    @Test
+    fun rejectsUrlsContainingUserInfo() {
+        assertEquals(
+            "https://duckduckgo.com/?q=https%3A%2F%2Fuser%3Apass%40example.com",
+            BrowserUrlResolver.resolve("https://user:pass@example.com", SearchEngine.DUCKDUCKGO)
+        )
+    }
+}
