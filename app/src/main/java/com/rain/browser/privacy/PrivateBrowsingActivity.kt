@@ -91,7 +91,12 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
     private fun closePrivateSession() {
         if (isClosing) return
         isClosing = true
-        privateWebView?.stopLoading()
+        privateWebView?.apply {
+            stopLoading()
+            clearHistory()
+            clearFormData()
+            clearCache(true)
+        }
         destroyPrivateWebView()
         clearPrivateData {
             finish()
@@ -134,7 +139,12 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
     override fun onDestroy() {
         if (!isClosing) {
             isClosing = true
-            privateWebView?.stopLoading()
+            privateWebView?.apply {
+                stopLoading()
+                clearHistory()
+                clearFormData()
+                clearCache(true)
+            }
             destroyPrivateWebView()
             runCatching {
                 WebStorage.getInstance().deleteAllData()
