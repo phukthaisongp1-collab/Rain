@@ -19,6 +19,7 @@ RAIN คือเว็บเบราว์เซอร์ Android ที่เ
 RAIN ต้องรวมความสามารถหลักของ Google Chrome และ Apple Safari ไว้ในผลิตภัณฑ์เดียว และมุ่งพัฒนาประสบการณ์โดยรวมให้ดีกว่าทั้งสอง โดย:
 - ใช้ความสามารถหลักของ Chrome เป็นเกณฑ์ด้านการท่องเว็บ แท็บ การดาวน์โหลด การจัดการข้อมูล ความเข้ากันได้ และความปลอดภัย
 - ใช้ความสามารถหลักของ Safari เป็นเกณฑ์ด้าน Private Browsing การป้องกันการติดตาม การควบคุมความเป็นส่วนตัว รายงานความเป็นส่วนตัว และสิทธิ์เว็บไซต์
+- Private Browsing ยังคงเป็นเป้าหมายผลิตภัณฑ์ของ RAIN แต่ย้ายกำหนดการพัฒนาและตรวจรับไป Phase 2; ไม่อยู่ใน Phase 1 acceptance
 - คงความสามารถเพิ่มเติมที่เจ้าของโครงการอนุมัติสำหรับ RAIN เช่น Anti-Redirect, Web Protection, Smart RAM/Battery Management, Crash/Session Recovery และการจัดการ Bookmark/History
 - นำมาใช้เฉพาะความสามารถที่ Android และ Android WebView รองรับได้จริง พร้อมระบุข้อจำกัดและทดสอบก่อนกล่าวอ้าง
 - ไม่เพิ่มบัญชี RAIN, Cloud Sync หรือเปลี่ยนสถาปัตยกรรม Android WebView ตามเป้าหมายนี้
@@ -193,11 +194,11 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
    - แจ้งว่า Desktop Mode ไม่ได้เปลี่ยนโทรศัพท์เป็นคอมพิวเตอร์ และบางเว็บอาจจำกัดฟังก์ชัน
 6. รองรับการซูมหน้าเว็บและปรับขนาดตัวอักษร โดยไม่ทำให้ UI หลักเสียรูป
 
-### รอบ (ค): Privacy + Private Browsing + Network Controls
-1. Private Browsing ต้องไม่บันทึก History, Resume, Download metadata, favicon หรือภาพย่อจาก Private Session ลงข้อมูลปกติ
-2. ก่อนเลือกวิธีแยก Private Session ต้องตรวจสอบข้อจำกัด Android WebView จริง ทั้ง Cookie, Cache, Web Storage, Service Worker และ WebView data directory
-3. ห้ามอ้างว่า Private Mode เก็บข้อมูลใน RAM เท่านั้นจนกว่าจะพิสูจน์ด้วยการทดสอบบน Android รุ่นเป้าหมาย หากต้องแยก process/data directory ให้เสนอแบบและขออนุมัติก่อนเปลี่ยนสถาปัตยกรรม
-4. เมื่อปิด Private Session ให้ปิด WebView และล้างข้อมูลที่ API รองรับตามขอบเขตที่ออกแบบ พร้อมตรวจไม่ให้ข้อมูล private เข้าสู่ stores ปกติ
+### รอบ (ค): Privacy Controls + Network Controls (ไม่รวม Private Browsing)
+1. ตรวจสอบและยืนยันนโยบาย HTTPS/SSL error handling; ห้าม bypass certificate errors
+2. กำหนดและตรวจสอบ Mixed Content handling และ Safe Browsing ตามความสามารถของ Android WebView
+3. ตรวจสอบว่า file access และ content access ถูกปิด เว้นแต่มีข้อกำหนดที่อนุมัติและมีเหตุผลชัดเจน
+4. ตรวจสอบ external intents และ URL schemes พร้อมจำกัดการเปิดใช้งานที่ไม่ปลอดภัย
 5. DoH และ Proxy:
    - ตรวจสอบความสามารถจริงของ Android WebView และ Android networking ก่อนกำหนด implementation
    - DoH อาจต้องใช้ resolver/network layer เฉพาะ และอาจไม่ครอบคลุม traffic ใน WebView โดยอัตโนมัติ
@@ -211,6 +212,8 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
    - *.gmail.com
    - *.outlook.com
 8. หาก Android ทำ DoH/Proxy/Whitelist ได้ไม่ครบ ต้องรายงานข้อจำกัดและเสนอทางเลือกเพื่อขออนุมัติ ห้ามแสดงว่าเปิดใช้งานแล้วหาก traffic ไม่ได้ผ่านระบบนั้นจริง
+
+**ขอบเขตที่ย้ายออก:** Private Browsing ทั้งการพัฒนา การแยกข้อมูล การล้างข้อมูล และการทดสอบ ย้ายไป Phase 2 ตามหัวข้อ 7 โดยไม่เป็นเงื่อนไขตรวจรับหรือ blocker ของ Phase 1
 
 ### รอบ (ง): Data Layer + New Tab + Settings + Localization
 1. แยก Data Layer ออกจาก UI และ Browser UI ผ่าน Repository/Manager layer
@@ -308,6 +311,34 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 ---
 
 ## 7. ความสามารถสำหรับเฟสถัดไป
+
+### 7.1 Phase 2 — Private Browsing (ย้ายออกจาก Phase 1)
+
+**สถานะ:** Deferred to Phase 2 ตามคำสั่งเจ้าของโครงการ หลัง Private Browsing Instrumentation Run #82 ไม่ผ่าน  
+**หลักการ:** พัฒนาและตรวจรับเป็นงานอิสระ มี Workflow และเกณฑ์ทดสอบเฉพาะ ไม่เป็น dependency หรือ blocker ของ Phase 1
+
+ขอบเขตงาน:
+1. คงสถาปัตยกรรมที่เจ้าของโครงการอนุมัติ: Android process แยก `:private` และ WebView data-directory suffix `rain_private` ซึ่งต้องกำหนดก่อนเรียก WebView API ใด ๆ
+2. แยก Cookie, Cache, localStorage, Web Storage และข้อมูลเว็บไซต์อื่นตามขอบเขตที่ Android WebView รองรับจริง
+3. ตรวจสอบ Service Worker cleanup แบบ feature-detection และรายงานข้อจำกัดของ provider; ห้ามอ้างว่าล้างได้หาก API/provider ไม่รองรับ
+4. ไม่บันทึกข้อมูล Private Session ลง History, Resume, Download metadata, favicon, thumbnail หรือ persistent stores ของโหมดปกติ
+5. เมื่อปิด Private Session ให้ปิด WebView และล้างข้อมูลที่ API รองรับ; ตรวจสอบการเปิดใหม่ว่าข้อมูล private เดิมไม่คงอยู่ และข้อมูลโหมดปกติไม่ถูกกระทบ
+6. ไม่กล่าวอ้างว่าเป็น RAM-only หรือไม่สามารถถูกติดตามได้ เว้นแต่มีหลักฐานที่พิสูจน์ขอบเขตนั้นจริง
+
+**Dedicated Instrumentation Workflow และเกณฑ์ตรวจรับ:**
+- แยก Workflow สำหรับ Private Browsing โดยเฉพาะ ไม่ต้องรันงานทดสอบที่ไม่เกี่ยวข้องซ้ำ แต่ยังใช้ source commit เดียวกับที่กำลังตรวจสอบ
+- ใช้ Android 16 / API 36 Emulator และตรวจสอบ KVM/Emulator readiness ก่อนเริ่ม Instrumentation
+- ตรวจ process name ว่าเป็น `com.rain.browser:private` และยืนยัน process lifecycle
+- โหลดหน้า HTML จริงเพื่อพิสูจน์ Cookie และ localStorage isolation ระหว่าง Normal/Private
+- ปิดและเปิด Private ใหม่ แล้วตรวจว่าข้อมูล private ถูกล้าง ขณะที่ข้อมูล normal ยังคงอยู่
+- ทดสอบการสื่อสารข้าม process ด้วย Parcelable/API ที่ปลอดภัย ห้ามส่งคลาส callback จาก Test APK ไปให้ App Process โหลด
+- เก็บ JUnit XML/HTML, Logcat, process diagnostics และ artifact ทุกครั้ง
+- ต้องผ่าน 3 CI runs ติดต่อกันก่อนขอรับรอง Private Browsing
+- การทดสอบบนโทรศัพท์จริงยังคงทำตามกำหนด Day 57–60 เมื่อถึงรอบตรวจรับอุปกรณ์
+
+**เงื่อนไขเริ่มงาน:** เริ่ม Phase 2 เมื่อ Phase 1 เดินหน้าตามแผนและมีทรัพยากรแยกสำหรับงานนี้ โดยไม่ย้อนกลับไปบล็อกงาน Phase 1; ก่อนเริ่มให้ตรวจ Source/Workflow/หลักฐานล่าสุดและแก้ Test Harness จากสาเหตุที่ยืนยันได้
+
+### 7.2 Backlog ความสามารถอื่นสำหรับเฟสถัดไป
 
 เตรียมจุดเชื่อมต่อโดยไม่เพิ่ม dependency หรือพัฒนา feature ล่วงหน้า:
 - Ad-blocker
