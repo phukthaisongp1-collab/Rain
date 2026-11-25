@@ -9,6 +9,8 @@ import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
+import androidx.webkit.WebStorageCompat
+import androidx.webkit.WebViewFeature
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -61,11 +63,7 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     }
 
     private fun clearStalePrivateData(onComplete: () -> Unit) {
-        WebStorage.getInstance().deleteAllData()
-        CookieManager.getInstance().removeAllCookies {
-            CookieManager.getInstance().flush()
-            onComplete()
-        }
+        clearPrivateBrowsingData(onComplete)
     }
 
     private fun initializePrivateWebView() {
@@ -110,9 +108,28 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     }
 
     private fun clearPrivateData(onComplete: () -> Unit) {
-        WebStorage.getInstance().deleteAllData()
-        CookieManager.getInstance().removeAllCookies {
-            CookieManager.getInstance().flush()
+        clearPrivateBrowsingData(onComplete)
+    }
+
+    private fun clearPrivateBrowsingData(onComplete: () -> Unit) {
+        val webStorage = WebStorage.getInstance()
+        val cookieManager = CookieManager.getInstance()
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) {
+            val deletionStarted = runCatching {
+                WebStorageCompat.deleteBrowsingData(webStorage) {
+                    cookieManager.flush()
+                    onComplete()
+                }
+            }.isSuccess
+            if (deletionStarted) return
+        }
+
+        // Older WebView providers may not support DELETE_BROWSING_DATA.
+        // This fallback cannot guarantee Service Worker data removal.
+        webStorage.deleteAllData()
+        cookieManager.removeAllCookies {
+            cookieManager.flush()
             onComplete()
         }
     }
@@ -148,10 +165,7 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
             }
             destroyPrivateWebView()
             runCatching {
-                WebStorage.getInstance().deleteAllData()
-                CookieManager.getInstance().removeAllCookies {
-                    CookieManager.getInstance().flush()
-                }
+                clearPrivateBrowsingData {}
             }
         }
         super.onDestroy()
