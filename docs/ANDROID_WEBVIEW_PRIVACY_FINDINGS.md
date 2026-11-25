@@ -89,4 +89,4 @@ Initial implementation committed to the repository:
 - No tests on the owner's physical phone have been performed; device validation remains scheduled for the final phase.
 ## Current conclusion
 
-A second WebView in the existing process is not sufficient for private-session isolation because cookies, WebStorage, and Service Worker control are process/application-wide or singleton APIs. The separate-process design is the viable candidate for further validation, but must pass the listed cleanup and isolation tests before RAIN can advertise Private Browsing guarantees.
+The owner-approved separate-process design has been committed and an initial implementation exists. It is not yet accepted as a verified Private Browsing feature: GitHub Actions compilation, automated tests, process/data isolation checks, cookie and Web Storage lifecycle checks, cache behavior, and Service Worker limitations still require validation. RAIN must not advertise complete private-session cleanup, RAM-only operation, or zero traces until the relevant behavior is demonstrated. The separate process is the implementation direction, while feature acceptance remains pending Days 31–35.
