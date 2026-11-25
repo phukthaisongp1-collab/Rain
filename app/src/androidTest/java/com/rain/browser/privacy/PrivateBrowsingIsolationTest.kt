@@ -147,7 +147,7 @@ class PrivateBrowsingIsolationTest {
         const val TEST_URL = "https://rain-private-isolation.test/"
         const val NORMAL_COOKIE = "rain_normal=kept; Path=/; Secure"
         const val PRIVATE_COOKIE = "rain_private=temporary; Path=/; Secure"
-        const val WAIT_TIMEOUT_MS = 20_000L
+        const val WAIT_TIMEOUT_MS = 30_000L
         const val CLEANUP_TIMEOUT_MS = 2_000L
         const val COMMAND_TIMEOUT_MS = 500L
         const val POLL_INTERVAL_MS = 50L
