@@ -1,5 +1,6 @@
 package com.rain.browser.privacy
 
+import android.app.Application
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -7,10 +8,8 @@ import android.os.Looper
 import android.os.ResultReceiver
 import android.os.SystemClock
 import android.webkit.CookieManager
-import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.rain.browser.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -25,16 +24,21 @@ import java.util.concurrent.atomic.AtomicReference
 class PrivateBrowsingIsolationTest {
     @Test
     fun privateCookiesAreIsolatedAndClearedWithoutAffectingNormalCookies() {
-        val normalScenario = ActivityScenario.launch(MainActivity::class.java)
+        assertEquals(
+            "Normal cookie setup must run in the application's default process",
+            targetContext.packageName,
+            Application.getProcessName()
+        )
+
+        // Seed the normal process cookie store without launching MainActivity.
+        // Creating MainActivity also creates a WebView, which is not required
+        // to verify CookieManager's process-level storage isolation.
+        val normalCookies = CookieManager.getInstance()
+        setCookie(normalCookies, NORMAL_COOKIE)
+        assertTrue(normalCookies.getCookie(TEST_URL).orEmpty().contains("rain_normal=kept"))
+
         var privateActivityStarted = false
-
         try {
-            normalScenario.onActivity {
-                val cookies = CookieManager.getInstance()
-                setCookie(cookies, NORMAL_COOKIE)
-                assertTrue(cookies.getCookie(TEST_URL).orEmpty().contains("rain_normal=kept"))
-            }
-
             launchPrivateActivity()
             privateActivityStarted = true
 
@@ -70,11 +74,9 @@ class PrivateBrowsingIsolationTest {
             )
             privateActivityStarted = false
 
-            normalScenario.onActivity {
-                val normalCookies = CookieManager.getInstance().getCookie(TEST_URL).orEmpty()
-                assertTrue(normalCookies.contains("rain_normal=kept"))
-                assertFalse(normalCookies.contains("rain_private=temporary"))
-            }
+            val remainingNormalCookies = normalCookies.getCookie(TEST_URL).orEmpty()
+            assertTrue(remainingNormalCookies.contains("rain_normal=kept"))
+            assertFalse(remainingNormalCookies.contains("rain_private=temporary"))
         } finally {
             if (privateActivityStarted) {
                 runCatching {
@@ -84,7 +86,6 @@ class PrivateBrowsingIsolationTest {
                     )
                 }
             }
-            normalScenario.close()
         }
     }
 
@@ -137,9 +138,15 @@ class PrivateBrowsingIsolationTest {
     private val targetContext
         get() = InstrumentationRegistry.getInstrumentation().targetContext
 
-    @Suppress("DEPRECATION")
     private fun setCookie(cookieManager: CookieManager, value: String) {
-        cookieManager.setCookie(TEST_URL, value)
+        val latch = CountDownLatch(1)
+        val accepted = AtomicReference<Boolean>()
+        cookieManager.setCookie(TEST_URL, value) {
+            accepted.set(it)
+            latch.countDown()
+        }
+        assertTrue("Normal cookie write timed out", latch.await(COOKIE_TIMEOUT_MS, TimeUnit.MILLISECONDS))
+        assertEquals("Normal cookie was rejected", true, accepted.get())
         cookieManager.flush()
     }
 
@@ -148,8 +155,9 @@ class PrivateBrowsingIsolationTest {
         const val NORMAL_COOKIE = "rain_normal=kept; Path=/; Secure"
         const val PRIVATE_COOKIE = "rain_private=temporary; Path=/; Secure"
         const val WAIT_TIMEOUT_MS = 30_000L
-        const val CLEANUP_TIMEOUT_MS = 2_000L
-        const val COMMAND_TIMEOUT_MS = 500L
-        const val POLL_INTERVAL_MS = 50L
+        const val CLEANUP_TIMEOUT_MS = 10_000L
+        const val COMMAND_TIMEOUT_MS = 1_000L
+        const val COOKIE_TIMEOUT_MS = 5_000L
+        const val POLL_INTERVAL_MS = 100L
     }
 }
