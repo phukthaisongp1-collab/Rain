@@ -67,8 +67,8 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
         }
     }
 
-    override fun onRetainCustomNonConfigurationInstance(): Any =
-        RetainedPrivateSession(privateWebView?.url)
+    override fun onRetainCustomNonConfigurationInstance(): Any? =
+        privateWebView?.let { RetainedPrivateSession(it.url) }
 
     private fun clearStalePrivateData(onComplete: () -> Unit) {
         clearPrivateBrowsingData(onComplete)
