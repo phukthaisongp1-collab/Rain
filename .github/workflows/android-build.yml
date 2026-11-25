@@ -49,21 +49,13 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -no-snapshot -wipe-data
           disable-animations: true
-          cores: 2
-          ram-size: 2048M
-          heap-size: 512M
-          disk-size: 4G
-          emulator-boot-timeout: 900
+          cores: 4
+          ram-size: 4096M
+          heap-size: 1024M
+          disk-size: 6G
+          emulator-boot-timeout: 1200
           script: |
-            set +e
-            adb devices
-            adb shell getprop sys.boot_completed
-            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
-            gradle_status=$?
-            mkdir -p app/build/outputs/ci
-            adb logcat -d -v threadtime > app/build/outputs/ci/emulator-logcat.txt 2>&1 || true
-            adb shell dumpsys activity activities > app/build/outputs/ci/activity-dump.txt 2>&1 || true
-            exit "$gradle_status"
+            bash -c 'set +e; adb devices; adb shell getprop sys.boot_completed; ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest; gradle_status=$?; mkdir -p app/build/outputs/ci; adb logcat -d -v threadtime > app/build/outputs/ci/emulator-logcat.txt 2>&1 || true; adb shell dumpsys activity activities > app/build/outputs/ci/activity-dump.txt 2>&1 || true; adb shell dumpsys activity lastanr > app/build/outputs/ci/last-anr.txt 2>&1 || true; adb shell dumpsys dropbox --print > app/build/outputs/ci/dropbox.txt 2>&1 || true; adb shell ps -A > app/build/outputs/ci/process-list.txt 2>&1 || true; if [ -d app/build/outputs/androidTest-results/connected ]; then if grep -RqsE "<failure>|<error>" app/build/outputs/androidTest-results/connected; then echo "Instrumentation XML contains failures or errors"; gradle_status=1; elif ! grep -RqsE "<testsuite[^>]*tests=\"[1-9][0-9]*\"" app/build/outputs/androidTest-results/connected; then echo "No completed instrumentation test cases were reported"; gradle_status=1; fi; else echo "Instrumentation test result directory is missing"; gradle_status=1; fi; exit "$gradle_status"'
       - name: Upload build and test reports
         if: always()
         uses: actions/upload-artifact@v4
