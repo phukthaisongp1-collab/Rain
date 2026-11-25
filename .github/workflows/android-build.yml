@@ -97,38 +97,65 @@ jobs:
           echo "=== RAIN KVM / Acceleration Gate ==="
           {
             echo "Runner: $(uname -a)"
-            echo "User: $(id)"
+            echo "User before permission change: $(id)"
             echo
-            echo "KVM device:"
+            echo "KVM device before permission change:"
             ls -l /dev/kvm 2>&1 || true
+            echo
+            echo "Loaded KVM modules:"
+            lsmod | grep -E '^kvm(_intel|_amd)?\\b' || true
+            echo
+            echo "CPU virtualization flags:"
+            grep -m 1 -Eo '(^| )(vmx|svm)( |$)' /proc/cpuinfo || true
           } | tee app/build/outputs/ci/kvm-device.txt
 
           if [ ! -c /dev/kvm ]; then
             echo "::error::/dev/kvm is missing or is not a character device."
-            echo "Hardware acceleration is required for Android 16 instrumentation tests."
-            echo "TCG (software emulation) is not accepted for RAIN Browser Day 31 verification."
+            echo "Hardware acceleration is required. TCG fallback is prohibited."
             exit 1
           fi
 
-          if ! (exec 3<>/dev/kvm); then
-            echo "::error::The current runner user cannot open /dev/kvm for read/write."
-            echo "A runner with working KVM permissions is required. TCG fallback is prohibited."
+          echo "Granting temporary access to /dev/kvm on this ephemeral runner."
+          sudo chmod 666 /dev/kvm
+          ls -l /dev/kvm | tee app/build/outputs/ci/kvm-permissions-after.txt
+
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ] || ! (exec 3<>/dev/kvm); then
+            echo "::error::Runner still cannot open /dev/kvm after permission adjustment."
             exit 1
           fi
 
-          if ! command -v emulator >/dev/null 2>&1; then
-            echo "::error::emulator binary not found after Android SDK installation."
+          EMULATOR_BIN="$ANDROID_SDK_ROOT/emulator/emulator"
+          if [ ! -x "$EMULATOR_BIN" ]; then
+            echo "::error::Emulator binary not found at $EMULATOR_BIN."
             exit 1
           fi
 
           echo "Running emulator -accel-check..."
-          if ! emulator -accel-check 2>&1 | tee app/build/outputs/ci/accel-check.txt; then
-            echo "::error::emulator -accel-check failed. Hardware acceleration is unavailable."
-            echo "This runner must not launch the Android 16 emulator using TCG."
+          set +e
+          printf 'no\\n' | "$EMULATOR_BIN" -accel-check 2>&1 | tee app/build/outputs/ci/kvm-accel-check.log
+          accel_status=${PIPESTATUS[1]}
+          set -e
+          echo "emulator -accel-check exit status: $accel_status" | tee -a app/build/outputs/ci/kvm-accel-check.log
+
+          if ! grep -Fq "is installed and usable" app/build/outputs/ci/kvm-accel-check.log; then
+            echo "::error::KVM is not confirmed usable by Android Emulator."
+            echo "The emulator must not start with TCG or software CPU emulation."
             exit 1
           fi
 
           echo "KVM / Hardware Acceleration check passed."
+
+      - name: Upload KVM acceleration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rain-kvm-accel-check
+          path: |
+            app/build/outputs/ci/kvm-device.txt
+            app/build/outputs/ci/kvm-permissions-after.txt
+            app/build/outputs/ci/kvm-accel-check.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Run Android instrumentation tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
