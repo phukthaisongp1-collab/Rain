@@ -8,6 +8,10 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
         <activity
+            android:name=".privacy.PrivateBrowsingActivity"
+            android:exported="false"
+            android:process=":private" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
