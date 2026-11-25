@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 28/60 days (46.67%)
+> **Progress:** 30/60 days (50.00%)
 
 ## Tracking rules
 
