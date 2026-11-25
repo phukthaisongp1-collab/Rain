@@ -68,6 +68,7 @@ class PrivateBrowsingIsolationTest {
                 closeResult.getString("remaining_cookie").orEmpty()
                     .contains("rain_private=temporary")
             )
+            privateActivityStarted = false
 
             normalScenario.onActivity {
                 val normalCookies = CookieManager.getInstance().getCookie(TEST_URL).orEmpty()
