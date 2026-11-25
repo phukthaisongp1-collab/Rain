@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 9/60 days (15.00%)
+> **Progress:** 10/60 days (16.67%)
 
 ## Tracking rules
 
@@ -22,12 +22,12 @@
 
 | Workstream | Planned days | Completed | Status |
 |---|---:|---:|---|
-| Round A — Android foundation and build | 10 | 9 | In progress |
+| Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 0 | Not started |
 | Round C — Privacy and network | 18 | 0 | Not started |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **9** | **15.00%** |
+| **Total** | **60** | **10** | **16.67%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -45,14 +45,14 @@
 - [x] **Day 6:** Create the starting Activity and initial application screen using the approved theme. **Completed: 2026-11-25.** Added `MainActivity.kt`, `activity_main.xml`, and the approved RAIN theme colors. Evidence: `app/src/main/java/com/rain/browser/MainActivity.kt`, `app/src/main/res/layout/activity_main.xml`, `app/src/main/res/values/`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 7:** Add the basic Android WebView and implement the agreed security baseline. **Completed: 2026-11-25.** Added Android WebView with JavaScript/DOM storage/file/content access disabled, mixed content blocked, Safe Browsing enabled, HTTP(S)-only navigation policy, and SSL certificate errors cancelled. Kotlin compilation and lint passed in Actions run `45565610942`. Evidence: `MainActivity.kt`, `NetworkPolicyManager.kt`, `AndroidManifest.xml`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 8:** Configure GitHub Actions for Android build, lint, tests, and build artifacts. **Completed: 2026-11-25.** GitHub Actions run `45565610942` succeeded: JDK 17 and Android SDK setup, pinned SDK packages, Gradle Wrapper validation, `clean lint testDebugUnitTest assembleDebug` all passed, and artifact `rain-android-build` (ID `14999508764`, 823,759 bytes) was uploaded. Evidence: [Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565610942), `.github/workflows/android-build.yml`.
-- [x] **Day 9:** Configure release signing with Android Keystore and GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Never commit or expose the Keystore or passwords. **Completed: 2026-11-25.** Created the RAIN release Keystore and protected backup locally in Termux; uploaded all four required repository Actions Secrets successfully. The upload script received successful GitHub API responses for each secret and printed all four `Uploaded` confirmations. Keystore and passwords were not committed or shared in chat. Day 10 signed APK build and `apksigner` verification remain pending.
-- [ ] **Day 10:** Build the APK, verify its signature with `apksigner`, review CI results, record evidence, and obtain Round A acceptance.
+- [x] **Day 9:** Configure release signing with Android Keystore and GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Never commit or expose the Keystore or passwords. **Completed: 2026-11-25.** Created the RAIN release Keystore and protected backup locally in Termux; uploaded all four required repository Actions Secrets successfully. The upload script received successful GitHub API responses for each secret and printed all four `Uploaded` confirmations. Keystore and passwords were not committed or shared in chat. Day 10 signed APK build, `apksigner` verification, and Round A acceptance completed successfully.
+- [x] **Day 10:** Build the APK, verify its signature with `apksigner`, review CI results, record evidence, and obtain Round A acceptance. **Completed: 2026-11-25.** GitHub Actions signed release run `45572970312` completed successfully. All 12 workflow steps passed, including required signing-secret validation, Keystore restoration/alias validation, signed Release APK build, `apksigner verify`, artifact upload, and temporary Keystore cleanup. Artifact: `rain-signed-release-apk` (ID `15002972322`, 670,109 bytes; expires 2026-12-09). SHA-256: `bd935363e251661631e81115dc700b214db18f03401ea59a744ae83ce033872e`. [Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45572970312). Owner explicitly accepted Round A on 2026-11-25.
 
 **Round A review record**
-- Review status: Not reviewed
-- Review date:
-- Evidence / commit / Actions run:
-- Blockers or approved deviations:
+- Review status: **Accepted**
+- Review date: 2026-11-25
+- Evidence / commit / Actions run: [Signed Release Actions run 45572970312](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45572970312); artifact `rain-signed-release-apk` (ID `15002972322`); SHA-256 `bd935363e251661631e81115dc700b214db18f03401ea59a744ae83ce033872e`.
+- Blockers or approved deviations: None recorded. APK has not yet been installed/tested on the owner's phone.
 
 ---
 
@@ -176,6 +176,7 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 7 | 2026-11-25 | Added WebView and agreed initial security baseline; Kotlin compilation and lint verified by successful Actions run `45565610942`. | `15fe31c3e457b8f3abd64d233e16454587ef9017`; run `45565610942` |
 | 8 | 2026-11-25 | Android CI passed: Gradle Wrapper validation, Kotlin compile, lint, unit-test task, debug APK assembly; build artifact uploaded. | Actions run `45565610942`; artifact `14999508764` |
 | 9 | 2026-11-25 | Created and backed up the RAIN release Keystore locally; uploaded all four required GitHub Actions Secrets, each confirmed by successful API response. | Termux upload script; four successful GitHub secret updates |
+| 10 | 2026-11-25 | Signed Release APK built; all 12 workflow steps passed; `apksigner verify` succeeded; owner accepted Round A. | Actions run `45572970312`; artifact `15002972322`; SHA-256 `bd935363e251661631e81115dc700b214db18f03401ea59a744ae83ce033872e` |
 
 ## Blockers and approved changes
 
