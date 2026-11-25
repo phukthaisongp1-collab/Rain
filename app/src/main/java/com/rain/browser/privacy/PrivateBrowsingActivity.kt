@@ -53,7 +53,22 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
             }
         }
 
+        clearStalePrivateData {
+            if (!isFinishing) initializePrivateWebView()
+        }
+    }
+
+    private fun clearStalePrivateData(onComplete: () -> Unit) {
+        WebStorage.getInstance().deleteAllData()
+        CookieManager.getInstance().removeAllCookies {
+            CookieManager.getInstance().flush()
+            onComplete()
+        }
+    }
+
+    private fun initializePrivateWebView() {
         privateWebView = WebViewFactory(this).create(this).also { webView ->
+            webView.clearCache(true)
             webViewContainer.addView(
                 webView,
                 FrameLayout.LayoutParams(
