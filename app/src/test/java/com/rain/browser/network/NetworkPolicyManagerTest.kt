@@ -45,15 +45,23 @@ class NetworkPolicyManagerTest {
         val urls = listOf(
             "not a url",
             "https://user:pass@example.com",
+            "https://user%40name@example.com",
             "",
             "https:///missing-host",
             "https://example.com\\n",
-            "https://example.com:invalid"
+            "https://example.com:invalid",
+            "https://example.com:65536"
         )
 
         urls.forEach { url ->
             assertFalse("Expected malformed URL to be blocked: $url", NetworkPolicyManager.isAllowedWebUrl(url))
         }
+    }
+
+    @Test
+    fun acceptsPortRangeBoundaries() {
+        assertTrue(NetworkPolicyManager.isAllowedWebUrl("https://example.com:0"))
+        assertTrue(NetworkPolicyManager.isAllowedWebUrl("https://example.com:65535"))
     }
 
     @Test
