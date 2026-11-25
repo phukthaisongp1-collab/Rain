@@ -14,7 +14,8 @@ object BrowserUrlResolver {
         val value = input.trim()
         if (value.isEmpty()) return ""
 
-        val explicitScheme = SCHEME_PATTERN.containsMatchIn(value)
+        val hostWithPort = HOST_PORT_PATTERN.matches(value)
+        val explicitScheme = SCHEME_PATTERN.containsMatchIn(value) && !hostWithPort
         val candidate = when {
             explicitScheme -> value
             looksLikeHost(value) -> "https://$value"
@@ -36,6 +37,8 @@ object BrowserUrlResolver {
         val hostPart = value.substringBefore('/').substringBefore('?').substringBefore('#')
         return hostPart.equals("localhost", ignoreCase = true) ||
             hostPart.contains('.') ||
+            hostPart.equals("localhost", ignoreCase = true) ||
+            HOST_PORT_PATTERN.matches(value) ||
             IPV4_PATTERN.matches(hostPart)
     }
 
@@ -49,4 +52,5 @@ object BrowserUrlResolver {
 
     private val SCHEME_PATTERN = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
     private val IPV4_PATTERN = Regex("^(?:\\d{1,3}\\.){3}\\d{1,3}(?::\\d{1,5})?$")
+    private val HOST_PORT_PATTERN = Regex("^[A-Za-z0-9.-]+:\\d{1,5}(?:/.*)?$")
 }
