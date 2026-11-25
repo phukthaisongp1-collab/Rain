@@ -1,6 +1,6 @@
 # RAIN Browser
 
-RAIN is an Android browser built with Kotlin, Android SDK, Gradle, and Android WebView.
+RAIN is an Android browser built with Kotlin, Android SDK, Gradle, and Android WebView. Kotlin compilation uses the built-in Kotlin support provided by Android Gradle Plugin 9.5.
 
 ## Project configuration
 - Application ID: `com.rain.browser`
@@ -8,10 +8,9 @@ RAIN is an Android browser built with Kotlin, Android SDK, Gradle, and Android W
 - Initial version: `0.1.0` (versionCode `1`)
 - Minimum Android version: Android 10 (API 29)
 - Compile / target SDK: Android 16 (API 36)
-- JDK: 17
-- Android Gradle Plugin: 9.5.2
+- JDK / JVM toolchain: 17
+- Android Gradle Plugin: 9.5.2 (built-in Kotlin support)
 - Gradle Wrapper: 9.6.0
-- Kotlin Gradle Plugin: 2.4.10
 
 ## Build
 ```sh
