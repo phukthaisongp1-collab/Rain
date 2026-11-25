@@ -1,20 +1,28 @@
 package com.rain.browser.privacy
 
-import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
+import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.os.Bundle
+import android.os.ResultReceiver
 import android.view.KeyEvent
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
-import androidx.webkit.WebStorageCompat
-import androidx.webkit.WebViewFeature
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.webkit.WebStorageCompat
+import androidx.webkit.WebViewFeature
 import com.rain.browser.R
 import com.rain.browser.browser.BrowserUrlResolver
 import com.rain.browser.browser.SearchEngine
@@ -31,6 +39,54 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     private lateinit var webViewContainer: FrameLayout
     private var privateWebView: WebView? = null
     private var isClosing = false
+    private var privateTestReceiverRegistered = false
+
+    private val privateTestReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (!isDebuggableBuild()) return
+            val resultReceiver = getTestResultReceiver(intent) ?: return
+
+            when (intent.getStringExtra(EXTRA_OPERATION)) {
+                OP_STATUS -> {
+                    sendTestResult(resultReceiver, Bundle().apply {
+                        putBoolean("ready", privateWebView != null)
+                        putString("process_name", Application.getProcessName())
+                    })
+                }
+
+                OP_SET_COOKIE -> {
+                    val cookie = intent.getStringExtra(EXTRA_COOKIE).orEmpty()
+                    if (cookie.isBlank()) {
+                        sendTestError(resultReceiver, "Cookie value is empty")
+                    } else {
+                        val cookies = CookieManager.getInstance()
+                        cookies.setCookie(TEST_URL, cookie)
+                        cookies.flush()
+                        sendTestResult(resultReceiver, Bundle().apply {
+                            putString("cookie", cookies.getCookie(TEST_URL).orEmpty())
+                        })
+                    }
+                }
+
+                OP_GET_COOKIE -> {
+                    sendTestResult(resultReceiver, Bundle().apply {
+                        putString("cookie", CookieManager.getInstance().getCookie(TEST_URL).orEmpty())
+                    })
+                }
+
+                OP_CLOSE -> {
+                    closePrivateSession { remainingCookie ->
+                        sendTestResult(resultReceiver, Bundle().apply {
+                            putBoolean("closed", true)
+                            putString("remaining_cookie", remainingCookie)
+                        })
+                    }
+                }
+
+                else -> sendTestError(resultReceiver, "Unknown private test operation")
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +99,7 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
 
         addressInput = findViewById(R.id.private_address_input)
         webViewContainer = findViewById(R.id.private_webview_container)
+        registerPrivateTestReceiver()
 
         findViewById<Button>(R.id.private_go_button).setOnClickListener { openAddress() }
         findViewById<Button>(R.id.private_close_button).setOnClickListener { closePrivateSession() }
@@ -69,6 +126,40 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
 
     override fun onRetainCustomNonConfigurationInstance(): Any? =
         privateWebView?.let { RetainedPrivateSession(it.url) }
+
+    private fun registerPrivateTestReceiver() {
+        if (!isDebuggableBuild()) return
+        val filter = IntentFilter(ACTION_PRIVATE_TEST)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(privateTestReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(privateTestReceiver, filter)
+        }
+        privateTestReceiverRegistered = true
+    }
+
+    private fun isDebuggableBuild(): Boolean =
+        applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+
+    private fun getTestResultReceiver(intent: Intent): ResultReceiver? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_RESULT_RECEIVER, ResultReceiver::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(EXTRA_RESULT_RECEIVER)
+        }
+    }
+
+    private fun sendTestResult(receiver: ResultReceiver, data: Bundle) {
+        receiver.send(Activity.RESULT_OK, data)
+    }
+
+    private fun sendTestError(receiver: ResultReceiver, message: String) {
+        receiver.send(Activity.RESULT_CANCELED, Bundle().apply {
+            putString("error", message)
+        })
+    }
 
     private fun clearStalePrivateData(onComplete: () -> Unit) {
         clearPrivateBrowsingData(onComplete)
@@ -105,7 +196,7 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
         addressInput.clearFocus()
     }
 
-    private fun closePrivateSession() {
+    private fun closePrivateSession(onComplete: ((String) -> Unit)? = null) {
         if (isClosing) return
         isClosing = true
         privateWebView?.apply {
@@ -116,7 +207,9 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
         }
         destroyPrivateWebView()
         clearPrivateData {
+            val remainingCookie = CookieManager.getInstance().getCookie(TEST_URL).orEmpty()
             finish()
+            onComplete?.invoke(remainingCookie)
         }
     }
 
@@ -168,6 +261,10 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     override fun onTitleChanged(view: WebView, title: String) = Unit
 
     override fun onDestroy() {
+        if (privateTestReceiverRegistered) {
+            runCatching { unregisterReceiver(privateTestReceiver) }
+            privateTestReceiverRegistered = false
+        }
         if (!isClosing) {
             isClosing = true
             privateWebView?.apply {
@@ -188,8 +285,19 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
 
     private data class RetainedPrivateSession(val url: String?)
 
-    private companion object {
-        const val PRIVATE_HOME_PAGE = """
+    companion object {
+        internal const val ACTION_PRIVATE_TEST = "com.rain.browser.action.PRIVATE_TEST"
+        internal const val EXTRA_OPERATION = "private_test_operation"
+        internal const val EXTRA_COOKIE = "private_test_cookie"
+        internal const val EXTRA_RESULT_RECEIVER = "private_test_result_receiver"
+        internal const val OP_STATUS = "status"
+        internal const val OP_SET_COOKIE = "set_cookie"
+        internal const val OP_GET_COOKIE = "get_cookie"
+        internal const val OP_CLOSE = "close"
+
+        private const val TEST_URL = "https://rain-private-isolation.test/"
+
+        private const val PRIVATE_HOME_PAGE = """
             <!doctype html>
             <html lang="en">
             <head>
