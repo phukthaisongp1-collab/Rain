@@ -10,7 +10,8 @@
         <activity
             android:name=".privacy.PrivateBrowsingActivity"
             android:exported="false"
-            android:process=":private" />
+            android:process=":private"
+            android:launchMode="singleTask" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
