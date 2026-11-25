@@ -37,7 +37,6 @@ object BrowserUrlResolver {
         val hostPart = value.substringBefore('/').substringBefore('?').substringBefore('#')
         return hostPart.equals("localhost", ignoreCase = true) ||
             hostPart.contains('.') ||
-            hostPart.equals("localhost", ignoreCase = true) ||
             HOST_PORT_PATTERN.matches(value) ||
             IPV4_PATTERN.matches(hostPart)
     }
