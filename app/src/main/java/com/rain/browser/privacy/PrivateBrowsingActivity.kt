@@ -57,16 +57,24 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
             }
         }
 
-        clearStalePrivateData {
-            if (!isFinishing) initializePrivateWebView()
+        val retainedSession = lastCustomNonConfigurationInstance as? RetainedPrivateSession
+        if (retainedSession != null) {
+            initializePrivateWebView(retainedSession.url)
+        } else {
+            clearStalePrivateData {
+                if (!isFinishing && !isDestroyed) initializePrivateWebView()
+            }
         }
     }
+
+    override fun onRetainCustomNonConfigurationInstance(): Any =
+        RetainedPrivateSession(privateWebView?.url)
 
     private fun clearStalePrivateData(onComplete: () -> Unit) {
         clearPrivateBrowsingData(onComplete)
     }
 
-    private fun initializePrivateWebView() {
+    private fun initializePrivateWebView(initialUrl: String? = null) {
         privateWebView = WebViewFactory(this).create(this).also { webView ->
             webView.clearCache(true)
             webViewContainer.addView(
@@ -76,7 +84,12 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             )
-            webView.loadDataWithBaseURL(null, PRIVATE_HOME_PAGE, "text/html", "UTF-8", null)
+            val safeInitialUrl = initialUrl?.takeIf(NetworkPolicyManager::isAllowedWebUrl)
+            if (safeInitialUrl != null) {
+                webView.loadUrl(safeInitialUrl)
+            } else {
+                webView.loadDataWithBaseURL(null, PRIVATE_HOME_PAGE, "text/html", "UTF-8", null)
+            }
         }
     }
 
@@ -164,12 +177,16 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
                 clearCache(true)
             }
             destroyPrivateWebView()
-            runCatching {
-                clearPrivateBrowsingData {}
+            if (!isChangingConfigurations) {
+                runCatching {
+                    clearPrivateBrowsingData {}
+                }
             }
         }
         super.onDestroy()
     }
+
+    private data class RetainedPrivateSession(val url: String?)
 
     private companion object {
         const val PRIVATE_HOME_PAGE = """
