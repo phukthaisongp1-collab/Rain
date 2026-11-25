@@ -33,11 +33,20 @@ Official reference: https://developer.android.com/reference/android/webkit/Cooki
 
 Official reference: https://developer.android.com/reference/android/webkit/WebStorage
 
-### Service Workers
+### Service Workers and complete browsing-data cleanup
 
-`ServiceWorkerController.getInstance()` returns the default controller. The Android reference currently describes one controller instance for all WebView instances. Its API exposes settings and request interception, not a simple per-WebView service-worker storage deletion operation.
+The platform `ServiceWorkerController` API does not expose a simple per-WebView service-worker storage deletion operation. However, AndroidX WebKit 1.13.0 introduced `WebStorageCompat.deleteBrowsingData`, gated by the WebView provider feature `WebViewFeature.DELETE_BROWSING_DATA`. AndroidX release notes state that this newer API deletes website data including network cache, cookies, JavaScript-readable storage, and installed Service Workers.
 
-Official reference: https://developer.android.com/reference/android/webkit/ServiceWorkerController
+RAIN therefore uses feature detection:
+- When `DELETE_BROWSING_DATA` is supported, call `WebStorageCompat.deleteBrowsingData` and wait for its completion callback before finishing private-session closure or opening the next private session.
+- When unsupported, fall back to `WebStorage.deleteAllData` and asynchronous cookie removal. The fallback does not establish Service Worker deletion and must not be described as complete browsing-data erasure.
+
+The API deletes data for the supplied WebStorage instance and is not atomic. Availability depends on the installed Android System WebView provider, not only on the Android OS version.
+
+Official references:
+- https://developer.android.com/reference/androidx/webkit/WebStorageCompat
+- https://developer.android.com/jetpack/androidx/releases/webkit
+- https://developer.android.com/reference/android/webkit/ServiceWorkerController
 
 ### AndroidX WebKit browsing-data API
 
@@ -76,13 +85,13 @@ Initial implementation committed to the repository:
 - Normal browsing remains in the default process and default WebView data directory.
 - The private activity is single-task to avoid overlapping private activity instances in the same process.
 - A Private entry point launches the isolated activity.
-- On each new private activity start, the private process clears Web Storage and cookies before creating the WebView, then clears its WebView cache before loading content.
-- On explicit session close, it stops and destroys the WebView, clears history/form data/cache, deletes Web Storage data, removes cookies, and flushes the cookie store.
+- On each new private activity start, the private process clears browsing data before creating the WebView, then clears its WebView cache before loading content. It uses `WebStorageCompat.deleteBrowsingData` when the provider supports `DELETE_BROWSING_DATA`, otherwise it falls back to Web Storage and cookie cleanup.
+- On explicit session close, it stops and destroys the WebView, clears history/form data/cache, then waits for the supported browsing-data deletion callback before finishing. The legacy fallback removes Web Storage and cookies but cannot guarantee Service Worker cleanup.
 
 ### Verified limitations and acceptance requirements
 
 - The process and data-directory separation is implemented in source. GitHub Actions compilation, lint, and unit-test verification are still required; lifecycle and real process-isolation checks also remain pending.
-- Service Worker storage does not have a simple, documented per-session deletion API in the WebView API used here. The dedicated process/data directory isolates its storage from normal browsing, but complete deletion of Service Worker data on close is not yet proven.
+- AndroidX WebKit 1.13.0 provides a stronger cleanup API when the installed WebView provider advertises `DELETE_BROWSING_DATA`; it includes installed Service Workers according to AndroidX release notes. RAIN now feature-detects and uses this API. On providers without the feature, the fallback cannot guarantee Service Worker deletion. Device/provider validation remains required.
 - Android may terminate the private process without calling Activity cleanup. Startup cleanup is therefore performed before the next private WebView is created; cache cleanup occurs immediately after WebView creation.
 - The implementation does not claim RAM-only operation, guaranteed zero traces, or complete erasure of every WebView-managed artifact.
 - The private browsing screen currently provides a single private WebView. Full parity with normal tab management, download handling, permission prompts, and comprehensive cleanup tests remain pending.
