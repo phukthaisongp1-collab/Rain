@@ -329,7 +329,7 @@ jobs:
           DEVICE=""
           for attempt in $(seq 1 30); do
             timeout 10s adb devices -l > "$DIAG/adb-devices.txt" 2>&1 || true
-            DEVICE="$(awk '/emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}' "$DIAG/adb-devices.txt")"
+            DEVICE="$(awk '$1 ~ /^emulator-[0-9]+$/ && $2 == "device" {print $1; exit}' "$DIAG/adb-devices.txt")"
             if [ -n "$DEVICE" ]; then break; fi
             sleep 2
           done
@@ -850,7 +850,7 @@ jobs:
           DEVICE=""
           for attempt in $(seq 1 30); do
             timeout 10s adb devices -l > "$DIAG/adb-devices.txt" 2>&1 || true
-            DEVICE="$(awk '/emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}' "$DIAG/adb-devices.txt")"
+            DEVICE="$(awk '$1 ~ /^emulator-[0-9]+$/ && $2 == "device" {print $1; exit}' "$DIAG/adb-devices.txt")"
             if [ -n "$DEVICE" ]; then break; fi
             sleep 2
           done
