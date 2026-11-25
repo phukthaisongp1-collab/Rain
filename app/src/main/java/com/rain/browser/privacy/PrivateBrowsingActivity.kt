@@ -22,6 +22,7 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebStorageCompat
 import androidx.webkit.WebViewFeature
 import com.rain.browser.R
@@ -131,12 +132,12 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     private fun registerPrivateTestReceiver() {
         if (!isDebuggableBuild()) return
         val filter = IntentFilter(ACTION_PRIVATE_TEST)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(privateTestReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(privateTestReceiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            this,
+            privateTestReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         privateTestReceiverRegistered = true
     }
 
