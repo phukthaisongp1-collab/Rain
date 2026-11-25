@@ -9,6 +9,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
+import android.content.Intent
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Button
@@ -94,6 +95,9 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
         findViewById<Button>(R.id.text_out_button).setOnClickListener { changeTextZoom(-10) }
         findViewById<Button>(R.id.text_in_button).setOnClickListener { changeTextZoom(10) }
+        findViewById<Button>(R.id.private_button).setOnClickListener {
+            startActivity(Intent(this, com.rain.browser.privacy.PrivateBrowsingActivity::class.java))
+        }
 
         addressInput.setOnEditorActionListener { _, actionId, event ->
             val isGo = actionId == EditorInfo.IME_ACTION_GO ||
