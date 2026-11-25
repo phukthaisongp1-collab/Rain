@@ -1,7 +1,7 @@
 # Android WebView Privacy and Session Isolation Findings
 
 **Project:** RAIN Browser  
-**Scope:** Phase 1, Days 29–30  
+**Scope:** Phase 1, Days 29–35  
 **Platform baseline:** Android minSdk 29, Kotlin, Android WebView  
 **Research date:** 2026-11-25
 
@@ -45,7 +45,7 @@ AndroidX WebKit's `WebStorageCompat.deleteBrowsingData` is available in newer An
 
 Official reference: https://developer.android.com/reference/androidx/webkit/WebStorageCompat
 
-## Day 30 — Design proposal (not implemented)
+## Day 30 — Approved separate-process architecture
 
 ### Required security property
 
@@ -65,15 +65,28 @@ Use a dedicated Android process for private WebView work, with a unique WebView 
 6. Verify behavior against the actual Android System WebView provider on the target device.
 7. Document any data types that cannot be isolated or reliably cleared.
 
-### Approval gate
+### Owner decision and initial implementation
 
-This proposal changes the app's process and WebView startup architecture. The approved project plan explicitly requires the owner to review a process/data-directory architecture change before implementation. Therefore:
+The owner approved the dedicated Android process approach on 2026-11-25.
 
-- No private-process Activity, manifest process declaration, data-directory suffix, or private-session code has been added.
-- No existing normal browsing data is cleared.
-- Day 30 remains pending the owner's explicit approval of the separate-process design.
-- The proposal does not claim that Private Browsing is implemented or that storage is RAM-only.
+Initial implementation committed to the repository:
 
+- PrivateBrowsingActivity runs in the manifest process :private.
+- The activity configures WebView.setDataDirectorySuffix("rain_private") before creating its WebView.
+- Normal browsing remains in the default process and default WebView data directory.
+- The private activity is single-task to avoid overlapping private activity instances in the same process.
+- A Private entry point launches the isolated activity.
+- On each new private activity start, the private process clears Web Storage and cookies before creating the WebView, then clears its WebView cache before loading content.
+- On explicit session close, it stops and destroys the WebView, clears history/form data/cache, deletes Web Storage data, removes cookies, and flushes the cookie store.
+
+### Verified limitations and acceptance requirements
+
+- The process and data-directory separation is implemented in source, but must still pass GitHub Actions compilation and unit-test checks.
+- Service Worker storage does not have a simple, documented per-session deletion API in the WebView API used here. The dedicated process/data directory isolates its storage from normal browsing, but complete deletion of Service Worker data on close is not yet proven.
+- Android may terminate the private process without calling Activity cleanup. Startup cleanup is therefore performed before the next private WebView is created; cache cleanup occurs immediately after WebView creation.
+- The implementation does not claim RAM-only operation, guaranteed zero traces, or complete erasure of every WebView-managed artifact.
+- The private browsing screen currently provides a single private WebView. Full parity with normal tab management, download handling, permission prompts, and comprehensive cleanup tests remain pending.
+- No tests on the owner's physical phone have been performed; device validation remains scheduled for the final phase.
 ## Current conclusion
 
 A second WebView in the existing process is not sufficient for private-session isolation because cookies, WebStorage, and Service Worker control are process/application-wide or singleton APIs. The separate-process design is the viable candidate for further validation, but must pass the listed cleanup and isolation tests before RAIN can advertise Private Browsing guarantees.
