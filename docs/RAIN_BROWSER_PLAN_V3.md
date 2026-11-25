@@ -1,284 +1,329 @@
-# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3
+# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.1
 
-> สถานะเอกสาร: Development Specification  
-> เวอร์ชันแผน: v3  
-> เวอร์ชันแอปเริ่มต้น: 0.1.0  
-> Application ID: `com.rain.browser`  
-> ชื่อผลิตภัณฑ์: `RAIN`
+> สถานะ: Development Specification — ฉบับหลักแทน v3  
+> เวอร์ชันแผน: **v3.1**  
+> เวอร์ชันแอปเริ่มต้น: **0.1.0**  
+> Android applicationId: **com.rain.browser**  
+> แพลตฟอร์ม: **Android เท่านั้น**
 
-เอกสารนี้เป็นสเปกหลักสำหรับการพัฒนา RAIN Browser โดยให้ดำเนินงานตามเฟสและรอบย่อยที่กำหนด ตรวจสอบผลลัพธ์ทีละรอบ และไม่เริ่มรอบถัดไปจนกว่าจะได้รับการตรวจรับรอบปัจจุบัน
+เอกสารนี้รวมแผนเดิมและข้อกำหนดเพิ่มเติมจากเจ้าของโครงการ โดยเปลี่ยนสถาปัตยกรรมจาก Electron เป็น Android อย่างชัดเจน การอัปเดตเอกสารนี้ไม่ใช่การอนุมัติให้เริ่มเขียนโค้ด ต้องได้รับคำสั่งเริ่มงานแยกต่างหาก
 
 ---
 
-## 1. ภาพรวมและกติกาหลัก (Scope, Identity & Security)
+## 1. เป้าหมายและกติกาหลัก
 
 ### 1.1 เป้าหมายผลิตภัณฑ์
+RAIN คือเว็บเบราว์เซอร์ Android ที่เน้นความเป็นส่วนตัว การเปิดเว็บไซต์และดูวิดีโออย่างลื่นไหล การดาวน์โหลดเพื่อใช้งานออฟไลน์ และมี Desktop Mode สำหรับเปิดเว็บไซต์ในรูปแบบเดสก์ท็อปบนโทรศัพท์
 
-- ชื่อแอป: **RAIN**
-- ประเภท: เบราว์เซอร์ที่เน้นความเป็นส่วนตัว ดูสื่อ/วิดีโอได้ลื่นไหล และดาวน์โหลดเก็บไว้ดูแบบออฟไลน์
-- สถาปัตยกรรมเฟส 1: Vanilla Electron (ไม่ใช้ bundler) + `WebContentsView`
-- แยก Data Layer ออกจาก UI อย่างเด็ดขาด
-- เตรียม Hooks/Stubs สำหรับเฟส 2–4 ตามที่ระบุในเอกสารนี้
+### 1.2 รุ่นผลิตภัณฑ์
+- ผลิต RAIN เป็นผลิตภัณฑ์รุ่นใช้งานจริง (Production) เพียงรุ่นเดียว
+- ไม่แยกผลิตภัณฑ์ Demo, Prototype, Alpha หรือ Beta
+- CI และการทดสอบภายในเป็นกระบวนการควบคุมคุณภาพ ไม่ใช่ผลิตภัณฑ์อีกสายหนึ่ง
+- ทุก Release ต้องผ่าน Build, Test, Security Audit และ Signing ก่อนเผยแพร่
 
-### 1.2 App Identity และการอัปเดตทับเวอร์ชันเดิม
+### 1.3 แพลตฟอร์มและสถาปัตยกรรม
+- เป้าหมาย Android เท่านั้น
+- ใช้ Kotlin, Android SDK และ Gradle
+- ใช้ Android WebView เป็น engine แสดงเว็บไซต์
+- ใช้ Android UI สำหรับแถบเครื่องมือ เมนู แท็บ และ Settings
+- แยก UI, browser engine, data/storage และ network policy ออกจากกัน
+- ไม่ใช้ Electron, Node.js runtime, WebContentsView หรือ Electron preload/IPC
+- ใช้ GitHub Actions บน Cloud สำหรับ Build/Test โดยเจ้าของโครงการทำงานผ่านโทรศัพท์และ Termux
 
-กำหนดค่าต่อไปนี้ให้คงที่ทุกบิลด์:
+### 1.4 App Identity และการอัปเดต
+ค่าที่ต้องคงที่ทุก Release:
+- applicationId: com.rain.browser
+- ชื่อผลิตภัณฑ์: RAIN
+- versionName เริ่มต้น: 0.1.0
+- กำหนด versionCode เริ่มต้นและเพิ่มขึ้นทุก Release ห้ามลดหรือใช้ซ้ำ
 
-- `name`
-- `productName: "RAIN"`
-- `appId: "com.rain.browser"`
+ห้ามเปลี่ยน applicationId หรือ Signing Key หลังเผยแพร่รุ่นแรก เพราะจะกระทบการอัปเดตทับแอปเดิมและความต่อเนื่องของข้อมูล
 
-เริ่มต้นที่ `version: "0.1.0"` และเพิ่มเลขเวอร์ชันทุกครั้งที่ออกบิลด์ใหม่ เพื่อรักษาตัวตนแอปและตำแหน่ง `userData` ไม่ให้เปลี่ยน ซึ่งช่วยป้องกันข้อมูลคลังออฟไลน์และข้อมูลในเครื่องสูญหายจากการเปลี่ยน identity ของแอป
+### 1.5 ธีม
+- Dark Slate: #0F172A
+- Rain Blue: #38BDF8
+- Deep Navy: #1E293B
 
-### 1.3 ธีมหลัก
-
-- Dark Slate: `#0F172A`
-- Rain Blue: `#38BDF8`
-- Deep Navy: `#1E293B`
-
-### 1.4 ข้อกำหนดความปลอดภัย
-
-ทุกหน้าต่างและทุก `WebContentsView` ต้องกำหนดค่าต่อไปนี้:
-
-- `contextIsolation: true`
-- `nodeIntegration: false`
-- `sandbox: true`
-
-### 1.5 ขอบเขตที่ไม่รองรับถาวร
-
-- ไม่รองรับเว็บไซต์ที่ใช้ DRM เช่น Netflix และ Disney+
-- ไม่มีบัญชีผู้ใช้
+### 1.6 ขอบเขตที่ไม่รองรับ
+- ไม่รับประกันเว็บไซต์ที่ใช้ DRM เช่น Netflix และ Disney+
+- ไม่มีบัญชีผู้ใช้ RAIN
 - ไม่มี Cloud Sync
-- ไม่มีระบบ Extension จากภายนอก
+- ไม่มี Extension จากภายนอก
 
 ---
 
-## 2. แผนพัฒนาเฟส 1 — แบ่งตรวจรับ 4 รอบย่อย
+## 2. สภาพแวดล้อมและความรับผิดชอบของโครงการ
 
-ให้ทำงานตามลำดับ ก → ข → ค → ง โดยทำให้รอบปัจจุบันเสร็จ ตรวจสอบ และรายงานผลก่อนเริ่มรอบถัดไป
+### 2.1 อุปกรณ์
+- เจ้าของโครงการมีโทรศัพท์ Android เพียงเครื่องเดียวและไม่มีคอมพิวเตอร์
+- ใช้ Termux เป็นเครื่องมือหลักสำหรับ shell, Git และจัดการไฟล์
+- ใช้ GitHub เป็นศูนย์กลาง Source Code
+- ใช้ GitHub Actions เป็น Cloud Runner สำหรับ Android Build/Test/Release
 
-### รอบ (ก): โครง Repository + CI + หน้าต่างเปล่า
+### 2.2 GitHub และหน้าที่ Developer
+Repository หลัก: phukthaisongp1-collab/Rain
 
-1. สร้างโครงสร้างโฟลเดอร์:
-   - `main/`
-   - `preload/`
-   - `data/`
-   - `renderer/`
-   - โฟลเดอร์เปล่า `modules-phase2/`
-   - โฟลเดอร์เปล่า `modules-phase3/`
-2. สร้างไฟล์ Stub:
-   - `player.html`
-   - `library.html`
-   - `view-preload.js` โดยมี `contextBridge.exposeInMainWorld('rainView', {})` เปล่า ๆ
-3. ตั้งค่า `package.json`:
-   - ล็อกเวอร์ชัน Electron ให้ชัดเจน
-   - `name` คงที่
-   - `productName: "RAIN"`
-   - `appId: "com.rain.browser"`
-   - `version: "0.1.0"`
-4. สร้าง `.github/workflows/build.yml`:
-   - ใช้ Node 20 LTS
-   - Build แบบ unsigned fallback ได้เมื่อยังไม่มี Secrets
-   - เมื่อมี Secrets สำหรับ signing ให้ดึงมาใช้เซ็นอัตโนมัติ
-5. เขียน `main.js` ให้เปิดหน้าต่างเปล่าได้จริง พร้อม security flags ครบถ้วน
+Developer (ผู้ช่วย) รับผิดชอบ Source Code และการดูแล Repository ทั้งหมดภายในสิทธิ์และเครื่องมือที่เชื่อมต่อได้:
+- สร้าง แก้ไข ตรวจสอบ และจัดระเบียบ Source Code
+- จัดการ Commit/Push และเอกสาร
+- ดูแล GitHub Actions, Build, Test และ Release workflow
+- ตรวจสอบความปลอดภัยและแก้ไข Bugs
+- รายงานผลตามหลักฐานจริงเท่านั้น
 
-**เกณฑ์ตรวจรับรอบ (ก):** โครงสร้างและไฟล์ Stub อยู่ครบ, package identity ตรงตามข้อกำหนด, CI Build ได้ทั้งกรณีไม่มีและมี signing Secrets ตามเงื่อนไข, แอปเปิดหน้าต่างเปล่าได้จริง และตรวจไม่พบการตั้งค่าความปลอดภัยที่ขัดกับข้อกำหนด
+เจ้าของโครงการกำหนดเป้าหมายและอนุมัติสเปก Developer ต้องทำตามสเปก ห้ามเปลี่ยนสถาปัตยกรรมหรือเพิ่มฟีเจอร์เอง
 
-### รอบ (ข): หน้าต่าง + แท็บ (WebContentsView) + Address Bar
+### 2.3 GitHub Token สำหรับ Termux
+เจ้าของโครงการจะสร้าง GitHub Personal Access Token (PAT) เพื่อให้ Termux ใช้ Push โค้ด:
+- จำกัดสิทธิ์เฉพาะ Repository phukthaisongp1-collab/Rain เท่าที่ GitHub อนุญาต
+- ใช้ Token ผ่าน Git credential mechanism ใน Termux
+- ห้ามฝัง Token ใน Source Code, script, command history หรือไฟล์ที่ Commit
+- ห้ามส่ง Token ในแชตหรือเปิดเผยใน log
+- ใช้สิทธิ์ขั้นต่ำที่จำเป็น และเพิกถอน/หมุน Token ได้เมื่อสงสัยว่ารั่วไหล
+- การสร้างและตั้งค่า Token ทำโดยเจ้าของบัญชีหรือผ่านขั้นตอนที่เจ้าของอนุมัติ
 
-1. สร้าง `window-manager.js` และ `tab-manager.js` แยกการจัดการ Shell UI ด้านบนออกจาก `WebContentsView` ที่แสดงเนื้อหาเว็บ
-2. กำหนดความสูงแถบควบคุมเป็นค่าคงที่ในหน่วย DIP ของ Electron และใช้ `setBounds`
-3. คำนวณและอัปเดต bounds ใหม่ทุกครั้งเมื่อ:
-   - resize
-   - maximize
-   - unmaximize
-   - เข้า fullscreen
-   - ออกจาก fullscreen
-4. ป้องกันหน้าเว็บใน `WebContentsView` บังเมนู HTML ของ Shell UI:
-   - เมนู Dropdown, เมนู Bookmark และป๊อปอัปจากแถบ UI ต้องแสดงผลได้จริง
-   - ใช้เมนู `WebContentsView` แยกอีกชั้น หรือย่อ bounds ของ content view ชั่วคราวระหว่างเปิดเมนู
-5. ทำระบบ:
-   - เปิดแท็บ
-   - ปิดแท็บ
-   - สลับแท็บ
-   - Back
-   - Forward
-   - Reload
-   - Home
-   - Address Bar
-6. การประมวลผล Address Bar:
-   - ตรวจด้วย `new URL(input)` ก่อน
-   - ถ้าเป็น URL ให้เปิด URL โดยตรง
-   - ถ้าไม่ใช่ URL ให้ค้นหาด้วย Search Engine ที่เลือก
-   - ค่าเริ่มต้นเป็น DuckDuckGo
-   - รองรับการสลับไปใช้ Google
+---
 
-### รอบ (ค): DoH + กฎ Proxy/Whitelist + โหมดส่วนตัว
+## 3. ระบบลงลายเซ็น Android Keystore
 
-1. เรียก `app.configureHostResolver()` หลัง `app.whenReady()` เท่านั้น
-2. รองรับ DoH:
-   - Cloudflare
-   - Google
-   - NextDNS
-3. กฎ DoH และ Proxy:
-   - คง DoH ไว้ได้ ไม่จำเป็นต้องปิด DoH เมื่อเปิด Proxy
-   - ใช้ `proxyBypassRules` แยกโดเมน Whitelist ให้เชื่อมต่อแบบ Direct
-   - Whitelist:
-     - `*.scb.co.th`
-     - `*.kbank.com`
-     - `*.go.th`
-     - `*.gmail.com`
-     - `*.outlook.com`
-   - ปิด Ad-block เมื่อถึงเฟสที่เกี่ยวข้องตามแผน
-4. Private Window:
-   - คีย์ลัด `Ctrl+Shift+N`
-   - ใช้ partition ที่ไม่มี prefix `persist:` เช่น `session.fromPartition('private-' + Date.now())`
-   - ข้อมูล Session ต้องอยู่ใน RAM เท่านั้น
-   - กำกับหน้าต่างด้วย `isPrivate: true`
-5. เมื่อปิด Private Window:
-   - Electron ไม่มี `session.destroy()`
-   - เรียก `session.clearStorageData()` และ `session.clearCache()`
-   - จากนั้นปล่อย reference ให้ Garbage Collector จัดการ
-   - ต้องป้องกันข้อมูลส่วนตัวรั่วผ่าน:
-     - Downloads
-     - Favicon cache
-     - ภาพย่อ New Tab
-     - ประวัติการเข้าชม
-     - ตำแหน่งดูวิดีโอค้าง
-   - ข้อมูลที่เกิดจาก Private Window ต้องไม่ถูกบันทึกปะปนกับข้อมูลปกติ
+### 3.1 ข้อกำหนดบังคับ
+- ใช้ Android App Signing Key จาก Keystore เท่านั้น
+- ต้องเตรียม Signing Key ตั้งแต่ Release แรก (versionName 0.1.0)
+- ใช้ Keystore และ key alias เดิมสำหรับการอัปเดตแอปทุกเวอร์ชัน
+- ห้ามสร้าง Signing Key ใหม่สำหรับอัปเดตแอปเดิม เว้นแต่มีแผน Key Upgrade/Rotation ที่ตรวจสอบข้อจำกัด Android และได้รับอนุมัติ
+- APK ที่เผยแพร่ต้องผ่านการ Sign และ Verify ก่อนเสมอ
+- ห้ามมี unsigned fallback สำหรับ Release หากไม่มี Signing Secrets ให้หยุด Release และแจ้งข้อผิดพลาด
 
-### รอบ (ง): Data Layer + New Tab ธีมฝน + Settings
+### 3.2 การสร้างและเก็บรักษา
+- สร้าง Keystore ด้วย keytool ในสภาพแวดล้อมที่เจ้าของควบคุม เช่น Termux หากรองรับ หรือสภาพแวดล้อมปลอดภัยที่เจ้าของอนุมัติ
+- เก็บ Keystore ต้นฉบับและข้อมูลกู้คืนไว้นอก Repository ในที่ปลอดภัย
+- ห้าม Commit/Push Keystore, private key หรือรหัสผ่านขึ้น GitHub
+- GitHub Actions รับ Keystore และรหัสผ่านผ่าน GitHub Actions Secrets เท่านั้น ใช้ไฟล์ชั่วคราวใน runner และลบทิ้งเมื่อจบงาน
+- สำรอง Keystore อย่างปลอดภัยและทดสอบการกู้คืน
+- ห้ามส่ง Keystore หรือรหัสผ่านให้ผู้ช่วยผ่านแชต
 
-1. สร้าง Data Layer ใน `src/data/` แยกจาก UI โดยเด็ดขาด ให้ UI ติดต่อผ่าน `window.rainAPI` และ IPC เท่านั้น
-2. ออกแบบ `storage.js` เป็น Interface กลาง รองรับ:
-   - `get`
-   - `set`
-   - `query`
-   - `delete`
-3. Backend เฟส 1:
-   - ใช้ JSON ใน `userData`
-   - ไม่ใช้ `better-sqlite3` ในเฟส 1 เพื่อหลีกเลี่ยงปัญหา rebuild native module ใน CI
-   - เขียนไฟล์ผ่าน temp file แล้ว rename
-   - ใช้ debounce เพื่อลดความเสี่ยงไฟล์เสียเมื่อปิดแอปกะทันหัน
-4. ขีดจำกัดข้อมูล:
+### 3.3 GitHub Actions Secrets
+กำหนดชื่อ Secrets เช่น:
+- ANDROID_KEYSTORE_BASE64
+- ANDROID_KEYSTORE_PASSWORD
+- ANDROID_KEY_ALIAS
+- ANDROID_KEY_PASSWORD
+
+หาก Secrets ไม่ครบ หรือ Signing/Verification ไม่ผ่าน Workflow ต้องล้มเหลวและห้ามเผยแพร่ Release
+
+---
+
+## 4. แผนพัฒนาเฟส 1 — 4 รอบย่อย
+
+ทำตามลำดับ ก → ข → ค → ง ทำเฉพาะรอบที่ได้รับคำสั่ง ตรวจสอบและรายงานก่อนเริ่มรอบถัดไป
+
+### รอบ (ก): Android Project Scaffold + CI + หน้าจอเริ่มต้น
+1. สร้าง Android project ด้วย Kotlin และ Gradle Wrapper
+2. กำหนด applicationId, versionName, versionCode และชื่อผลิตภัณฑ์ตามข้อ 1.4
+3. Pin เวอร์ชัน JDK, Gradle และ Android Gradle Plugin ให้เข้ากัน
+4. สร้าง .github/workflows/android-build.yml สำหรับติดตั้ง JDK/Android SDK, ตรวจโค้ด, รัน Unit Tests และ Build APK artifact
+5. เตรียม Release Signing โดยอ่าน Secrets จาก GitHub Actions เท่านั้น
+6. Release workflow ต้องหยุดหากไม่มี Keystore/Secrets หรือ Verify ลายเซ็นไม่ผ่าน ห้าม unsigned Release
+7. สร้าง Activity เริ่มต้นและหน้าจอ RAIN ที่เปิดได้จริง
+8. กำหนด WebView security baseline ก่อนอนุญาตให้โหลดเว็บไซต์
+
+**เกณฑ์ตรวจรับ:** Gradle Build ผ่านบน GitHub Actions, applicationId/version ถูกต้อง, แอปเปิดหน้าจอเริ่มต้นได้, Secrets ไม่รั่วใน log และ Release Signing บังคับใช้ Keystore
+
+### รอบ (ข): Browser UI + Tabs + Navigation + Desktop Mode
+1. สร้าง UI แถบเครื่องมือและพื้นที่ WebView ให้เหมาะกับหน้าจอ Android
+2. สร้าง Tab Manager สำหรับเปิด ปิด และสลับแท็บ พร้อมจัดการ WebView lifecycle
+3. เพิ่ม Back, Forward, Reload/Stop, Home/New Tab, Address Bar และการจัดการแท็บ
+4. Address Bar:
+   - ตรวจสอบ URL อย่างปลอดภัย
+   - URL ที่ถูกต้องเปิดโดยตรง
+   - ข้อความค้นหาใช้ Search Engine ที่เลือก
+   - ค่าเริ่มต้น DuckDuckGo และเลือก Google ได้
+   - ปฏิเสธ scheme ที่ไม่อนุญาต และตรวจสอบ external intent ก่อนเปิด
+5. **Desktop Mode ต้องมีตั้งแต่รุ่นแรก**
+   - สลับ Mobile Mode/Desktop Mode ได้
+   - ปรับ WebView User-Agent ให้เหมาะกับโหมด
+   - ตั้งค่า viewport/layout ที่จำเป็น เช่น wide viewport และ overview mode ตามผลทดสอบ
+   - Reload หลังเปลี่ยนโหมด
+   - จำค่าแยกตามเว็บไซต์และเปลี่ยนกลับเป็น Mobile Mode ได้
+   - มีตัวเลือกในเมนูและแสดงสถานะโหมดปัจจุบัน
+   - รองรับ Desktop website เท่าที่ WebView และหน้าจอโทรศัพท์ทำได้จริง
+   - แจ้งว่า Desktop Mode ไม่ได้เปลี่ยนโทรศัพท์เป็นคอมพิวเตอร์ และบางเว็บอาจจำกัดฟังก์ชัน
+6. รองรับการซูมหน้าเว็บและปรับขนาดตัวอักษร โดยไม่ทำให้ UI หลักเสียรูป
+
+### รอบ (ค): Privacy + Private Browsing + Network Controls
+1. Private Browsing ต้องไม่บันทึก History, Resume, Download metadata, favicon หรือภาพย่อจาก Private Session ลงข้อมูลปกติ
+2. ก่อนเลือกวิธีแยก Private Session ต้องตรวจสอบข้อจำกัด Android WebView จริง ทั้ง Cookie, Cache, Web Storage, Service Worker และ WebView data directory
+3. ห้ามอ้างว่า Private Mode เก็บข้อมูลใน RAM เท่านั้นจนกว่าจะพิสูจน์ด้วยการทดสอบบน Android รุ่นเป้าหมาย หากต้องแยก process/data directory ให้เสนอแบบและขออนุมัติก่อนเปลี่ยนสถาปัตยกรรม
+4. เมื่อปิด Private Session ให้ปิด WebView และล้างข้อมูลที่ API รองรับตามขอบเขตที่ออกแบบ พร้อมตรวจไม่ให้ข้อมูล private เข้าสู่ stores ปกติ
+5. DoH และ Proxy:
+   - ตรวจสอบความสามารถจริงของ Android WebView และ Android networking ก่อนกำหนด implementation
+   - DoH อาจต้องใช้ resolver/network layer เฉพาะ และอาจไม่ครอบคลุม traffic ใน WebView โดยอัตโนมัติ
+   - Proxy ของ WebView/Android มีข้อจำกัดตาม Android API และอุปกรณ์ ต้องทดสอบบน Android รุ่นเป้าหมาย
+   - ห้ามนำ API Electron เช่น app.configureHostResolver() หรือ proxyBypassRules มาใช้ใน Android
+6. เป้าหมาย DoH ที่ต้องประเมิน: Cloudflare, Google และ NextDNS
+7. เป้าหมาย Proxy Whitelist ที่ต้องประเมิน:
+   - *.scb.co.th
+   - *.kbank.com
+   - *.go.th
+   - *.gmail.com
+   - *.outlook.com
+8. หาก Android ทำ DoH/Proxy/Whitelist ได้ไม่ครบ ต้องรายงานข้อจำกัดและเสนอทางเลือกเพื่อขออนุมัติ ห้ามแสดงว่าเปิดใช้งานแล้วหาก traffic ไม่ได้ผ่านระบบนั้นจริง
+
+### รอบ (ง): Data Layer + New Tab + Settings + Localization
+1. แยก Data Layer ออกจาก UI และ Browser UI ผ่าน Repository/Manager layer
+2. Storage interface กลางรองรับ get, set, query และ delete
+3. เลือก local storage ที่เหมาะกับ Android และทดสอบความทนทานของข้อมูล ห้ามผูก UI กับ backend โดยตรง
+4. จำกัดข้อมูล:
    - History สูงสุด 5,000 รายการ
    - วิดีโอที่ดูค้างสูงสุด 10 รายการ
-   - ข้ามการบันทึกทันทีเมื่อ `isPrivate: true`
-   - Cleanup รายการวิดีโอที่ดูค้างและเกิน 30 วันแบบ async หลัง `app.whenReady()` และก่อนเปิดหน้าต่าง
-5. สร้างหน้า New Tab ตามธีม:
-   - `#0F172A`
-   - `#38BDF8`
-   - `#1E293B`
-6. สร้างหน้า Settings แบบแท็บภายในแอป
-7. ใช้ Vanilla JS และระบบแปลภาษาด้วย `data-i18n` เชื่อมกับ:
-   - `th.json`
-   - `en.json`
-8. รองรับการสลับภาษาไทย/อังกฤษได้ทันที
+   - ไม่บันทึกข้อมูล Private Session
+   - Cleanup Resume ที่เกิน 30 วันแบบ asynchronous
+5. สร้าง New Tab ตามธีม RAIN
+6. สร้าง Settings ภายในแอป รองรับภาษา Search Engine ค่าเริ่มต้น Mobile/Desktop, Privacy controls และ DoH/Proxy เฉพาะความสามารถที่ผ่านการตรวจสอบจริง
+7. รองรับภาษาไทยและอังกฤษ และสลับภาษาในแอปได้ตามข้อจำกัด Android
 
 ---
 
-## 3. กติกาความปลอดภัยและการตรวจโค้ดก่อนรับงาน
+## 5. Android WebView Security Audit
 
-### 3.1 Preload ภายใต้ Sandbox
+### 5.1 Baseline
+- ปิด file access และ content access ที่ไม่จำเป็น
+- ปิด mixed content หรือใช้นโยบายปลอดภัยที่สุดตามความจำเป็น
+- เปิด Safe Browsing เมื่ออุปกรณ์รองรับ
+- ตรวจสอบ scheme และ URL ก่อนโหลด
+- จำกัด external intent และ custom schemes
+- ไม่ใช้ addJavascriptInterface กับเว็บไซต์ที่ไม่น่าเชื่อถือ
+- ไม่ให้เว็บไซต์เข้าถึง Android API หรือไฟล์ในเครื่องโดยไม่มีเหตุผลและการอนุญาตชัดเจน
+- ห้าม bypass SSL certificate error โดยอัตโนมัติ
+- ขอ Android permissions เท่าที่จำเป็น
+- ตรวจสอบ URI, MIME type และ permission สำหรับ Download/File Picker
 
-เมื่อใช้ `sandbox: true`:
+### 5.2 ตรวจสอบก่อนส่งมอบ
+- ไม่มี Token, Keystore หรือรหัสผ่านใน Source Code
+- ไม่มีการเปิดเผย Actions Secrets ใน log/artifact
+- ไม่มี JavaScript bridge ที่เปิดช่องให้เว็บภายนอกเรียก Android API โดยไม่จำเป็น
+- ไม่มีการยอมรับ SSL certificate error อัตโนมัติ
+- ไม่มีข้อมูล Private Session ใน storage ปกติ
+- มีการตรวจ URL, Intent และ file access
+- Release APK ต้องผ่านการตรวจ Signing เช่น apksigner verify
 
-- อนุญาตเฉพาะ `contextBridge` และ `ipcRenderer` ตามความจำเป็น
-- ห้าม `require('fs')`
-- ห้าม `require('path')`
-- ห้ามเรียกโมดูลของโปรเจกต์โดยตรงจาก Preload
+---
 
-### 3.2 Security Audit
+## 6. โครงสร้างโปรเจกต์ Android เป้าหมาย
 
-ตรวจสอบทุกไฟล์ก่อนส่งมอบ โดยต้องไม่พบ:
+    Rain/
+    ├── .github/
+    │   └── workflows/
+    │       ├── android-build.yml
+    │       └── android-release.yml
+    ├── app/
+    │   ├── build.gradle.kts
+    │   └── src/
+    │       ├── main/
+    │       │   ├── AndroidManifest.xml
+    │       │   ├── java/com/rain/browser/
+    │       │   │   ├── MainActivity.kt
+    │       │   │   ├── browser/
+    │       │   │   │   ├── BrowserController.kt
+    │       │   │   │   ├── BrowserTab.kt
+    │       │   │   │   ├── TabManager.kt
+    │       │   │   │   ├── WebViewFactory.kt
+    │       │   │   │   └── DesktopModeManager.kt
+    │       │   │   ├── privacy/
+    │       │   │   │   ├── PrivateSessionManager.kt
+    │       │   │   │   └── PrivacyPolicy.kt
+    │       │   │   ├── network/
+    │       │   │   │   └── NetworkPolicyManager.kt
+    │       │   │   ├── data/
+    │       │   │   │   ├── Storage.kt
+    │       │   │   │   ├── SettingsRepository.kt
+    │       │   │   │   ├── HistoryRepository.kt
+    │       │   │   │   ├── BookmarkRepository.kt
+    │       │   │   │   └── ResumeRepository.kt
+    │       │   │   ├── downloads/
+    │       │   │   │   └── DownloadManager.kt
+    │       │   │   └── settings/
+    │       │   │       └── SettingsActivity.kt
+    │       │   └── res/
+    │       │       ├── layout/
+    │       │       ├── drawable/
+    │       │       ├── values/
+    │       │       └── values-th/
+    │       └── test/
+    ├── gradle/wrapper/
+    ├── build.gradle.kts
+    ├── settings.gradle.kts
+    ├── gradle.properties
+    ├── gradlew
+    ├── gradlew.bat
+    ├── gradle/libs.versions.toml
+    ├── .gitignore
+    └── README.md
 
-- `nodeIntegration: true`
-- การตั้ง `contextIsolation: false`
-- การตั้ง `sandbox: false` หรือการปิด Sandbox
-- ช่องทาง IPC ที่เปิดให้ Renderer เรียกใช้ความสามารถเกินจำเป็น
+โครงสร้างเป็นเป้าหมายเชิงตรรกะ อนุญาตให้จัดตำแหน่งตามมาตรฐาน Android/Gradle เมื่อจำเป็น แต่ห้ามเปลี่ยนขอบเขตหรือเพิ่มฟีเจอร์โดยไม่ได้รับอนุมัติ
 
-### 3.3 การเตรียมโครงสร้างสำหรับเฟส 2–4
+---
 
-คงตำแหน่งและจุดเชื่อมต่อสำหรับความสามารถต่อไปนี้ไว้ตามแผน โดยยังไม่เพิ่มฟีเจอร์เหล่านี้ในเฟส 1 เว้นแต่ได้รับสเปกของเฟสนั้น:
+## 7. ความสามารถสำหรับเฟสถัดไป
 
-- Ad-blocker: `@ghostery/adblocker-electron`
-- Network Sniffer
-- RAIN Player: `hls.js` + Plyr
-- ระบบดาวน์โหลด 3 ชั้น
-- ffmpeg ซึ่งคาดว่าจะเพิ่มขนาดแพ็กเกจประมาณ 50–80 MB เมื่อถึงเฟสที่เกี่ยวข้อง
-- คลังออฟไลน์ 7 วัน
-- Auto-Proxy
+เตรียมจุดเชื่อมต่อโดยไม่เพิ่ม dependency หรือพัฒนา feature ล่วงหน้า:
+- Ad-blocker
+- Network/stream inspection ภายใต้ข้อจำกัดและนโยบายที่เกี่ยวข้อง
+- RAIN Player และ HLS
+- Download engine และ Offline Library
+- Auto-Proxy เฉพาะเมื่อ Android รองรับและผ่านการทดสอบ
 - Export/Import JSON
-- เฟส 4:
-  - Profile
-  - Reader Mode
-  - Command Palette (`Ctrl+K`)
-  - Rain Stats
+- Profile
+- Reader Mode
+- Command Palette
+- Rain Stats
+
+ระบบดาวน์โหลด 3 ชั้น, ffmpeg และ Offline Library 7 วันยังเป็นเป้าหมายในเฟสที่เกี่ยวข้อง ไม่ใช่งานรอบ (ก) โดยอัตโนมัติ
 
 ---
 
-## 4. โครงสร้างไฟล์และโฟลเดอร์เป้าหมาย
+## 8. คำสั่งเริ่มต้นสำหรับ GPT — ทำเฉพาะรอบ (ก)
 
-```text
-rain-browser/
-├── .github/
-│   └── workflows/
-│       └── build.yml               # Node 20 LTS, Build & unsigned fallback (รองรับ Secrets เมื่อมี)
-├── package.json                    # ล็อก Electron version, name, productName="RAIN", appId="com.rain.browser", version="0.1.0"
-├── .gitignore
-└── src/
-    ├── main/
-    │   ├── main.js                 # เริ่มต้นแอป, รอ whenReady() ก่อนเรียก DoH & async cleanup (30 วัน)
-    │   ├── window-manager.js       # หน้าต่างหลัก, resize/maximize/fullscreen, Private Window (clearStorageData + clearCache)
-    │   ├── tab-manager.js          # WebContentsView, DIP bounds, เมนูแยกชั้นไม่ให้เว็บทับ
-    │   ├── network-manager.js      # DoH (หลัง ready), proxyBypassRules & Whitelist pattern
-    │   ├── ipc-handlers.js         # ช่องทาง IPC กลาง
-    │   ├── modules-phase2/         # โครงเปล่าเตรียมเฟส 2 (adblocker.js, stream-sniffer.js)
-    │   └── modules-phase3/         # โครงเปล่าเตรียมเฟส 3 (download-engine.js, offline-library.js, proxy-rotator.js)
-    ├── data/
-    │   ├── storage.js              # Interface get/set/query/delete + temp-file/rename + debounce (JSON ใน userData)
-    │   ├── settings-store.js       # ภาษา, Search Engine, DoH, Proxy/Bypass, Whitelist
-    │   ├── history-store.js        # ประวัติสูงสุด 5,000 รายการ (ข้ามเมื่อ isPrivate = true)
-    │   ├── bookmark-store.js       # บุ๊กมาร์ก
-    │   └── resume-store.js         # วิดีโอดูค้างสูงสุด 10 รายการ (ข้ามเมื่อ isPrivate = true, ล้างเกิน 30 วัน)
-    ├── preload/
-    │   ├── shell-preload.js        # เฉพาะ contextBridge + ipcRenderer สำหรับ Shell UI
-    │   └── view-preload.js         # Stub มี contextBridge.exposeInMainWorld('rainView', {}) เปล่าๆ สำหรับเฟส 1
-    └── renderer/
-        ├── assets/theme.css        # #0F172A, #38BDF8, #1E293B
-        ├── shell/                  # index.html, shell.css, shell.js
-        ├── pages/                  # newtab.html/js, settings.html/js, player.html (stub), library.html (stub)
-        └── i18n/                   # th.json, en.json (ทำงานร่วมกับ data-i18n)
-```
+เมื่อเจ้าของโครงการอนุมัติให้เริ่มรอบ (ก) ให้ดำเนินการดังนี้:
 
----
-
-## 5. คำสั่งเริ่มต้นสำหรับ GPT — ทำเฉพาะรอบ (ก)
-
-ให้นำข้อความต่อไปนี้ไปใช้เป็นคำสั่งเริ่มงาน:
-
-> เริ่มทำ รอบ (ก) ของ RAIN Browser ตามแผน v3 ด้านบน โดยใช้ Vanilla Electron และ Node 20 LTS:
+> เริ่มทำรอบ (ก) ของ RAIN Browser ตามแผน v3.1 โดยใช้ Kotlin, Android SDK และ Gradle:
+> 1. ตรวจสอบ Repository ปัจจุบันก่อนแก้ไข และรักษาไฟล์/ประวัติที่ไม่เกี่ยวข้อง
+> 2. สร้าง Android project scaffold และ Gradle Wrapper พร้อม pin เวอร์ชัน JDK, Gradle และ Android Gradle Plugin ที่เข้ากัน
+> 3. กำหนด applicationId com.rain.browser, product name RAIN, versionName 0.1.0 และ versionCode เริ่มต้นที่เหมาะสม พร้อมบันทึกไว้
+> 4. สร้าง Activity เริ่มต้นที่เปิดหน้าจอ RAIN ได้จริง และกำหนด WebView security baseline
+> 5. สร้าง GitHub Actions CI สำหรับ lint/test/build APK artifact
+> 6. เตรียม Release Signing ด้วย Android Keystore ผ่าน GitHub Actions Secrets โดยห้าม commit Keystore/รหัสผ่าน
+> 7. Release workflow ต้อง fail หาก Secrets ไม่ครบหรือ APK signature verification ไม่ผ่าน ห้าม unsigned fallback
+> 8. ทดสอบ Build บน GitHub Actions และตรวจสอบผลจริงก่อนรายงาน
+> 9. ทำเฉพาะรอบ (ก) ห้ามเริ่มรอบ (ข), (ค), (ง) จนกว่าจะได้รับการตรวจรับและคำสั่งใหม่
 >
-> - สร้างโครงสร้างโฟลเดอร์และไฟล์ Stub ทั้งหมดตามแผน (modules-phase2/, modules-phase3/, view-preload.js ที่มี contextBridge.exposeInMainWorld('rainView', {}) เปล่า ๆ, player.html, library.html)
-> - เขียน package.json โดยล็อกเวอร์ชัน Electron ให้ชัดเจน และคง name, productName: "RAIN", appId: "com.rain.browser", version: "0.1.0"
-> - เขียน .github/workflows/build.yml ใช้ Node 20 LTS ที่ Build ผ่านได้ทั้งแบบ unsigned fallback และแบบดึง Secrets มาเซ็นเมื่อมี
-> - เขียน main.js เปิดหน้าต่างเปล่าได้จริง โดยตั้ง contextIsolation: true, nodeIntegration: false, และ sandbox: true
-> - ทำเฉพาะรอบ (ก) ให้เสร็จและตรวจสอบความปลอดภัยก่อน แล้วค่อยรายงานผล
->
-> ห้ามเริ่มรอบ (ข), (ค), หรือ (ง) จนกว่าจะได้รับการตรวจรับและคำสั่งให้ดำเนินการต่อ
+> หากข้อกำหนดขัดแย้งหรือจำเป็นต้องตัดสินใจด้านสถาปัตยกรรม ให้หยุดและถามก่อนเปลี่ยนแปลง
 
 ---
 
-## 6. กติกาการส่งมอบและตรวจรับงาน
+## 9. กติกาการส่งมอบและตรวจรับ
 
-สำหรับแต่ละรอบ ให้ผู้พัฒนา:
+1. ทำเฉพาะขอบเขตงานที่ได้รับมอบหมาย
+2. ทำตามสเปกที่อนุมัติ ห้ามเปลี่ยนสถาปัตยกรรมหรือเพิ่มฟีเจอร์เอง
+3. หากข้อกำหนดคลุมเครือ ขัดแย้ง หรือขาดข้อมูลจำเป็น ให้ถามก่อนลงมือ
+4. ส่งมอบโค้ดฉบับสมบูรณ์ในส่วนที่สร้างหรือแก้ไข
+5. สรุปไฟล์และข้อกำหนดที่ดำเนินการ
+6. แจ้งผล Build/Test/Security Audit พร้อมหลักฐาน
+7. แจ้งสิ่งที่ยังไม่ได้ทำและข้อจำกัดอย่างตรงไปตรงมา
+8. ห้ามกล่าวว่าทดสอบผ่านหรือ Release สำเร็จ หากไม่มีผลยืนยันจริง
 
-1. ทำเฉพาะขอบเขตงานของรอบที่ได้รับมอบหมาย
-2. ไม่เปลี่ยนสถาปัตยกรรมหลัก ชื่อไฟล์ หรือตัวแปรสำคัญนอกเหนือจากสเปกโดยไม่ได้รับอนุมัติ
-3. หากข้อกำหนดขัดแย้ง คลุมเครือ หรือขาดข้อมูลที่จำเป็น ให้หยุดและถามก่อนลงมือ
-4. ส่งมอบโค้ดฉบับสมบูรณ์ในส่วนที่สร้างหรือแก้ไข พร้อมจุดเชื่อมต่อที่ใช้งานได้จริง
-5. สรุปว่าส่วนใดทำแล้วตามข้อกำหนดใด
-6. แจ้งผลการทดสอบ ข้อควรระวัง และค่าที่ต้องตั้งค่าเพิ่มเติม
-7. รายงานสิ่งที่ยังไม่ได้ทำอย่างชัดเจน ห้ามอ้างว่าผ่านการทดสอบหากยังไม่ได้ทดสอบจริง
+**การอนุมัติ:** การอัปเดตเอกสาร v3.1 ลง GitHub ไม่ใช่คำสั่งให้เริ่มเขียนโค้ดรอบ (ก) ต้องได้รับอนุมัติแยกต่างหาก
 
-**ขอบเขตการอนุมัติ:** การบันทึกเอกสารแผน v3 นี้ลง Repository ไม่ถือเป็นการอนุมัติให้เริ่มเขียนโค้ดรอบ (ก) โดยอัตโนมัติ ต้องได้รับคำสั่งเริ่มงานแยกต่างหาก
+---
+
+## 10. ประวัติการเปลี่ยนแปลงจาก v3 เป็น v3.1
+
+- เปลี่ยนแพลตฟอร์มจาก Electron Desktop เป็น Android App
+- เปลี่ยนสถาปัตยกรรมเป็น Kotlin + Android SDK + Gradle + Android WebView
+- เปลี่ยน appId เป็น Android applicationId โดยคงค่า com.rain.browser
+- เปลี่ยน Build เป็น Android Build ผ่าน GitHub Actions
+- กำหนด Android Keystore Signing ตั้งแต่ Release แรก และยกเลิก unsigned Release fallback
+- เพิ่ม Desktop Mode ตั้งแต่รุ่นแรก พร้อมการจำค่าแยกตามเว็บไซต์
+- รวมข้อจำกัดการทำงานผ่านโทรศัพท์เครื่องเดียวและ Termux
+- กำหนด GitHub PAT สำหรับ Termux โดยจำกัดสิทธิ์และเก็บอย่างปลอดภัย
+- ระบุข้อจำกัดจริงของ Android WebView สำหรับ Private Session, DoH และ Proxy
+- คงเป้าหมาย Privacy, tabs, bookmarks, history, resume, downloads, offline, localization และเฟสต่อยอดตามลำดับ
