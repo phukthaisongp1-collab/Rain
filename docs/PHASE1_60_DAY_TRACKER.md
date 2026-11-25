@@ -93,7 +93,7 @@
 
 - [x] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation. **Completed: 2026-11-25.** Documented process-scoped WebView data directories, cookie/WebStorage scope, Service Worker limitations, and cleanup API constraints in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`.
 - [x] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities. **Completed: 2026-11-25.** Owner approved a dedicated `:private` Android process and unique `rain_private` WebView data-directory suffix. Architecture and limitations recorded in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; initial source implementation is tracked separately under Days 31–35.
-- [ ] **Day 31:** Implement Private Browsing data/session separation to the extent supported by the approved design.
+- [ ] **Day 31:** Implement Private Browsing data/session separation to the extent supported by the approved design. **Implementation in progress (not yet counted complete):** added `RainApplication.attachBaseContext` to set the `rain_private` WebView data-directory suffix when the `:private` process starts, registered the Application in the manifest, and strengthened private WebView teardown plus cookie/Web Storage cleanup. Awaiting CI/build and lifecycle validation; see source commits `f1f0a88254d412f8eff48e6a05d7e8e18963facc`, `6a57d1c8d9e342625011ac3a504eed3d233fa1b6`, `609e29171553ea3f5f0b9295d57306e41742fe64`.
 - [ ] **Day 32:** Handle Private Browsing cookies and verify their lifecycle.
 - [ ] **Day 33:** Handle Private Browsing cache and Web Storage.
 - [ ] **Day 34:** Inspect and handle Service Worker and other persistent website data relevant to private sessions.
