@@ -12,23 +12,54 @@ class NetworkPolicyManagerTest {
     }
 
     @Test
-    fun rejectsUnsupportedSchemes() {
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("javascript:alert(1)"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("file:///etc/passwd"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("intent://example.com"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("content://com.example.provider/item"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("data:text/html,hello"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("mailto:test@example.com"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("tel:+66000000000"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("market://details?id=com.example.app"))
+    fun acceptsCaseInsensitiveWebSchemesAndOuterWhitespace() {
+        assertTrue(NetworkPolicyManager.isAllowedWebUrl("HTTPS://example.com"))
+        assertTrue(NetworkPolicyManager.isAllowedWebUrl("HtTp://example.com/path"))
+        assertTrue(NetworkPolicyManager.isAllowedWebUrl("  https://example.com/path  "))
+    }
+
+    @Test
+    fun rejectsUnsupportedAndExternalSchemes() {
+        val urls = listOf(
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+            "content://com.example.provider/item",
+            "data:text/html,hello",
+            "intent://example.com",
+            "market://details?id=com.example.app",
+            "mailto:test@example.com",
+            "tel:+66000000000",
+            "ftp://example.com/file",
+            "ws://example.com/socket",
+            "wss://example.com/socket",
+            "blob:https://example.com/resource"
+        )
+
+        urls.forEach { url ->
+            assertFalse("Expected scheme to be blocked: $url", NetworkPolicyManager.isAllowedWebUrl(url))
+        }
     }
 
     @Test
     fun rejectsMalformedAndCredentialUrls() {
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("not a url"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("https://user:pass@example.com"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl(""))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("https:///missing-host"))
-        assertFalse(NetworkPolicyManager.isAllowedWebUrl("https://example.com\\n"))
+        val urls = listOf(
+            "not a url",
+            "https://user:pass@example.com",
+            "",
+            "https:///missing-host",
+            "https://example.com\\n",
+            "https://example.com:invalid"
+        )
+
+        urls.forEach { url ->
+            assertFalse("Expected malformed URL to be blocked: $url", NetworkPolicyManager.isAllowedWebUrl(url))
+        }
+    }
+
+    @Test
+    fun rejectsUrlsWithoutAnAllowedHost() {
+        assertFalse(NetworkPolicyManager.isAllowedWebUrl("https:"))
+        assertFalse(NetworkPolicyManager.isAllowedWebUrl("//example.com/path"))
+        assertFalse(NetworkPolicyManager.isAllowedWebUrl("http:///path"))
     }
 }
