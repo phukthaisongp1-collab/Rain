@@ -14,9 +14,10 @@
 3. When a day is complete, update this file with its checkbox, completion date, concise result, and evidence (commit SHA, file path, GitHub Actions run, test result, or APK verification result as applicable).
 4. Before doing work, check this tracker and the recorded evidence. If a task is already complete, do not repeat it; inspect its evidence and move to the next incomplete task.
 5. If a task fails verification, leave it unchecked and record the blocker. Fix the blocker before marking it complete.
-6. Work is sequential. Do not start the next round until the current round has been reviewed and accepted.
+6. Work is sequential within each active round. Deferred Phase 2 work and reserved Phase 1 capacity do not block unrelated Phase 1 tasks; do not start the next round until the active round has been reviewed and accepted.
 7. The 60 days are a planning baseline, not a promise. Waiting for user input, credentials, Keystore setup, platform limitations, or unresolved defects may move the schedule. Do not reduce security or acceptance requirements to meet the target.
 8. Do not add Phase 2 features to Phase 1 without approval.
+9. Private Browsing is Phase 2 work and is excluded from Phase 1 round acceptance; its incomplete status must remain visible in the Phase 2 backlog.
 
 ## Progress summary
 
@@ -24,7 +25,8 @@
 |---|---:|---:|---|
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
-| Round C — Privacy and network | 18 | 2 | In progress |
+| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 2 | In progress |
+| Phase 1 reserve / reallocation capacity | 5 | 0 | Reserved; does not block Phase 1 continuation |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
 | **Total** | **60** | **30** | **50.00%** |
@@ -87,17 +89,13 @@
 
 ---
 
-## Round C — Privacy and network (Days 29–46)
+## Round C — Privacy controls and network (Days 29–46; excludes Private Browsing)
 
-**Round acceptance:** Privacy and network behavior is verified on Android WebView. Unsupported behavior must be documented and submitted for approval; never claim unsupported guarantees.
+**Round acceptance:** Phase 1 privacy controls and network behavior other than Private Browsing are verified on Android WebView. Private Browsing is tracked independently in Phase 2 and is not a Round C or Phase 1 acceptance gate. Unsupported behavior must be documented and submitted for approval; never claim unsupported guarantees.
 
 - [x] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation. **Completed: 2026-11-25.** Documented process-scoped WebView data directories, cookie/WebStorage scope, Service Worker limitations, and cleanup API constraints in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`.
-- [x] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities. **Completed: 2026-11-25.** Owner approved a dedicated `:private` Android process and unique `rain_private` WebView data-directory suffix. Architecture and limitations recorded in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; initial source implementation is tracked separately under Days 31–35.
-- [ ] **Day 31:** Implement Private Browsing data/session separation to the extent supported by the approved design. **Implementation in progress (not yet counted complete):** added `RainApplication.attachBaseContext` to set the `rain_private` WebView data-directory suffix when the `:private` process starts, registered the Application in the manifest, and strengthened private WebView teardown plus cookie/Web Storage cleanup. Awaiting CI/build and lifecycle validation; see source commits `f1f0a88254d412f8eff48e6a05d7e8e18963facc`, `6a57d1c8d9e342625011ac3a504eed3d233fa1b6`, `609e29171553ea3f5f0b9295d57306e41742fe64`.
-- [ ] **Day 32:** Handle Private Browsing cookies and verify their lifecycle.
-- [ ] **Day 33:** Handle Private Browsing cache and Web Storage.
-- [ ] **Day 34:** Inspect and handle Service Worker and other persistent website data relevant to private sessions.
-- [ ] **Day 35:** Test closing Private Browsing and cleanup of its data; do not claim RAM-only behavior unless proven.
+- [x] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities. **Completed: 2026-11-25.** Owner approved a dedicated `:private` Android process and unique `rain_private` WebView data-directory suffix. Architecture and limitations recorded in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; any implementation and verification work is now tracked in Phase 2 under `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1.
+**Schedule adjustment (owner-approved 2026-11-26):** The former Private Browsing tasks for Days 31–35 have been transferred to Phase 2 (see `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1). These five calendar slots are reserved for later allocation to already-approved, non-Private Phase 1 work. They are not completed days, do not increase the 30/60 completion count, and do not block continuation with Day 36. The existing Private Browsing source work and Run #82 evidence are retained; no security acceptance is implied.
 - [ ] **Day 36:** Verify HTTPS and SSL error handling; never bypass certificate errors.
 - [ ] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing.
 - [ ] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise.
@@ -111,7 +109,7 @@
 - [ ] **Day 46:** Resolve verified defects, document remaining platform limitations, record evidence, and obtain Round C acceptance.
 
 **Round C review record**
-- Review status: Not reviewed
+- Review status: Not reviewed; acceptance scope excludes Private Browsing (tracked in Phase 2)
 - Review date:
 - Evidence / commit / Actions run:
 - Blockers or approved deviations:
@@ -127,7 +125,7 @@
 - [ ] **Day 49:** Implement browsing History persistence and retrieval.
 - [ ] **Day 50:** Enforce the History maximum of 5,000 entries and test cleanup behavior.
 - [ ] **Day 51:** Implement Resume persistence with a maximum of 10 entries.
-- [ ] **Day 52:** Implement cleanup of Resume entries older than 30 days and ensure Private Browsing sessions are excluded.
+- [ ] **Day 52:** Implement cleanup of Resume entries older than 30 days. Private Browsing exclusion remains a Phase 2 integration requirement.
 - [ ] **Day 53:** Implement the New Tab page.
 - [ ] **Day 54:** Implement the Settings page and the settings defined in the approved plan.
 - [ ] **Day 55:** Implement Thai and English localization.
@@ -205,6 +203,7 @@ Record blockers, platform limitations, and user-approved changes here. Do not si
 | Date | Related day | Blocker / limitation | Decision / approval | Resolution evidence |
 |---|---:|---|---|---|
 | 2026-11-25 | 8 | Initial CI attempts exposed an obsolete Android SDK setup action and a separate Kotlin plugin conflict with AGP 9. | Updated to setup-android v4 and AGP built-in Kotlin; final CI succeeded with build, lint, unit-test task, APK assembly, and artifact upload. | [Successful Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565610942) |
+| 2026-11-26 | 31–35 | Private Browsing Instrumentation Run #82 failed before completing the isolation assertions. Diagnostics showed a cross-process `BadParcelableException` / `ClassNotFoundException` involving a Test-APK callback class; this is a confirmed test-harness communication failure, not proof that product isolation passed or failed. | Owner directed all Private Browsing implementation and verification to Phase 2, with a dedicated independent Workflow; exclude it from Phase 1 acceptance and keep Phase 1 moving. | [Run #82](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45723328182); artifact ID `15073318212`; see Phase 2 backlog in `docs/RAIN_BROWSER_PLAN_V3.md` Section 7.1. |
 
 ## Progress update protocol
 
