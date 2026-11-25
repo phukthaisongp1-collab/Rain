@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 1/60 days (1.67%)
+> **Progress:** 2/60 days (3.33%)
 
 ## Tracking rules
 
@@ -22,12 +22,12 @@
 
 | Workstream | Planned days | Completed | Status |
 |---|---:|---:|---|
-| Round A — Android foundation and build | 10 | 1 | In progress |
+| Round A — Android foundation and build | 10 | 2 | In progress |
 | Round B — Browser features | 18 | 0 | Not started |
 | Round C — Privacy and network | 18 | 0 | Not started |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **1** | **1.67%** |
+| **Total** | **60** | **2** | **3.33%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -38,7 +38,7 @@
 **Round acceptance:** Android project builds; CI checks run; release signing is configured using the approved Android Keystore; signed APK verification succeeds. No unsigned release fallback.
 
 - [x] **Day 1:** Inspect the RAIN repository, default branch, existing plan, and current GitHub project structure. Record the verified baseline and avoid overwriting existing work. **Completed: 2026-11-25.** Verified: default branch `main`; repository is public and accessible with read/write permission; root contains `README.md` and `docs/`; `docs/` contains only `RAIN_BROWSER_PLAN_V3.md` and `PHASE1_60_DAY_TRACKER.md`; no Android source/project scaffold or `.github/workflows` files are present in the inspected root/docs listings. Existing plan confirmed as Android-only v3.1, Kotlin + Android SDK + Gradle + WebView, applicationId `com.rain.browser`, initial versionName `0.1.0`. Baseline commit: `e40dc87e6f4e9ea2d24bfe40d2e22fd5c6f6d4a6`; plan blob: `e44f963ad9eccf1c036df133ffa4a679dd552127`. No application code changed on Day 1.
-- [ ] **Day 2:** Prepare the Android project structure in the existing repository, following the approved Android-only architecture.
+- [x] **Day 2:** Prepare the Android project structure in the existing repository, following the approved Android-only architecture. **Completed: 2026-11-25.** Created the approved directory skeleton with `.gitkeep` placeholders for `.github/workflows`, `app/src/main/java/com/rain/browser` and its `browser`, `privacy`, `network`, `data`, `downloads`, and `settings` packages; `app/src/main/res/layout`, `drawable`, `values`, and `values-th`; `app/src/test`; and `gradle/wrapper`. No Kotlin source, Gradle configuration, Android manifest, or workflow implementation was added because those belong to later scheduled tasks. Evidence commit: `a6fea91e7cdcd492ca6750a09ce2739d27198262`. 
 - [ ] **Day 3:** Configure Kotlin and Android SDK settings.
 - [ ] **Day 4:** Configure Gradle and Gradle Wrapper, pin compatible versions, and verify the build environment.
 - [ ] **Day 5:** Set the application identity: app name RAIN, applicationId `com.rain.browser`, initial versionName `0.1.0`, and initial versionCode policy.
@@ -168,6 +168,7 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | Day | Completion date | Result / evidence | Commit SHA or Actions run |
 |---:|---|---|---|
 | 1 | 2026-11-25 | Repository baseline inspected; Android scaffold and workflow not yet present. Existing Android v3.1 plan and tracker confirmed. | `e40dc87e6f4e9ea2d24bfe40d2e22fd5c6f6d4a6` (baseline) |
+| 2 | 2026-11-25 | Created approved Android directory skeleton with `.gitkeep` placeholders; no source/config implementation added. | `a6fea91e7cdcd492ca6750a09ce2739d27198262` |
 
 ## Blockers and approved changes
 
