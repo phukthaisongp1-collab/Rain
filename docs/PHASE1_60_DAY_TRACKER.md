@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 10/60 days (16.67%)
+> **Progress:** 28/60 days (46.67%)
 
 ## Tracking rules
 
@@ -23,11 +23,11 @@
 | Workstream | Planned days | Completed | Status |
 |---|---:|---:|---|
 | Round A — Android foundation and build | 10 | 10 | Accepted |
-| Round B — Browser features | 18 | 0 | Not started |
+| Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
 | Round C — Privacy and network | 18 | 0 | Not started |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **10** | **16.67%** |
+| **Total** | **60** | **28** | **46.67%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -60,30 +60,30 @@
 
 **Round acceptance:** Core browsing, tabs, navigation controls, search, zoom, and per-site Mobile/Desktop Mode behavior are tested.
 
-- [ ] **Day 11:** Design the Browser screen structure within the approved product scope.
-- [ ] **Day 12:** Implement the address bar.
-- [ ] **Day 13:** Implement URL and scheme validation.
-- [ ] **Day 14:** Implement DuckDuckGo as the default search engine.
-- [ ] **Day 15:** Add Google as a selectable search engine.
-- [ ] **Day 16:** Implement Back and Forward navigation.
-- [ ] **Day 17:** Implement Reload and Stop controls.
-- [ ] **Day 18:** Implement Home and New Tab controls.
-- [ ] **Day 19:** Implement browser tab creation and management.
-- [ ] **Day 20:** Implement switching between tabs.
-- [ ] **Day 21:** Handle WebView lifecycle and tab state safely.
-- [ ] **Day 22:** Implement website loading and page display behavior.
-- [ ] **Day 23:** Implement page zoom controls.
-- [ ] **Day 24:** Implement text scaling controls.
-- [ ] **Day 25:** Implement Desktop Mode using the supported WebView settings and user-agent behavior.
-- [ ] **Day 26:** Implement Mobile Mode and switching between Mobile/Desktop modes.
-- [ ] **Day 27:** Persist mode separately per website and reload the page when the mode changes; show the active mode clearly.
-- [ ] **Day 28:** Test the Browser feature set, record evidence, fix verified defects, and obtain Round B acceptance.
+- [x] **Day 11:** Design the Browser screen structure within the approved product scope. **Completed: 2026-11-25. Implemented the RAIN browser screen structure and controls. Evidence: `MainActivity.kt`, `activity_main.xml`; integrated source verified at commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`.**
+- [x] **Day 12:** Implement the address bar. **Completed: 2026-11-25. Added address input, Go action, keyboard submission, and address display updates. Evidence: `MainActivity.kt`, `activity_main.xml`; commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`.**
+- [x] **Day 13:** Implement URL and scheme validation. **Completed: 2026-11-25. Added URL resolution and HTTP(S)-only navigation policy; rejects unsupported schemes and credential-bearing URLs. Evidence: `BrowserUrlResolver.kt`, `NetworkPolicyManager.kt`, related unit tests; Actions run `45575054677`.**
+- [x] **Day 14:** Implement DuckDuckGo as the default search engine. **Completed: 2026-11-25. DuckDuckGo is the default search engine. Evidence: `BrowserUrlResolver.kt`, `MainActivity.kt`, `BrowserUrlResolverTest.kt`.**
+- [x] **Day 15:** Add Google as a selectable search engine. **Completed: 2026-11-25. Added Google selection through the search-engine control. Evidence: `BrowserUrlResolver.kt`, `MainActivity.kt`, `BrowserUrlResolverTest.kt`.**
+- [x] **Day 16:** Implement Back and Forward navigation. **Completed: 2026-11-25. Added WebView back/forward controls and enabled-state updates. Evidence: `MainActivity.kt`, `activity_main.xml`.**
+- [x] **Day 17:** Implement Reload and Stop controls. **Completed: 2026-11-25. Reload control switches to Stop while a page is loading. Evidence: `MainActivity.kt`, `activity_main.xml`.**
+- [x] **Day 18:** Implement Home and New Tab controls. **Completed: 2026-11-25. Added Home welcome page and New Tab creation. Evidence: `MainActivity.kt`, `activity_main.xml`.**
+- [x] **Day 19:** Implement browser tab creation and management. **Completed: 2026-11-25. Added tab model, tab manager, create/close operations, and tab list dialog. Evidence: `BrowserTab.kt`, `TabManager.kt`, `MainActivity.kt`.**
+- [x] **Day 20:** Implement switching between tabs. **Completed: 2026-11-25. Added tab selection and active WebView display. Evidence: `TabManager.kt`, `MainActivity.kt`.**
+- [x] **Day 21:** Handle WebView lifecycle and tab state safely. **Completed: 2026-11-25. Added WebView pause/resume, instance-state save/restore, and cleanup on tab/activity destruction. Evidence: `MainActivity.kt`, `WebViewFactory.kt`.**
+- [x] **Day 22:** Implement website loading and page display behavior. **Completed: 2026-11-25. Added HTTP(S) navigation, loading progress, title/address updates, SSL-error cancellation, and blocked unsupported schemes. Evidence: `MainActivity.kt`, `WebViewFactory.kt`, `NetworkPolicyManager.kt`.**
+- [x] **Day 23:** Implement page zoom controls. **Completed: 2026-11-25. Added WebView zoom in/out controls. Evidence: `MainActivity.kt`, `activity_main.xml`.**
+- [x] **Day 24:** Implement text scaling controls. **Completed: 2026-11-25. Added text zoom controls with a 50–200% bound. Evidence: `MainActivity.kt`, `activity_main.xml`.**
+- [x] **Day 25:** Implement Desktop Mode using the supported WebView settings and user-agent behavior. **Completed: 2026-11-25. Added desktop user-agent and viewport settings. Evidence: `MainActivity.kt`, `DesktopModeManager.kt`.**
+- [x] **Day 26:** Implement Mobile Mode and switching between Mobile/Desktop modes. **Completed: 2026-11-25. Added mode toggle, restoration of default mobile user-agent, and reload after switching. Evidence: `MainActivity.kt`, `DesktopModeManager.kt`.**
+- [x] **Day 27:** Persist mode separately per website and reload the page when the mode changes; show the active mode clearly. **Completed: 2026-11-25. Persisted desktop preference by website host and display active mode. Evidence: `DesktopModeManager.kt`, `MainActivity.kt`.**
+- [x] **Day 28:** Test the Browser feature set, record evidence, fix verified defects, and obtain Round B acceptance. **Completed: 2026-11-25. GitHub Actions run `45575054677` completed successfully: Gradle Wrapper validation, lint, `testDebugUnitTest`, `assembleDebug`, and artifact upload all passed. Artifact `rain-android-build` ID `15003498586`, 852,812 bytes; SHA-256 `e08afde4d599e9887c068b2d43709cb7674d3f821f7d71fcf50fbd8a94dabd55`. Cloud verification accepted; physical-device end-to-end testing remains scheduled for Day 57 and has not been claimed.**
 
 **Round B review record**
-- Review status: Not reviewed
-- Review date:
-- Evidence / commit / Actions run:
-- Blockers or approved deviations:
+- Review status: **Accepted for cloud-verified implementation and CI**
+- Review date: 2026-11-25
+- Evidence / commit / Actions run: Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; successful Android Build run [45575054677](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45575054677); artifact `rain-android-build` (ID `15003498586`), SHA-256 `e08afde4d599e9887c068b2d43709cb7674d3f821f7d71fcf50fbd8a94dabd55`.
+- Blockers or approved deviations: Manual end-to-end testing on the owner's TECNO phone is intentionally deferred to Day 57 as requested. Cloud build, lint, and unit-test tasks passed; no claim of physical-device verification is made.
 
 ---
 
@@ -177,6 +177,24 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 8 | 2026-11-25 | Android CI passed: Gradle Wrapper validation, Kotlin compile, lint, unit-test task, debug APK assembly; build artifact uploaded. | Actions run `45565610942`; artifact `14999508764` |
 | 9 | 2026-11-25 | Created and backed up the RAIN release Keystore locally; uploaded all four required GitHub Actions Secrets, each confirmed by successful API response. | Termux upload script; four successful GitHub secret updates |
 | 10 | 2026-11-25 | Signed Release APK built; all 12 workflow steps passed; `apksigner verify` succeeded; owner accepted Round A. | Actions run `45572970312`; artifact `15002972322`; SHA-256 `bd935363e251661631e81115dc700b214db18f03401ea59a744ae83ce033872e` |
+| 11 | 2026-11-25 | Implemented the RAIN browser screen structure and controls. Evidence: `MainActivity.kt`, `activity_main.xml`; integrated source verified at commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 12 | 2026-11-25 | Added address input, Go action, keyboard submission, and address display updates. Evidence: `MainActivity.kt`, `activity_main.xml`; commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 13 | 2026-11-25 | Added URL resolution and HTTP(S)-only navigation policy; rejects unsupported schemes and credential-bearing URLs. Evidence: `BrowserUrlResolver.kt`, `NetworkPolicyManager.kt`, related unit tests; Actions run `45575054677`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 14 | 2026-11-25 | DuckDuckGo is the default search engine. Evidence: `BrowserUrlResolver.kt`, `MainActivity.kt`, `BrowserUrlResolverTest.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 15 | 2026-11-25 | Added Google selection through the search-engine control. Evidence: `BrowserUrlResolver.kt`, `MainActivity.kt`, `BrowserUrlResolverTest.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 16 | 2026-11-25 | Added WebView back/forward controls and enabled-state updates. Evidence: `MainActivity.kt`, `activity_main.xml`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 17 | 2026-11-25 | Reload control switches to Stop while a page is loading. Evidence: `MainActivity.kt`, `activity_main.xml`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 18 | 2026-11-25 | Added Home welcome page and New Tab creation. Evidence: `MainActivity.kt`, `activity_main.xml`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 19 | 2026-11-25 | Added tab model, tab manager, create/close operations, and tab list dialog. Evidence: `BrowserTab.kt`, `TabManager.kt`, `MainActivity.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 20 | 2026-11-25 | Added tab selection and active WebView display. Evidence: `TabManager.kt`, `MainActivity.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 21 | 2026-11-25 | Added WebView pause/resume, instance-state save/restore, and cleanup on tab/activity destruction. Evidence: `MainActivity.kt`, `WebViewFactory.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 22 | 2026-11-25 | Added HTTP(S) navigation, loading progress, title/address updates, SSL-error cancellation, and blocked unsupported schemes. Evidence: `MainActivity.kt`, `WebViewFactory.kt`, `NetworkPolicyManager.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 23 | 2026-11-25 | Added WebView zoom in/out controls. Evidence: `MainActivity.kt`, `activity_main.xml`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 24 | 2026-11-25 | Added text zoom controls with a 50–200% bound. Evidence: `MainActivity.kt`, `activity_main.xml`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 25 | 2026-11-25 | Added desktop user-agent and viewport settings. Evidence: `MainActivity.kt`, `DesktopModeManager.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 26 | 2026-11-25 | Added mode toggle, restoration of default mobile user-agent, and reload after switching. Evidence: `MainActivity.kt`, `DesktopModeManager.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 27 | 2026-11-25 | Persisted desktop preference by website host and display active mode. Evidence: `DesktopModeManager.kt`, `MainActivity.kt`. | Integrated source commit `64c4f3efa87930c6a543d53a3deedde81871f7d8`; Actions run `45575054677` |
+| 28 | 2026-11-25 | GitHub Actions run `45575054677` completed successfully: Gradle Wrapper validation, lint, `testDebugUnitTest`, `assembleDebug`, and artifact upload all passed. Artifact `rain-android-build` ID `15003498586`, 852,812 bytes; SHA-256 `e08afde4d599e9887c068b2d43709cb7674d3f821f7d71fcf50fbd8a94dabd55`. Cloud verification accepted; physical-device end-to-end testing remains scheduled for Day 57 and has not been claimed. | Actions run `45575054677`; artifact `15003498586`; commit `64c4f3efa87930c6a543d53a3deedde81871f7d8` |
 
 ## Blockers and approved changes
 
