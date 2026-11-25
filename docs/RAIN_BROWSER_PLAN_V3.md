@@ -402,3 +402,4 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 - กำหนด GitHub PAT สำหรับ Termux โดยจำกัดสิทธิ์และเก็บอย่างปลอดภัย
 - ระบุข้อจำกัดจริงของ Android WebView สำหรับ Private Session, DoH และ Proxy
 - คงเป้าหมาย Privacy, tabs, bookmarks, history, resume, downloads, offline, localization และเฟสต่อยอดตามลำดับ
+- ปรับแผนตามคำสั่งเจ้าของโครงการ 2026-11-26: ย้าย Private Browsing ทั้ง implementation และ verification จาก Phase 1 ไป Phase 2; เพิ่ม dedicated Instrumentation Workflow และ acceptance criteria; แยก Phase 1 privacy/network scope ให้เดินหน้าต่อได้โดยไม่รอ Private Browsing
