@@ -907,22 +907,34 @@ jobs:
           if ! grep -Eiq 'com\.(google\.android\.(webview|trichromelibrary)|android\.webview)' "$DIAG/webview-provider.txt"; then echo "::error::BLOCKED — Environment: Selected WebView provider package not recognized"; exit 2; fi
           if ! grep -Eiq 'version[^0-9]*[0-9]+(\.[0-9]+)+' "$DIAG/webview-provider.txt"; then echo "::error::BLOCKED — Environment: Numeric WebView provider version not found"; exit 2; fi
 
-      - name: Download debug APK
-        timeout-minutes: 3
-        uses: actions/download-artifact@v4
-        with:
-          name: rain-android-build
-          path: downloaded-build
-
-      - name: "6. Smoke — Install RAIN APK"
-        timeout-minutes: 2
+      - name: "6. Smoke — Build and install job-local RAIN APK"
+        timeout-minutes: 10
         shell: bash
         run: |
           set -euo pipefail
           if [ -z "${DEVICE:-}" ]; then echo "::error::BLOCKED — Environment: DEVICE missing before install"; exit 2; fi
-          APK_PATH="downloaded-build/outputs/apk/debug/app-debug.apk"
-          if [ ! -f "$APK_PATH" ]; then echo "::error::FAILED — Smoke/Product: Debug APK artifact missing"; find downloaded-build -maxdepth 6 -type f -print || true; exit 1; fi
-          if ! timeout 90s adb -s "$DEVICE" install -r "$APK_PATH"; then echo "::error::FAILED — Smoke/Product: RAIN APK installation failed after environment preflight"; exit 1; fi
+          chmod +x ./gradlew
+          if ! timeout --signal=TERM --kill-after=10s 8m ./gradlew --no-daemon --stacktrace assembleDebug; then
+            echo "::error::FAILED — Environment/Build: Instrumentation-runner assembleDebug failed or timed out"
+            exit 1
+          fi
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -s "$APK_PATH" ]; then
+            echo "::error::FAILED — Build: Job-local debug APK missing or empty"
+            find app/build/outputs/apk -maxdepth 5 -type f -print 2>&1 || true
+            exit 1
+          fi
+          APKSIGNER="$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner"
+          if [ ! -x "$APKSIGNER" ] || ! "$APKSIGNER" verify --print-certs "$APK_PATH" > app/build/outputs/ci/local-apk-signature.txt 2>&1; then
+            echo "::error::FAILED — Build: Job-local APK signature verification failed"
+            cat app/build/outputs/ci/local-apk-signature.txt 2>/dev/null || true
+            exit 1
+          fi
+          sha256sum "$APK_PATH" > app/build/outputs/ci/local-apk-sha256.txt
+          if ! timeout 90s adb -s "$DEVICE" install -r "$APK_PATH"; then
+            echo "::error::FAILED — Smoke/Product: Job-local RAIN APK installation failed after environment preflight"
+            exit 1
+          fi
           if ! timeout 15s adb -s "$DEVICE" shell pm list packages > app/build/outputs/ci/pm-after-install.txt 2>&1 || ! grep -qx 'package:com.rain.browser' app/build/outputs/ci/pm-after-install.txt; then echo "::error::FAILED — Smoke/Product: RAIN package missing after installation"; exit 1; fi
 
       - name: "7. Smoke — Launch MainActivity"
@@ -998,3 +1010,78 @@ jobs:
             echo "=== START: host_emulator_process ===" | tee -a "$SUMMARY"
             timeout 5s ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-final.txt" 2>&1
             echo "HOST_EMULATOR_PS_STATUS=$?" >> "$SUMMARY"
+            echo "=== END: host_emulator_process ===" | tee -a "$SUMMARY"
+          fi
+          echo "=== START: host_disk ===" | tee -a "$SUMMARY"
+          timeout 5s df -h > "$DIAG/host-disk.txt" 2>&1
+          echo "HOST_DF_STATUS=$?" >> "$SUMMARY"
+          echo "=== END: host_disk ===" | tee -a "$SUMMARY"
+          echo "=== START: host_memory ===" | tee -a "$SUMMARY"
+          timeout 5s free -h > "$DIAG/host-memory.txt" 2>&1
+          echo "HOST_FREE_STATUS=$?" >> "$SUMMARY"
+          echo "=== END: host_memory ===" | tee -a "$SUMMARY"
+          if [ -f "$DIAG/emulator-startup.log" ]; then
+            cp "$DIAG/emulator-startup.log" "$DIAG/emulator-final.log"
+          fi
+          BOOT_VALUE="UNKNOWN"
+          if [ -f "$DIAG/boot_completed.txt" ]; then
+            BOOT_VALUE="$(tr -d '\r\n ' < "$DIAG/boot_completed.txt")"
+          fi
+          PM_READY="NO"
+          if [ -f "$DIAG/instrumentation-packages.txt" ] && grep -qx 'package:android' "$DIAG/instrumentation-packages.txt"; then
+            PM_READY="YES"
+          fi
+          RAIN_INSTALLED="0"
+          if [ -f "$DIAG/instrumentation-packages.txt" ] && grep -qx 'package:com.rain.browser' "$DIAG/instrumentation-packages.txt"; then
+            RAIN_INSTALLED="1"
+          fi
+          echo "BOOT_COMPLETED=$BOOT_VALUE" >> "$SUMMARY"
+          echo "PM_READY=$PM_READY" >> "$SUMMARY"
+          echo "RAIN_INSTALLED=$RAIN_INSTALLED" >> "$SUMMARY"
+          echo "Diagnostics completed." >> "$SUMMARY"
+
+      - name: Stop Android Emulator
+        if: always()
+        shell: bash
+        timeout-minutes: 2
+        run: |
+          set +e
+          PID_FILE="$RUNNER_TEMP/rain-emulator.pid"
+          DEVICE="${DEVICE:-emulator-5554}"
+          echo "=== START: graceful adb emulator shutdown ==="
+          timeout --signal=TERM --kill-after=3s 10s adb -s "$DEVICE" emu kill > /tmp/rain-emulator-stop.txt 2>&1
+          ADB_STOP_STATUS=$?
+          echo "ADB_EMU_KILL_STATUS=$ADB_STOP_STATUS"
+          if [ -s "$PID_FILE" ]; then
+            EMULATOR_PID="$(tr -d '\r\n ' < "$PID_FILE")"
+            if [ -n "$EMULATOR_PID" ]; then
+              if kill -0 -- "-$EMULATOR_PID" 2>/dev/null; then
+                kill -TERM -- "-$EMULATOR_PID" 2>/dev/null || true
+              elif kill -0 "$EMULATOR_PID" 2>/dev/null; then
+                kill -TERM "$EMULATOR_PID" 2>/dev/null || true
+              fi
+              sleep 5
+              if kill -0 -- "-$EMULATOR_PID" 2>/dev/null; then
+                kill -KILL -- "-$EMULATOR_PID" 2>/dev/null || true
+              elif kill -0 "$EMULATOR_PID" 2>/dev/null; then
+                kill -KILL "$EMULATOR_PID" 2>/dev/null || true
+              fi
+            fi
+          fi
+          echo "=== END: emulator cleanup ==="
+
+      - name: Upload Private Browsing instrumentation artifacts
+        if: always()
+        timeout-minutes: 5
+        uses: actions/upload-artifact@v4
+        with:
+          name: rain-private-instrumentation
+          path: |
+            app/build/outputs/ci/**
+            app/build/reports/androidTests/connected/**
+            app/build/outputs/androidTest-results/connected/**
+            app/build/test-results/connectedDebugAndroidTest/**
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/**
+          if-no-files-found: warn
+          retention-days: 14
