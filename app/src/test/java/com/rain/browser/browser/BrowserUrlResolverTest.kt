@@ -45,6 +45,14 @@ class BrowserUrlResolverTest {
     }
 
     @Test
+    fun acceptsLocalhostWithPort() {
+        assertEquals(
+            "https://localhost:8080/path",
+            BrowserUrlResolver.resolve("localhost:8080/path", SearchEngine.DUCKDUCKGO)
+        )
+    }
+
+    @Test
     fun rejectsUrlsContainingUserInfo() {
         assertEquals(
             "https://duckduckgo.com/?q=https%3A%2F%2Fuser%3Apass%40example.com",
