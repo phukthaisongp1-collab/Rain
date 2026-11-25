@@ -90,6 +90,7 @@
             <Button android:id="@+id/zoom_in_button" style="@style/RainButton" android:text="Zoom +" />
             <Button android:id="@+id/text_out_button" style="@style/RainButton" android:text="Text -" />
             <Button android:id="@+id/text_in_button" style="@style/RainButton" android:text="Text +" />
+            <Button android:id="@+id/private_button" style="@style/RainButton" android:text="Private" />
         </LinearLayout>
     </HorizontalScrollView>
 
