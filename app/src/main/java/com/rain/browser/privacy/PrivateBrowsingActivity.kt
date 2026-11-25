@@ -1,7 +1,6 @@
 package com.rain.browser.privacy
 
 import android.app.Activity
-import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.ViewGroup
@@ -31,9 +30,6 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
     private var isClosing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            WebView.setDataDirectorySuffix(PRIVATE_DATA_DIRECTORY_SUFFIX)
-        }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_private_browsing)
 
@@ -95,17 +91,18 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
     private fun closePrivateSession() {
         if (isClosing) return
         isClosing = true
-        val webView = privateWebView
-        webView?.stopLoading()
-        webView?.clearHistory()
-        webView?.clearFormData()
-        webView?.clearCache(true)
-        WebStorage.getInstance().deleteAllData()
+        privateWebView?.stopLoading()
+        destroyPrivateWebView()
+        clearPrivateData {
+            finish()
+        }
+    }
 
+    private fun clearPrivateData(onComplete: () -> Unit) {
+        WebStorage.getInstance().deleteAllData()
         CookieManager.getInstance().removeAllCookies {
             CookieManager.getInstance().flush()
-            destroyPrivateWebView()
-            finish()
+            onComplete()
         }
     }
 
@@ -136,14 +133,20 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
 
     override fun onDestroy() {
         if (!isClosing) {
+            isClosing = true
             privateWebView?.stopLoading()
             destroyPrivateWebView()
+            runCatching {
+                WebStorage.getInstance().deleteAllData()
+                CookieManager.getInstance().removeAllCookies {
+                    CookieManager.getInstance().flush()
+                }
+            }
         }
         super.onDestroy()
     }
 
     private companion object {
-        const val PRIVATE_DATA_DIRECTORY_SUFFIX = "rain_private"
         const val PRIVATE_HOME_PAGE = """
             <!doctype html>
             <html lang="en">
