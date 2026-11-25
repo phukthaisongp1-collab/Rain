@@ -1,6 +1,7 @@
 package com.rain.browser.privacy
 
 import android.app.Activity
+import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -140,7 +141,7 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     }
 
     private fun isDebuggableBuild(): Boolean =
-        applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     private fun getTestResultReceiver(intent: Intent): ResultReceiver? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
