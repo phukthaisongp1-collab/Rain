@@ -67,5 +67,6 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.androidx.activity)
     testImplementation(libs.junit)
 }
