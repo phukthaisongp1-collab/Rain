@@ -1,6 +1,7 @@
 package com.rain.browser.privacy
 
-import android.app.Activity
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.ViewGroup
@@ -23,7 +24,7 @@ import com.rain.browser.network.NetworkPolicyManager
  * Runs in the dedicated :private process. The data-directory suffix must be
  * configured before this process creates or accesses any WebView instance.
  */
-class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
+class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     private lateinit var addressInput: EditText
     private lateinit var webViewContainer: FrameLayout
     private var privateWebView: WebView? = null
@@ -31,6 +32,11 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                closePrivateSession()
+            }
+        })
         setContentView(R.layout.activity_private_browsing)
 
         addressInput = findViewById(R.id.private_address_input)
@@ -130,11 +136,6 @@ class PrivateBrowsingActivity : Activity(), WebViewCallbacks {
     override fun onProgressChanged(view: WebView, progress: Int) = Unit
 
     override fun onTitleChanged(view: WebView, title: String) = Unit
-
-    @Deprecated("Deprecated in Android API; retained for API 29 compatibility.")
-    override fun onBackPressed() {
-        closePrivateSession()
-    }
 
     override fun onDestroy() {
         if (!isClosing) {
