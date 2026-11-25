@@ -1,9 +1,11 @@
 [versions]
 agp = "9.5.2"
 junit = "4.13.2"
+androidx-activity = "1.10.1"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
+androidx-activity = { module = "androidx.activity:activity-ktx", version.ref = "androidx-activity" }
