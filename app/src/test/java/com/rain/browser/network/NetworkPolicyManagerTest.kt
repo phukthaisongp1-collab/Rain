@@ -59,6 +59,12 @@ class NetworkPolicyManagerTest {
     }
 
     @Test
+    fun acceptsPortRangeBoundaries() {
+        assertTrue(NetworkPolicyManager.isAllowedWebUrl("https://example.com:0"))
+        assertTrue(NetworkPolicyManager.isAllowedWebUrl("https://example.com:65535"))
+    }
+
+    @Test
     fun rejectsUrlsWithoutAnAllowedHost() {
         assertFalse(NetworkPolicyManager.isAllowedWebUrl("https:"))
         assertFalse(NetworkPolicyManager.isAllowedWebUrl("//example.com/path"))
