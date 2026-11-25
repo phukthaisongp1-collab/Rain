@@ -42,6 +42,7 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     private var privateWebView: WebView? = null
     private var isClosing = false
     private var privateTestReceiverRegistered = false
+    private var pendingPrivateTestPageReceiver: ResultReceiver? = null
 
     private val privateTestReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -53,6 +54,11 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
                     sendTestResult(resultReceiver, Bundle().apply {
                         putBoolean("ready", privateWebView != null)
                         putString("process_name", Application.getProcessName())
+                        putInt("pid", android.os.Process.myPid())
+                        putBoolean(
+                            "service_worker_cleanup_supported",
+                            WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)
+                        )
                     })
                 }
 
@@ -74,6 +80,21 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
                     sendTestResult(resultReceiver, Bundle().apply {
                         putString("cookie", CookieManager.getInstance().getCookie(TEST_URL).orEmpty())
                     })
+                }
+
+                OP_LOAD_TEST_PAGE -> {
+                    val webView = privateWebView
+                    if (webView == null) {
+                        sendTestError(resultReceiver, "Private WebView is not ready")
+                    } else {
+                        pendingPrivateTestPageReceiver = resultReceiver
+                        val html = if (intent.getBooleanExtra(EXTRA_WRITE_TEST_DATA, false)) {
+                            PRIVATE_TEST_PAGE_WITH_DATA
+                        } else {
+                            PRIVATE_TEST_PAGE_READ_ONLY
+                        }
+                        webView.loadDataWithBaseURL(TEST_URL, html, "text/html", "UTF-8", null)
+                    }
                 }
 
                 OP_CLOSE -> {
@@ -256,13 +277,26 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
 
     override fun onPageStarted(view: WebView, url: String) = Unit
 
-    override fun onPageFinished(view: WebView, url: String) = Unit
+    override fun onPageFinished(view: WebView, url: String) {
+        if (view !== privateWebView || !url.startsWith(TEST_URL)) return
+        val receiver = pendingPrivateTestPageReceiver ?: return
+        pendingPrivateTestPageReceiver = null
+        view.evaluateJavascript(TEST_PAGE_DATA_SCRIPT) { pageData ->
+            sendTestResult(receiver, Bundle().apply {
+                putString("page_data", pageData)
+            })
+        }
+    }
 
     override fun onProgressChanged(view: WebView, progress: Int) = Unit
 
     override fun onTitleChanged(view: WebView, title: String) = Unit
 
     override fun onDestroy() {
+        pendingPrivateTestPageReceiver?.let {
+            sendTestError(it, "Private activity destroyed before test page completed")
+        }
+        pendingPrivateTestPageReceiver = null
         if (privateTestReceiverRegistered) {
             runCatching { unregisterReceiver(privateTestReceiver) }
             privateTestReceiverRegistered = false
@@ -292,12 +326,31 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
         internal const val EXTRA_OPERATION = "private_test_operation"
         internal const val EXTRA_COOKIE = "private_test_cookie"
         internal const val EXTRA_RESULT_RECEIVER = "private_test_result_receiver"
+        internal const val EXTRA_WRITE_TEST_DATA = "private_test_write_data"
         internal const val OP_STATUS = "status"
         internal const val OP_SET_COOKIE = "set_cookie"
         internal const val OP_GET_COOKIE = "get_cookie"
+        internal const val OP_LOAD_TEST_PAGE = "load_test_page"
         internal const val OP_CLOSE = "close"
 
         private const val TEST_URL = "https://rain-private-isolation.test/"
+        private const val TEST_PAGE_DATA_SCRIPT =
+            "({storage: localStorage.getItem('rain_isolation'), cookie: document.cookie})"
+
+        private const val PRIVATE_TEST_PAGE_READ_ONLY = """
+            <!doctype html>
+            <html><head><meta charset="utf-8"></head><body><p>RAIN private isolation test page</p></body></html>
+        """
+
+        private const val PRIVATE_TEST_PAGE_WITH_DATA = """
+            <!doctype html>
+            <html><head><meta charset="utf-8"></head><body>
+            <script>
+                localStorage.setItem('rain_isolation', 'private-temporary');
+                document.cookie = 'rain_private=temporary; Path=/; Secure; SameSite=Lax';
+            </script>
+            </body></html>
+        """
 
         private const val PRIVATE_HOME_PAGE = """
             <!doctype html>
