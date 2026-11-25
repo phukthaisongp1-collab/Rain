@@ -1,11 +1,18 @@
 # RAIN Browser — Phase 1: 60-Day Work Tracker
 
 > **Project:** RAIN Browser  
-> **Plan:** v3.1  
+> **Plan:** v3.2  
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
 > **Progress:** 30/60 days (50.00%)
+
+## Approved platform baseline change (2026-11-25)
+
+- The owner approved Android 16 (API 36) and newer only. `minSdk` is now 36; Android 15 and older are unsupported.
+- `compileSdk` and `targetSdk` remain 36 for this baseline. CI instrumentation must use an Android 16 (API 36) emulator.
+- Day 3 originally configured API 29; that was the initial setting and is superseded by this approved decision. Revalidate the updated minimum SDK through CI before treating the new baseline as verified.
+- This is a platform-support policy change only. It does not add features, change the Android WebView architecture, or alter the 60-day feature sequence.
 
 ## Tracking rules
 
@@ -39,7 +46,7 @@
 
 - [x] **Day 1:** Inspect the RAIN repository, default branch, existing plan, and current GitHub project structure. Record the verified baseline and avoid overwriting existing work. **Completed: 2026-11-25.** Verified: default branch `main`; repository is public and accessible with read/write permission; root contains `README.md` and `docs/`; `docs/` contains only `RAIN_BROWSER_PLAN_V3.md` and `PHASE1_60_DAY_TRACKER.md`; no Android source/project scaffold or `.github/workflows` files are present in the inspected root/docs listings. Existing plan confirmed as Android-only v3.1, Kotlin + Android SDK + Gradle + WebView, applicationId `com.rain.browser`, initial versionName `0.1.0`. Baseline commit: `e40dc87e6f4e9ea2d24bfe40d2e22fd5c6f6d4a6`; plan blob: `e44f963ad9eccf1c036df133ffa4a679dd552127`. No application code changed on Day 1.
 - [x] **Day 2:** Prepare the Android project structure in the existing repository, following the approved Android-only architecture. **Completed: 2026-11-25.** Created the approved directory skeleton with `.gitkeep` placeholders for `.github/workflows`, `app/src/main/java/com/rain/browser` and its `browser`, `privacy`, `network`, `data`, `downloads`, and `settings` packages; `app/src/main/res/layout`, `drawable`, `values`, and `values-th`; `app/src/test`; and `gradle/wrapper`. No Kotlin source, Gradle configuration, Android manifest, or workflow implementation was added because those belong to later scheduled tasks. Evidence commit: `a6fea91e7cdcd492ca6750a09ce2739d27198262`. 
-- [x] **Day 3:** Configure Kotlin and Android SDK settings. **Completed: 2026-11-25.** Configured Kotlin compilation through AGP 9 built-in Kotlin support, compileSdk/targetSdk 36, and minSdk 29. Evidence: `app/build.gradle.kts`, `gradle/libs.versions.toml`, commit `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a`.
+- [x] **Day 3:** Configure Kotlin and Android SDK settings. **Completed: 2026-11-25.** Configured Kotlin compilation through AGP 9 built-in Kotlin support, compileSdk/targetSdk 36, and initially minSdk 29. The owner later approved Android 16+ only; see the platform baseline change above. Evidence: `app/build.gradle.kts`, `gradle/libs.versions.toml`, commit `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a`.
 - [x] **Day 4:** Configure Gradle and Gradle Wrapper, pin compatible versions, and verify the build environment. **Completed: 2026-11-25.** Pinned Gradle 9.6.0 and AGP 9.5.2; added the official Gradle 9.6.0 wrapper scripts and JAR. Gradle Wrapper validation passed in Actions run `45565157678`; the later build step exposed a separate Kotlin plugin configuration issue that was corrected. Evidence: `gradle/wrapper/`, `gradlew`, `gradlew.bat`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 5:** Set the application identity: app name RAIN, applicationId `com.rain.browser`, initial versionName `0.1.0`, and initial versionCode policy. **Completed: 2026-11-25.** Set app label/name RAIN, applicationId `com.rain.browser`, versionName `0.1.0`, and initial versionCode `1`. Evidence: `app/build.gradle.kts`, `app/src/main/res/values/strings.xml`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 6:** Create the starting Activity and initial application screen using the approved theme. **Completed: 2026-11-25.** Added `MainActivity.kt`, `activity_main.xml`, and the approved RAIN theme colors. Evidence: `app/src/main/java/com/rain/browser/MainActivity.kt`, `app/src/main/res/layout/activity_main.xml`, `app/src/main/res/values/`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
