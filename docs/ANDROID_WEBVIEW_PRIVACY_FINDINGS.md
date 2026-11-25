@@ -96,6 +96,55 @@ Initial implementation committed to the repository:
 - The implementation does not claim RAM-only operation, guaranteed zero traces, or complete erasure of every WebView-managed artifact.
 - The private browsing screen currently provides a single private WebView. Full parity with normal tab management, download handling, permission prompts, and comprehensive cleanup tests remain pending.
 - No tests on the owner's physical phone have been performed; device validation remains scheduled for the final phase.
+## Days 40–44 — DNS, Proxy, and whitelist feasibility
+
+### DNS-over-HTTPS / Android DNS
+
+Android 10+ provides the platform DNS resolver, and Android 9+ supports system Private DNS using DNS-over-TLS. Android's security guidance recommends allowing the OS to handle DNS because a custom DNS transport can bypass device DNS transport protections. Android's `DnsResolver` API performs DNS queries; it is not a drop-in replacement for the DNS resolution used by every WebView request.
+
+Decision consistent with the owner's approved Phase 1 policy:
+- RAIN does not force Cloudflare, Google, or NextDNS DoH in Phase 1.
+- RAIN leaves DNS resolution to Android and respects the device's Private DNS configuration.
+- No custom DoH resolver, DNS interception, or alternate DNS routing is added.
+- RAIN must not display a custom DoH provider as active.
+
+References:
+- https://source.android.com/docs/core/ota/modular-system/dns-resolver
+- https://developer.android.com/develop/connectivity/network-ops/connecting
+- https://developer.android.com/privacy-and-security/risks/bad-dns
+- https://developer.android.com/reference/android/net/DnsResolver
+
+### WebView Proxy feasibility
+
+AndroidX WebKit exposes `ProxyController` and `ProxyConfig` for WebView network requests:
+- `ProxyController` applies a process-specific override to all WebViews in that app process.
+- The override supersedes the existing system-wide proxy setting for those WebView requests.
+- `WebViewFeature.PROXY_OVERRIDE` must be checked before calling `ProxyController.getInstance()`.
+- A configuration requires an actual proxy server address. The API does not provide a proxy service or a trusted endpoint.
+- The API does not automatically proxy traffic outside WebView.
+- RAIN's normal and private browsing run in separate processes; any proxy configuration would need deliberate handling in each process.
+- Proxy activation is asynchronous. The app must wait for the completion callback before loading a page.
+
+The API is technically available on supporting WebView providers, but Phase 1 does not configure a proxy because no trusted, owner-approved proxy endpoint and authentication policy are specified. RAIN will not use free, unknown, or hard-coded public proxies and will not silently route ordinary traffic through an external server.
+
+### Proxy whitelist candidates
+
+The approved candidates remain:
+- `*.scb.co.th`
+- `*.kbank.com`
+- `*.go.th`
+- `*.gmail.com`
+- `*.outlook.com`
+
+AndroidX WebKit 1.5.0+ exposes reverse-bypass support, feature-gated by `WebViewFeature.PROXY_OVERRIDE_REVERSE_BYPASS`. With a trusted proxy endpoint, a future configuration could use the candidate domains as the reverse-bypass list so only matching WebView requests use that proxy and other requests connect directly. This still requires runtime validation of wildcard/apex-domain matching, subresources, redirects, provider support, and both normal/private processes on the target device.
+
+No whitelist routing is active in the current build. The domains are recorded as candidates only; no proxy endpoint is configured.
+
+References:
+- https://developer.android.com/reference/androidx/webkit/ProxyController
+- https://developer.android.com/reference/androidx/webkit/ProxyConfig
+- https://developer.android.com/reference/androidx/webkit/ProxyConfig.Builder
+
 ## Current conclusion
 
 The owner-approved separate-process design has been committed and an initial implementation exists. It is not yet accepted as a verified Private Browsing feature: GitHub Actions compilation, automated tests, process/data isolation checks, cookie and Web Storage lifecycle checks, cache behavior, and Service Worker limitations still require validation. RAIN must not advertise complete private-session cleanup, RAM-only operation, or zero traces until the relevant behavior is demonstrated. The separate process is the implementation direction, while feature acceptance remains pending Days 31–35.
