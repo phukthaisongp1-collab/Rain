@@ -60,13 +60,15 @@ jobs:
   emulator-boot-test:
     name: Android 16 Emulator Boot Test (requires KVM)
     runs-on: ubuntu-24.04
-    needs: build
-    timeout-minutes: 35
+    needs: [build]
+    timeout-minutes: 85
     steps:
       - name: Check out source
+        timeout-minutes: 3
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
+        timeout-minutes: 4
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -74,202 +76,515 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
+        timeout-minutes: 4
         uses: android-actions/setup-android@v4
 
       - name: Install Android 16 emulator packages
+        shell: bash
+        timeout-minutes: 7
         run: |
-          sdkmanager --install \
+          set -euo pipefail
+          printf 'y\ny\ny\ny\ny\ny\ny\n' > /tmp/sdkmanager-licenses.txt
+          timeout 60s sdkmanager --licenses < /tmp/sdkmanager-licenses.txt || true
+          if ! timeout 280s sdkmanager --install \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "system-images;android-36;google_apis;x86_64" \
-            "emulator"
+            "emulator"; then
+            echo "::error::BLOCKED — Environment: Android SDK package installation failed or timed out"
+            exit 2
+          fi
 
       - name: Prepare CI diagnostics directory
+        timeout-minutes: 1
         run: mkdir -p app/build/outputs/ci
 
       - name: Verify Hardware Acceleration (KVM Gate)
+        timeout-minutes: 3
         id: kvm_gate
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p app/build/outputs/ci
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
           {
             echo "=== RAIN KVM / Acceleration Gate ==="
-            echo "Runner: $(uname -a)"
-            echo "User: $(id)"
-            echo "KVM device before permission change:"
+            uname -a
+            id
             ls -l /dev/kvm 2>&1 || true
-            echo "Loaded KVM modules (lsmod):"
-            lsmod | grep -E '^kvm' || echo "No KVM module listed by lsmod"
-            echo "KVM sysfs modules:"
-            ls -d /sys/module/kvm* 2>/dev/null || echo "No /sys/module/kvm* entries"
-            echo "CPU virtualization flags:"
+            echo "=== lsmod ==="
+            lsmod | grep -E '^kvm' || true
+            echo "=== sysfs ==="
+            ls -d /sys/module/kvm* 2>/dev/null || true
+            echo "=== CPU flags ==="
             grep -m 1 -oE 'vmx|svm' /proc/cpuinfo | sort -u || true
-          } | tee app/build/outputs/ci/kvm-device.txt
+          } > "$DIAG/kvm-device.txt" 2>&1
 
           if [ ! -c /dev/kvm ]; then
-            echo "::error::/dev/kvm is missing or is not a character device."
-            exit 1
+            echo "::error::BLOCKED — Environment: /dev/kvm missing"
+            exit 2
           fi
 
-          sudo chmod 666 /dev/kvm
-          ls -l /dev/kvm | tee app/build/outputs/ci/kvm-permissions-after.txt
+          if ! timeout 20s sudo chmod 666 /dev/kvm; then
+            echo "::error::BLOCKED — Environment: Cannot grant runner access to /dev/kvm"
+            exit 2
+          fi
+          ls -l /dev/kvm > "$DIAG/kvm-permissions-after.txt" 2>&1
+          {
+            echo "KVM_READABLE=$([ -r /dev/kvm ] && echo yes || echo no)"
+            echo "KVM_WRITABLE=$([ -w /dev/kvm ] && echo yes || echo no)"
+          } >> "$DIAG/kvm-permissions-after.txt"
           if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ] || ! (exec 3<>/dev/kvm); then
-            echo "::error::Cannot read/write /dev/kvm after permission adjustment."
-            exit 1
+            echo "::error::BLOCKED — Environment: /dev/kvm read/write access denied"
+            exit 2
           fi
 
           if ! lsmod | grep -qE '^kvm' && ! compgen -G '/sys/module/kvm*' > /dev/null; then
-            echo "::error::KVM module not detected in lsmod or /sys/module."
-            exit 1
+            echo "::error::BLOCKED — Environment: KVM module unavailable"
+            exit 2
           fi
-
-          if ! grep -qE '\b(vmx|svm)\b' /proc/cpuinfo; then
-            echo "::error::CPU virtualization flag vmx/svm is not exposed."
-            exit 1
+          if ! grep -Eq '(^|[[:space:]])(vmx|svm)([[:space:]]|$)' /proc/cpuinfo; then
+            echo "::error::BLOCKED — Environment: CPU virtualization flag unavailable"
+            exit 2
           fi
 
           EMULATOR_BIN="$ANDROID_SDK_ROOT/emulator/emulator"
           if [ ! -x "$EMULATOR_BIN" ]; then
-            echo "::error::Emulator binary not found."
-            exit 1
+            echo "::error::BLOCKED — Environment: Emulator binary missing"
+            exit 2
           fi
-
           set +e
-          printf 'no\n' | "$EMULATOR_BIN" -accel-check 2>&1 | tee app/build/outputs/ci/kvm-accel-check.log
-          accel_status=${PIPESTATUS[1]}
+          timeout 30s "$EMULATOR_BIN" -accel-check > "$DIAG/kvm-accel-check.log" 2>&1
+          ACCEL_STATUS=$?
           set -e
-          echo "emulator -accel-check exit status: $accel_status" | tee -a app/build/outputs/ci/kvm-accel-check.log
-          if ! grep -Fq "is installed and usable" app/build/outputs/ci/kvm-accel-check.log; then
-            echo "::error::KVM is not confirmed usable; TCG fallback is prohibited."
-            exit 1
+          echo "emulator -accel-check exit status: $ACCEL_STATUS" >> "$DIAG/kvm-accel-check.log"
+          if [ "$ACCEL_STATUS" -ne 0 ] || ! grep -Fq "is installed and usable" "$DIAG/kvm-accel-check.log"; then
+            echo "::error::BLOCKED — Environment: KVM acceleration not confirmed; TCG fallback prohibited"
+            exit 2
           fi
-          echo "KVM / Hardware Acceleration check passed."
 
-      - name: Upload KVM acceleration diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rain-kvm-accel-check-boot
-          path: |
-            app/build/outputs/ci/kvm-device.txt
-            app/build/outputs/ci/kvm-permissions-after.txt
-            app/build/outputs/ci/kvm-accel-check.log
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Verify AVD device profile and ABI (Fail Fast)
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+
+          timeout 30s avdmanager list device > "$DIAG/avd-devices.txt" 2>&1 || true
+          timeout 30s avdmanager list target > "$DIAG/avd-targets.txt" 2>&1 || true
+          timeout 30s sdkmanager --list_installed > "$DIAG/sdk-installed.txt" 2>&1 || true
+
+          if grep -Eiq '(^|[^[:alnum:]_])pixel_2([^[:alnum:]_]|$)' "$DIAG/avd-devices.txt"; then
+            AVD_DEVICE="pixel_2"
+          elif grep -Eiq '(^|[^[:alnum:]_])pixel([^[:alnum:]_]|$)' "$DIAG/avd-devices.txt"; then
+            AVD_DEVICE="pixel"
+          else
+            echo "::error::BLOCKED — Environment: No usable AVD profile (pixel_2/pixel)"
+            exit 2
+          fi
+
+          if ! grep -Fq 'system-images;android-36;google_apis;x86_64' "$DIAG/sdk-installed.txt"; then
+            echo "::error::BLOCKED — Environment: Android 16 Google APIs x86_64 image is not installed"
+            exit 2
+          fi
+
+          if ! grep -Eiq 'android-36|API level:[[:space:]]*36' "$DIAG/avd-targets.txt"; then
+            echo "::error::BLOCKED — Environment: Android 36 target unavailable"
+            exit 2
+          fi
+
+          IMAGE_PROPERTIES="$ANDROID_SDK_ROOT/system-images/android-36/google_apis/x86_64/source.properties"
+          if [ ! -f "$IMAGE_PROPERTIES" ]; then
+            echo "::error::BLOCKED — Environment: Android 36 x86_64 source.properties missing"
+            exit 2
+          fi
+          cp "$IMAGE_PROPERTIES" "$DIAG/system-image-source.properties"
+          if ! grep -Fxq 'AndroidVersion.ApiLevel=36' "$IMAGE_PROPERTIES" || \
+             ! grep -Fxq 'SystemImage.Abi=x86_64' "$IMAGE_PROPERTIES" || \
+             ! grep -Fxq 'SystemImage.TagId=google_apis' "$IMAGE_PROPERTIES"; then
+            echo "::error::BLOCKED — Environment: System image API/ABI/tag metadata mismatch"
+            exit 2
+          fi
+          echo "AVD_DEVICE=$AVD_DEVICE" >> "$GITHUB_ENV"
+          printf '%s\n' "$AVD_DEVICE" > "$DIAG/avd-device-chosen.txt"
+          printf 'no\n' > "$RUNNER_TEMP/avd-input.txt"
+
+      - name: Create Android 16 AVD
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          if [ -z "${AVD_DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: AVD_DEVICE was not selected"
+            exit 2
+          fi
+          if ! timeout 120s avdmanager create avd \
+            --force \
+            --name rain_api36 \
+            --package "system-images;android-36;google_apis;x86_64" \
+            --abi "google_apis/x86_64" \
+            --device "$AVD_DEVICE" \
+            < "$RUNNER_TEMP/avd-input.txt"; then
+            echo "::error::BLOCKED — Environment: Android 16 AVD creation failed"
+            exit 2
+          fi
+          AVD_CONFIG="$HOME/.android/avd/rain_api36.avd/config.ini"
+          if [ ! -f "$AVD_CONFIG" ] || \
+             ! grep -Eq '^image.sysdir.1=system-images/android-36/google_apis/x86_64/?$' "$AVD_CONFIG"; then
+            echo "::error::BLOCKED — Environment: Created AVD does not reference the verified Android 36 x86_64 image"
+            exit 2
+          fi
+          if ! timeout 30s avdmanager list avd > "$DIAG/avd-created.txt" 2>&1 || \
+             ! grep -Fq 'rain_api36' "$DIAG/avd-created.txt"; then
+            echo "::error::BLOCKED — Environment: Created AVD is not listed by avdmanager"
+            exit 2
+          fi
+
+      - name: Start Android Emulator process
+        timeout-minutes: 3
+        id: emulator_start
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          EMULATOR_BIN="$ANDROID_SDK_ROOT/emulator/emulator"
+          EMULATOR_LOG="$DIAG/emulator-startup.log"
+          PID_FILE="$RUNNER_TEMP/rain-emulator.pid"
+
+          setsid nohup "$EMULATOR_BIN" \
+            -avd rain_api36 \
+            -port 5554 \
+            -accel on \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -noaudio \
+            -no-boot-anim \
+            -no-snapshot \
+            -wipe-data \
+            -memory 3072 \
+            -cores 4 \
+            > "$EMULATOR_LOG" 2>&1 < /dev/null &
+          EMULATOR_PID=$!
+          disown "$EMULATOR_PID" 2>/dev/null || true
+          printf '%s\n' "$EMULATOR_PID" > "$PID_FILE"
+          echo "EMULATOR_PID=$EMULATOR_PID" >> "$GITHUB_ENV"
+          sleep 5
+
+          if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+            echo "::error::BLOCKED — Environment: Emulator process exited during startup"
+            cat "$EMULATOR_LOG" || true
+            exit 2
+          fi
+          EMULATOR_PGID="$(ps -o pgid= -p "$EMULATOR_PID" 2>/dev/null | tr -d ' ')"
+          EMULATOR_STATE="$(ps -o stat= -p "$EMULATOR_PID" 2>/dev/null | tr -d ' ')"
+          if [ -z "$EMULATOR_STATE" ] || [[ "$EMULATOR_STATE" == Z* ]]; then
+            echo "::error::BLOCKED — Environment: Emulator process is not alive (state=${EMULATOR_STATE:-missing})"
+            cat "$EMULATOR_LOG" || true
+            exit 2
+          fi
+          if [ "$EMULATOR_PGID" != "$EMULATOR_PID" ]; then
+            echo "::error::BLOCKED — Environment: Emulator did not enter its dedicated process group"
+            ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-start.txt" 2>&1 || true
+            exit 2
+          fi
+          ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-start.txt" 2>&1 || true
+          if grep -Eiq 'KVM.*(not available|failed|disabled)|accel.*(off|failed)|x86_64 emulation may not work' "$EMULATOR_LOG"; then
+            echo "::error::BLOCKED — Environment: Emulator startup reports KVM/acceleration failure"
+            exit 2
+          fi
+
+      - name: "2. Preflight — ADB device visible"
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          PID_FILE="$RUNNER_TEMP/rain-emulator.pid"
+          if [ ! -s "$PID_FILE" ]; then
+            echo "::error::BLOCKED — Environment: Emulator PID file missing after start step"
+            exit 2
+          fi
+          EMULATOR_PID="$(tr -d '\r\n ' < "$PID_FILE")"
+          if [ -z "$EMULATOR_PID" ] || ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+            echo "::error::BLOCKED — Environment: Emulator process did not survive the step boundary"
+            cat "$DIAG/emulator-startup.log" 2>/dev/null || true
+            exit 2
+          fi
+          EMULATOR_STATE="$(ps -o stat= -p "$EMULATOR_PID" 2>/dev/null | tr -d ' ')"
+          if [ -z "$EMULATOR_STATE" ] || [[ "$EMULATOR_STATE" == Z* ]]; then
+            echo "::error::BLOCKED — Environment: Emulator process is not alive after the step boundary"
+            exit 2
+          fi
+          timeout 5s ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-after-step-boundary.txt" 2>&1 || true
+          echo "EMULATOR_PROCESS_SURVIVED_STEP_BOUNDARY=yes" > "$DIAG/process-lifecycle.txt"
+          if ! timeout 15s adb start-server; then
+            echo "::error::BLOCKED — Environment: ADB server failed to start"
+            exit 2
+          fi
+          DEVICE=""
+          for attempt in $(seq 1 30); do
+            timeout 10s adb devices -l > "$DIAG/adb-devices.txt" 2>&1 || true
+            DEVICE="$(awk '/emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}' "$DIAG/adb-devices.txt")"
+            if [ -n "$DEVICE" ]; then break; fi
+            sleep 2
+          done
+          if [ -z "$DEVICE" ]; then
+            echo "::error::BLOCKED — Environment: ADB device unavailable"
+            exit 2
+          fi
+          echo "DEVICE=$DEVICE" >> "$GITHUB_ENV"
+          echo "ANDROID_SERIAL=$DEVICE" >> "$GITHUB_ENV"
+          echo "ADB device ready: $DEVICE"
+
+      - name: "3. Preflight — Android boot completed"
+        shell: bash
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: DEVICE missing"
+            exit 2
+          fi
+          DIAG="app/build/outputs/ci"
+          START_TIME=$SECONDS
+          BOOT_READY=0
+          while [ $((SECONDS - START_TIME)) -lt 600 ]; do
+            if timeout 8s adb -s "$DEVICE" shell getprop sys.boot_completed > "$DIAG/boot_completed.txt" 2>&1; then
+              BOOT_STATE="$(tr -d '\r\n ' < "$DIAG/boot_completed.txt")"
+              if [ "$BOOT_STATE" = "1" ]; then BOOT_READY=1; break; fi
+            fi
+            sleep 2
+          done
+          if [ "$BOOT_READY" -ne 1 ]; then
+            echo "::error::BLOCKED — Environment: Android boot timeout after 600 seconds"
+            exit 2
+          fi
+          echo "Android boot completed."
+
+      - name: "4. Preflight — Package Manager ready"
+        shell: bash
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: DEVICE missing"
+            exit 2
+          fi
+          DIAG="app/build/outputs/ci"
+          PM_READY=0
+          for attempt in $(seq 1 5); do
+            if timeout 8s adb -s "$DEVICE" shell pm list packages > "$DIAG/pm_list.txt" 2>&1 && \
+               grep -qx 'package:android' "$DIAG/pm_list.txt"; then
+              PM_READY=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$PM_READY" -ne 1 ]; then
+            echo "::error::BLOCKED — Environment: Package Manager not ready"
+            exit 2
+          fi
+          if ! timeout 8s adb -s "$DEVICE" shell pm path android > "$DIAG/pm-path-android.txt" 2>&1; then
+            echo "::error::BLOCKED — Environment: pm path android failed"
+            exit 2
+          fi
+
+      - name: "5. Preflight — WebView provider ready"
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: DEVICE missing"
+            exit 2
+          fi
+          DIAG="app/build/outputs/ci"
+          if ! timeout 15s adb -s "$DEVICE" shell dumpsys webviewupdate > "$DIAG/webview-provider.txt" 2>&1; then
+            echo "::error::BLOCKED — Environment: WebView provider query failed"
+            exit 2
+          fi
+          if ! grep -Eiq 'com\.(google\.android\.(webview|trichromelibrary)|android\.webview)' "$DIAG/webview-provider.txt"; then
+            echo "::error::BLOCKED — Environment: Selected WebView provider package not recognized"
+            exit 2
+          fi
+          if ! grep -Eiq 'version[^0-9]*[0-9]+(\.[0-9]+)+' "$DIAG/webview-provider.txt"; then
+            echo "::error::BLOCKED — Environment: Numeric WebView provider version not found"
+            exit 2
+          fi
 
       - name: Download debug APK
+        timeout-minutes: 3
         uses: actions/download-artifact@v4
         with:
           name: rain-android-build
           path: downloaded-build
 
-      - name: Boot Android 16 and verify RAIN launch
-        if: steps.kvm_gate.outcome == 'success'
-        id: boot_test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 36
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          disable-linux-hw-accel: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data
-          disable-animations: true
-          cores: 4
-          ram-size: 3072M
-          heap-size: 1024M
-          disk-size: 6G
-          emulator-boot-timeout: 300
-          script: |
-            set -euo pipefail
-            mkdir -p app/build/outputs/ci
-            echo "=== ADB device readiness ==="
-            adb wait-for-device
-            DEVICE=""
-            for attempt in $(seq 1 30); do
-              DEVICE="$(adb devices | awk '/emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}')"
-              if [ -n "$DEVICE" ]; then break; fi
-              sleep 2
-            done
-            if [ -z "$DEVICE" ]; then
-              echo "::error::No online Android emulator device."
-              adb devices -l
-              exit 1
-            fi
-            echo "Online device: $DEVICE"
-
-            echo "=== Wait for Android boot (300 seconds) ==="
-            boot_ready=0
-            for attempt in $(seq 1 150); do
-              boot_state="$(adb -s "$DEVICE" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
-              if [ "$boot_state" = "1" ]; then boot_ready=1; break; fi
-              sleep 2
-            done
-            if [ "$boot_ready" -ne 1 ]; then
-              echo "::error::Android boot did not complete within 300 seconds."
-              exit 1
-            fi
-            echo "Android boot completed."
-
-            echo "=== Verify Package Manager ==="
-            pm_ready=0
-            for attempt in $(seq 1 30); do
-              if adb -s "$DEVICE" shell pm list packages 2>/dev/null | grep -q '^package:android$'; then
-                pm_ready=1
-                break
-              fi
-              sleep 2
-            done
-            if [ "$pm_ready" -ne 1 ]; then
-              echo "::error::Package Manager did not become responsive."
-              exit 1
-            fi
-
-            echo "=== Install RAIN debug APK ==="
-            APK_PATH="downloaded-build/app/build/outputs/apk/debug/app-debug.apk"
-            if [ ! -f "$APK_PATH" ]; then
-              APK_PATH="downloaded-build/app-debug.apk"
-            fi
-            if [ ! -f "$APK_PATH" ]; then
-              echo "::error::Debug APK artifact not found."
-              find downloaded-build -maxdepth 5 -type f -print
-              exit 1
-            fi
-            adb -s "$DEVICE" install -r "$APK_PATH"
-            adb -s "$DEVICE" shell pm list packages | grep -q '^package:com.rain.browser$'
-
-            echo "=== Launch MainActivity ==="
-            adb -s "$DEVICE" shell am start -W -n com.rain.browser/.MainActivity | tee app/build/outputs/ci/main-activity-launch.txt
-            grep -q 'Status: ok' app/build/outputs/ci/main-activity-launch.txt
-
-            echo "=== Verify app process and WebView stability ==="
-            sleep 5
-            if ! adb -s "$DEVICE" shell pidof com.rain.browser >/dev/null 2>&1; then
-              echo "::error::RAIN process is not running after MainActivity launch."
-              exit 1
-            fi
-            adb -s "$DEVICE" logcat -d -v threadtime > app/build/outputs/ci/boot-logcat.txt
-            if grep -Eiq 'Fatal signal [0-9]+|SIGTRAP|SIGSEGV|FATAL EXCEPTION|chromium.*(crash|fatal)' app/build/outputs/ci/boot-logcat.txt; then
-              echo "::error::Crash signature detected during RAIN/WebView startup."
-              exit 1
-            fi
-            echo "Android 16 Emulator Boot Test passed."
-
-      - name: Collect Android boot diagnostics
-        if: always()
+      - name: "6. Smoke — Install RAIN APK"
+        timeout-minutes: 2
         shell: bash
         run: |
-          mkdir -p app/build/outputs/ci
-          adb devices -l > app/build/outputs/ci/adb-devices.txt 2>&1 || true
-          adb logcat -d -v threadtime > app/build/outputs/ci/boot-logcat.txt 2>&1 || true
-          adb shell dumpsys activity activities > app/build/outputs/ci/boot-activity-dump.txt 2>&1 || true
-          adb shell getprop > app/build/outputs/ci/boot-getprop.txt 2>&1 || true
-          adb shell pm list packages > app/build/outputs/ci/boot-packages.txt 2>&1 || true
-          adb shell ps -A > app/build/outputs/ci/boot-process-list.txt 2>&1 || true
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: DEVICE missing before install"
+            exit 2
+          fi
+          APK_PATH="downloaded-build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "::error::FAILED — Smoke/Product: Debug APK artifact missing"
+            find downloaded-build -maxdepth 6 -type f -print || true
+            exit 1
+          fi
+          if ! timeout 90s adb -s "$DEVICE" install -r "$APK_PATH"; then
+            echo "::error::FAILED — Smoke/Product: RAIN APK installation failed after environment preflight"
+            exit 1
+          fi
+          if ! timeout 15s adb -s "$DEVICE" shell pm list packages > app/build/outputs/ci/pm-after-install.txt 2>&1 || \
+             ! grep -qx 'package:com.rain.browser' app/build/outputs/ci/pm-after-install.txt; then
+            echo "::error::FAILED — Smoke/Product: RAIN package missing after installation"
+            exit 1
+          fi
+
+      - name: "7. Smoke — Launch MainActivity"
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: DEVICE missing before launch"
+            exit 2
+          fi
+          DIAG="app/build/outputs/ci"
+          timeout 10s adb -s "$DEVICE" logcat -c || true
+          if ! timeout 30s adb -s "$DEVICE" shell am start -W -n com.rain.browser/.MainActivity > "$DIAG/main-activity-launch.txt" 2>&1; then
+            echo "::error::FAILED — Smoke/Product: MainActivity launch command failed"
+            exit 1
+          fi
+          if ! grep -q 'Status: ok' "$DIAG/main-activity-launch.txt"; then
+            echo "::error::FAILED — Smoke/Product: MainActivity did not report Status: ok"
+            exit 1
+          fi
+          sleep 5
+          if ! timeout 10s adb -s "$DEVICE" shell pidof com.rain.browser > "$DIAG/rain-pid.txt" 2>&1; then
+            echo "::error::FAILED — Smoke/Product: RAIN process not running after launch"
+            exit 1
+          fi
+          RAIN_PID="$(tr -d '\r\n ' < "$DIAG/rain-pid.txt")"
+          if [ -z "$RAIN_PID" ]; then
+            echo "::error::FAILED — Smoke/Product: RAIN_PID is empty after launch"
+            exit 1
+          fi
+          printf '%s\n' "$RAIN_PID" > "$DIAG/rain-pid.txt"
+
+      - name: "8. Diagnostics — RAIN process + environment summary"
+        if: always()
+        timeout-minutes: 4
+        shell: bash
+        run: |
+          set +e
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          SUMMARY="$DIAG/_summary.txt"
+          : > "$SUMMARY"
+          echo "RUN_ID=${GITHUB_RUN_ID:-UNKNOWN}" >> "$SUMMARY"
+          echo "JOB=emulator-boot-test" >> "$SUMMARY"
+          echo "DEVICE=${DEVICE:-EMPTY}" >> "$SUMMARY"
+          echo "EMULATOR_PID=${EMULATOR_PID:-EMPTY}" >> "$SUMMARY"
+          if [ -f "$DIAG/process-lifecycle.txt" ]; then cat "$DIAG/process-lifecycle.txt" >> "$SUMMARY"; fi
+          run_adb() {
+            local name="$1" limit="$2" output="$3"
+            shift 3
+            echo "=== START: $name ===" | tee -a "$SUMMARY"
+            if [ "$name" = "devices" ] || [ -z "${DEVICE:-}" ]; then
+              timeout --signal=TERM --kill-after=3s "${limit}s" adb "$@" > "$DIAG/$output" 2>&1
+            else
+              timeout --signal=TERM --kill-after=3s "${limit}s" adb -s "$DEVICE" "$@" > "$DIAG/$output" 2>&1
+            fi
+            local status=$?
+            echo "ADB_${name}_STATUS=$status" >> "$SUMMARY"
+            if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+              echo "TIMEOUT_OR_FAIL: $name" >> "$SUMMARY"
+            fi
+            echo "=== END: $name (status=$status) ===" | tee -a "$SUMMARY"
+            return 0
+          }
+          run_adb devices 15 diagnostic-adb-devices.txt devices -l
+          run_adb boot_completed 15 boot_completed.txt shell getprop sys.boot_completed
+          run_adb bootanim 15 bootanim.txt shell getprop init.svc.bootanim
+          run_adb packages 15 pm_list.txt shell pm list packages
+          run_adb rain_package 15 rain-package-dump.txt shell dumpsys package com.rain.browser
+          run_adb activity 15 activity_dump.txt shell dumpsys activity activities
+          run_adb getprop 15 getprop.txt shell getprop
+          run_adb processes 15 process_list.txt shell ps -A
+          run_adb logcat 20 final_logcat.txt logcat -d -t 500 -v threadtime
+          if [ -n "${EMULATOR_PID:-}" ]; then
+            echo "=== START: host_emulator_process ===" | tee -a "$SUMMARY"
+            timeout 5s ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-final.txt" 2>&1
+            echo "HOST_EMULATOR_PS_STATUS=$?" >> "$SUMMARY"
+            echo "=== END: host_emulator_process ===" | tee -a "$SUMMARY"
+          fi
+          echo "=== START: host_disk ===" | tee -a "$SUMMARY"
+          timeout 5s df -h > "$DIAG/host-disk.txt" 2>&1
+          echo "HOST_DF_STATUS=$?" >> "$SUMMARY"
+          echo "=== END: host_disk ===" | tee -a "$SUMMARY"
+          echo "=== START: host_memory ===" | tee -a "$SUMMARY"
+          timeout 5s free -h > "$DIAG/host-memory.txt" 2>&1
+          echo "HOST_FREE_STATUS=$?" >> "$SUMMARY"
+          echo "=== END: host_memory ===" | tee -a "$SUMMARY"
+          if [ -f "$DIAG/emulator-startup.log" ]; then
+            cp "$DIAG/emulator-startup.log" "$DIAG/emulator-final.log"
+          fi
+          BOOT_VALUE="UNKNOWN"
+          if [ -f "$DIAG/boot_completed.txt" ]; then BOOT_VALUE="$(tr -d '\r\n ' < "$DIAG/boot_completed.txt")"; fi
+          PM_READY="NO"
+          if [ -f "$DIAG/pm_list.txt" ] && grep -qx 'package:android' "$DIAG/pm_list.txt"; then PM_READY="YES"; fi
+          RAIN_INSTALLED="0"
+          if [ -f "$DIAG/pm_list.txt" ] && grep -qx 'package:com.rain.browser' "$DIAG/pm_list.txt"; then RAIN_INSTALLED="1"; fi
+          echo "BOOT_COMPLETED=$BOOT_VALUE" >> "$SUMMARY"
+          echo "PM_READY=$PM_READY" >> "$SUMMARY"
+          echo "RAIN_INSTALLED=$RAIN_INSTALLED" >> "$SUMMARY"
+          RAIN_PID_VALUE="EMPTY"
+          if [ -s "$DIAG/rain-pid.txt" ]; then RAIN_PID_VALUE="$(tr -d '\r\n ' < "$DIAG/rain-pid.txt")"; fi
+          echo "RAIN_PID=$RAIN_PID_VALUE" >> "$SUMMARY"
+          echo "Diagnostics completed." >> "$SUMMARY"
+
+      - name: Stop Android Emulator
+        if: always()
+        shell: bash
+        timeout-minutes: 2
+        run: |
+          set +e
+          PID_FILE="$RUNNER_TEMP/rain-emulator.pid"
+          DEVICE="${DEVICE:-emulator-5554}"
+          echo "=== START: graceful adb emulator shutdown ==="
+          timeout --signal=TERM --kill-after=3s 10s adb -s "$DEVICE" emu kill > /tmp/rain-emulator-stop.txt 2>&1
+          ADB_STOP_STATUS=$?
+          echo "ADB_EMU_KILL_STATUS=$ADB_STOP_STATUS"
+          if [ -s "$PID_FILE" ]; then
+            EMULATOR_PID="$(tr -d '\r\n ' < "$PID_FILE")"
+            if [ -n "$EMULATOR_PID" ]; then
+              if kill -0 -- "-$EMULATOR_PID" 2>/dev/null; then
+                kill -TERM -- "-$EMULATOR_PID" 2>/dev/null || true
+              elif kill -0 "$EMULATOR_PID" 2>/dev/null; then
+                kill -TERM "$EMULATOR_PID" 2>/dev/null || true
+              fi
+              sleep 5
+              if kill -0 -- "-$EMULATOR_PID" 2>/dev/null; then
+                kill -KILL -- "-$EMULATOR_PID" 2>/dev/null || true
+              elif kill -0 "$EMULATOR_PID" 2>/dev/null; then
+                kill -KILL "$EMULATOR_PID" 2>/dev/null || true
+              fi
+            fi
+          fi
+          echo "=== END: emulator cleanup ==="
 
       - name: Upload Android boot test artifacts
         if: always()
+        timeout-minutes: 5
         uses: actions/upload-artifact@v4
         with:
           name: rain-android-boot-test
@@ -281,12 +596,14 @@ jobs:
     name: Android Private Browsing Instrumentation (requires KVM)
     runs-on: ubuntu-24.04
     needs: [build, emulator-boot-test]
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - name: Check out source
+        timeout-minutes: 3
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
+        timeout-minutes: 4
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -294,141 +611,390 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
+        timeout-minutes: 4
         uses: android-actions/setup-android@v4
 
       - name: Install Android 16 emulator packages
+        shell: bash
+        timeout-minutes: 7
         run: |
-          sdkmanager --install \
+          set -euo pipefail
+          printf 'y\ny\ny\ny\ny\ny\ny\n' > /tmp/sdkmanager-licenses.txt
+          timeout 60s sdkmanager --licenses < /tmp/sdkmanager-licenses.txt || true
+          if ! timeout 280s sdkmanager --install \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "system-images;android-36;google_apis;x86_64" \
-            "emulator"
+            "emulator"; then
+            echo "::error::BLOCKED — Environment: Android SDK package installation failed or timed out"
+            exit 2
+          fi
 
       - name: Prepare CI diagnostics directory
+        timeout-minutes: 1
         run: mkdir -p app/build/outputs/ci
 
       - name: Verify Hardware Acceleration (KVM Gate)
+        timeout-minutes: 3
         id: kvm_gate
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p app/build/outputs/ci
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
           {
             echo "=== RAIN KVM / Acceleration Gate ==="
-            echo "Runner: $(uname -a)"
-            echo "User: $(id)"
-            echo "KVM device before permission change:"
+            uname -a
+            id
             ls -l /dev/kvm 2>&1 || true
-            echo "Loaded KVM modules (lsmod):"
-            lsmod | grep -E '^kvm' || echo "No KVM module listed by lsmod"
-            echo "KVM sysfs modules:"
-            ls -d /sys/module/kvm* 2>/dev/null || echo "No /sys/module/kvm* entries"
-            echo "CPU virtualization flags:"
+            echo "=== lsmod ==="
+            lsmod | grep -E '^kvm' || true
+            echo "=== sysfs ==="
+            ls -d /sys/module/kvm* 2>/dev/null || true
+            echo "=== CPU flags ==="
             grep -m 1 -oE 'vmx|svm' /proc/cpuinfo | sort -u || true
-          } | tee app/build/outputs/ci/kvm-device.txt
+          } > "$DIAG/kvm-device.txt" 2>&1
 
           if [ ! -c /dev/kvm ]; then
-            echo "::error::/dev/kvm is missing or is not a character device."
-            exit 1
+            echo "::error::BLOCKED — Environment: /dev/kvm missing"
+            exit 2
           fi
-
-          sudo chmod 666 /dev/kvm
-          ls -l /dev/kvm | tee app/build/outputs/ci/kvm-permissions-after.txt
+          if ! timeout 20s sudo chmod 666 /dev/kvm; then
+            echo "::error::BLOCKED — Environment: Cannot grant runner access to /dev/kvm"
+            exit 2
+          fi
+          ls -l /dev/kvm > "$DIAG/kvm-permissions-after.txt" 2>&1
+          {
+            echo "KVM_READABLE=$([ -r /dev/kvm ] && echo yes || echo no)"
+            echo "KVM_WRITABLE=$([ -w /dev/kvm ] && echo yes || echo no)"
+          } >> "$DIAG/kvm-permissions-after.txt"
           if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ] || ! (exec 3<>/dev/kvm); then
-            echo "::error::Cannot read/write /dev/kvm after permission adjustment."
-            exit 1
+            echo "::error::BLOCKED — Environment: /dev/kvm read/write access denied"
+            exit 2
           fi
-
           if ! lsmod | grep -qE '^kvm' && ! compgen -G '/sys/module/kvm*' > /dev/null; then
-            echo "::error::KVM module not detected in lsmod or /sys/module."
-            exit 1
+            echo "::error::BLOCKED — Environment: KVM module unavailable"
+            exit 2
           fi
-
-          if ! grep -qE '\b(vmx|svm)\b' /proc/cpuinfo; then
-            echo "::error::CPU virtualization flag vmx/svm is not exposed."
-            exit 1
+          if ! grep -Eq '(^|[[:space:]])(vmx|svm)([[:space:]]|$)' /proc/cpuinfo; then
+            echo "::error::BLOCKED — Environment: CPU virtualization flag unavailable"
+            exit 2
           fi
-
           EMULATOR_BIN="$ANDROID_SDK_ROOT/emulator/emulator"
           if [ ! -x "$EMULATOR_BIN" ]; then
-            echo "::error::Emulator binary not found."
-            exit 1
+            echo "::error::BLOCKED — Environment: Emulator binary missing"
+            exit 2
           fi
-
           set +e
-          printf 'no\n' | "$EMULATOR_BIN" -accel-check 2>&1 | tee app/build/outputs/ci/kvm-accel-check.log
-          accel_status=${PIPESTATUS[1]}
+          timeout 30s "$EMULATOR_BIN" -accel-check > "$DIAG/kvm-accel-check.log" 2>&1
+          ACCEL_STATUS=$?
           set -e
-          echo "emulator -accel-check exit status: $accel_status" | tee -a app/build/outputs/ci/kvm-accel-check.log
-          if ! grep -Fq "is installed and usable" app/build/outputs/ci/kvm-accel-check.log; then
-            echo "::error::KVM is not confirmed usable; TCG fallback is prohibited."
-            exit 1
+          echo "emulator -accel-check exit status: $ACCEL_STATUS" >> "$DIAG/kvm-accel-check.log"
+          if [ "$ACCEL_STATUS" -ne 0 ] || ! grep -Fq "is installed and usable" "$DIAG/kvm-accel-check.log"; then
+            echo "::error::BLOCKED — Environment: KVM acceleration not confirmed; TCG fallback prohibited"
+            exit 2
           fi
-          echo "KVM / Hardware Acceleration check passed."
 
-      - name: Upload KVM acceleration diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rain-kvm-accel-check-instrumentation
-          path: |
-            app/build/outputs/ci/kvm-device.txt
-            app/build/outputs/ci/kvm-permissions-after.txt
-            app/build/outputs/ci/kvm-accel-check.log
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Verify AVD device profile and ABI (Fail Fast)
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          timeout 30s avdmanager list device > "$DIAG/avd-devices.txt" 2>&1 || true
+          timeout 30s avdmanager list target > "$DIAG/avd-targets.txt" 2>&1 || true
+          timeout 30s sdkmanager --list_installed > "$DIAG/sdk-installed.txt" 2>&1 || true
+          if grep -Eiq '(^|[^[:alnum:]_])pixel_2([^[:alnum:]_]|$)' "$DIAG/avd-devices.txt"; then
+            AVD_DEVICE="pixel_2"
+          elif grep -Eiq '(^|[^[:alnum:]_])pixel([^[:alnum:]_]|$)' "$DIAG/avd-devices.txt"; then
+            AVD_DEVICE="pixel"
+          else
+            echo "::error::BLOCKED — Environment: No usable AVD profile (pixel_2/pixel)"
+            exit 2
+          fi
+          if ! grep -Fq 'system-images;android-36;google_apis;x86_64' "$DIAG/sdk-installed.txt"; then
+            echo "::error::BLOCKED — Environment: Android 16 Google APIs x86_64 image is not installed"
+            exit 2
+          fi
+          if ! grep -Eiq 'android-36|API level:[[:space:]]*36' "$DIAG/avd-targets.txt"; then
+            echo "::error::BLOCKED — Environment: Android 36 target unavailable"
+            exit 2
+          fi
 
-      - name: Run Android instrumentation tests on emulator
-        if: steps.kvm_gate.outcome == 'success'
-        id: instrumentation_test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 36
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          disable-linux-hw-accel: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -wipe-data
-          disable-animations: true
-          cores: 4
-          ram-size: 3072M
-          heap-size: 1024M
-          disk-size: 6G
-          emulator-boot-timeout: 300
-          script: |
-            set +e
-            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
-            gradle_status=$?
-            mkdir -p app/build/outputs/ci
-            adb devices -l > app/build/outputs/ci/instrumentation-adb-devices.txt 2>&1 || true
-            adb logcat -d -v threadtime > app/build/outputs/ci/instrumentation-logcat.txt 2>&1 || true
-            adb shell dumpsys activity activities > app/build/outputs/ci/instrumentation-activity-dump.txt 2>&1 || true
-            adb shell dumpsys activity lastanr > app/build/outputs/ci/instrumentation-last-anr.txt 2>&1 || true
-            adb shell dumpsys dropbox --print > app/build/outputs/ci/instrumentation-dropbox.txt 2>&1 || true
-            adb shell ps -A > app/build/outputs/ci/instrumentation-process-list.txt 2>&1 || true
-            if [ -d app/build/outputs/androidTest-results/connected ]; then
-              if grep -RqsE '<failure>|<error>' app/build/outputs/androidTest-results/connected; then
-                echo "Instrumentation XML contains failures or errors"
-                gradle_status=1
-              elif ! grep -RqsE '<testsuite[^>]*tests="[1-9][0-9]*"' app/build/outputs/androidTest-results/connected; then
-                echo "No completed instrumentation test cases were reported"
-                gradle_status=1
-              fi
-            else
-              echo "Instrumentation test result directory is missing"
-              gradle_status=1
+          IMAGE_PROPERTIES="$ANDROID_SDK_ROOT/system-images/android-36/google_apis/x86_64/source.properties"
+          if [ ! -f "$IMAGE_PROPERTIES" ]; then
+            echo "::error::BLOCKED — Environment: Android 36 x86_64 source.properties missing"
+            exit 2
+          fi
+          cp "$IMAGE_PROPERTIES" "$DIAG/system-image-source.properties"
+          if ! grep -Fxq 'AndroidVersion.ApiLevel=36' "$IMAGE_PROPERTIES" || \
+             ! grep -Fxq 'SystemImage.Abi=x86_64' "$IMAGE_PROPERTIES" || \
+             ! grep -Fxq 'SystemImage.TagId=google_apis' "$IMAGE_PROPERTIES"; then
+            echo "::error::BLOCKED — Environment: System image API/ABI/tag metadata mismatch"
+            exit 2
+          fi
+          echo "AVD_DEVICE=$AVD_DEVICE" >> "$GITHUB_ENV"
+          printf '%s\n' "$AVD_DEVICE" > "$DIAG/avd-device-chosen.txt"
+          printf 'no\n' > "$RUNNER_TEMP/avd-input.txt"
+
+      - name: Create Android 16 AVD
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          if [ -z "${AVD_DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: AVD_DEVICE was not selected"
+            exit 2
+          fi
+          if ! timeout 120s avdmanager create avd \
+            --force \
+            --name rain_api36 \
+            --package "system-images;android-36;google_apis;x86_64" \
+            --abi "google_apis/x86_64" \
+            --device "$AVD_DEVICE" \
+            < "$RUNNER_TEMP/avd-input.txt"; then
+            echo "::error::BLOCKED — Environment: Android 16 AVD creation failed"
+            exit 2
+          fi
+          AVD_CONFIG="$HOME/.android/avd/rain_api36.avd/config.ini"
+          if [ ! -f "$AVD_CONFIG" ] || \
+             ! grep -Eq '^image.sysdir.1=system-images/android-36/google_apis/x86_64/?$' "$AVD_CONFIG"; then
+            echo "::error::BLOCKED — Environment: Created AVD does not reference the verified Android 36 x86_64 image"
+            exit 2
+          fi
+          if ! timeout 30s avdmanager list avd > "$DIAG/avd-created.txt" 2>&1 || \
+             ! grep -Fq 'rain_api36' "$DIAG/avd-created.txt"; then
+            echo "::error::BLOCKED — Environment: Created AVD is not listed by avdmanager"
+            exit 2
+          fi
+
+      - name: Start Android Emulator process
+        timeout-minutes: 3
+        id: emulator_start
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          EMULATOR_BIN="$ANDROID_SDK_ROOT/emulator/emulator"
+          EMULATOR_LOG="$DIAG/emulator-startup.log"
+          PID_FILE="$RUNNER_TEMP/rain-emulator.pid"
+          setsid nohup "$EMULATOR_BIN" \
+            -avd rain_api36 \
+            -port 5554 \
+            -accel on \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -noaudio \
+            -no-boot-anim \
+            -no-snapshot \
+            -wipe-data \
+            -memory 3072 \
+            -cores 4 \
+            > "$EMULATOR_LOG" 2>&1 < /dev/null &
+          EMULATOR_PID=$!
+          disown "$EMULATOR_PID" || true
+          printf '%s\n' "$EMULATOR_PID" > "$PID_FILE"
+          echo "EMULATOR_PID=$EMULATOR_PID" >> "$GITHUB_ENV"
+          sleep 2
+          if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+            echo "::error::BLOCKED — Environment: Emulator process exited during startup"
+            cat "$EMULATOR_LOG" || true
+            exit 2
+          fi
+          EMULATOR_PGID="$(ps -o pgid= -p "$EMULATOR_PID" 2>/dev/null | tr -d ' ')"
+          EMULATOR_STATE="$(ps -o stat= -p "$EMULATOR_PID" 2>/dev/null | tr -d ' ')"
+          if [ -z "$EMULATOR_STATE" ] || [[ "$EMULATOR_STATE" == Z* ]]; then
+            echo "::error::BLOCKED — Environment: Emulator process is not alive (state=${EMULATOR_STATE:-missing})"
+            cat "$EMULATOR_LOG" || true
+            exit 2
+          fi
+          if [ "$EMULATOR_PGID" != "$EMULATOR_PID" ]; then
+            echo "::error::BLOCKED — Environment: Emulator did not enter its dedicated process group"
+            ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-start.txt" 2>&1 || true
+            exit 2
+          fi
+          ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-start.txt" 2>&1 || true
+          if grep -Eiq 'KVM.*(not available|failed|disabled)|accel.*(off|failed)|x86_64 emulation may not work' "$EMULATOR_LOG"; then
+            echo "::error::BLOCKED — Environment: Emulator startup reports KVM/acceleration failure"
+            exit 2
+          fi
+
+      - name: "2. Preflight — ADB device visible"
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          PID_FILE="$RUNNER_TEMP/rain-emulator.pid"
+          if [ ! -s "$PID_FILE" ]; then
+            echo "::error::BLOCKED — Environment: Emulator PID file missing after start step"
+            exit 2
+          fi
+          EMULATOR_PID="$(tr -d '\r\n ' < "$PID_FILE")"
+          if [ -z "$EMULATOR_PID" ] || ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+            echo "::error::BLOCKED — Environment: Emulator process did not survive the step boundary"
+            cat "$DIAG/emulator-startup.log" 2>/dev/null || true
+            exit 2
+          fi
+          ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-after-step-boundary.txt" 2>&1 || true
+          echo "EMULATOR_PROCESS_SURVIVED_STEP_BOUNDARY=yes" > "$DIAG/process-lifecycle.txt"
+          if ! timeout 15s adb start-server; then
+            echo "::error::BLOCKED — Environment: ADB server failed to start"
+            exit 2
+          fi
+          DEVICE=""
+          for attempt in $(seq 1 30); do
+            timeout 10s adb devices -l > "$DIAG/adb-devices.txt" 2>&1 || true
+            DEVICE="$(awk '/emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}' "$DIAG/adb-devices.txt")"
+            if [ -n "$DEVICE" ]; then break; fi
+            sleep 2
+          done
+          if [ -z "$DEVICE" ]; then
+            echo "::error::BLOCKED — Environment: ADB device unavailable"
+            exit 2
+          fi
+          echo "DEVICE=$DEVICE" >> "$GITHUB_ENV"
+          echo "ANDROID_SERIAL=$DEVICE" >> "$GITHUB_ENV"
+
+      - name: "3. Preflight — Android boot completed"
+        shell: bash
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then echo "::error::BLOCKED — Environment: DEVICE missing"; exit 2; fi
+          DIAG="app/build/outputs/ci"
+          START_TIME=$SECONDS
+          BOOT_READY=0
+          while [ $((SECONDS - START_TIME)) -lt 600 ]; do
+            if timeout 8s adb -s "$DEVICE" shell getprop sys.boot_completed > "$DIAG/boot_completed.txt" 2>&1; then
+              BOOT_STATE="$(tr -d '\r\n ' < "$DIAG/boot_completed.txt")"
+              if [ "$BOOT_STATE" = "1" ]; then BOOT_READY=1; break; fi
             fi
-            exit "$gradle_status"
+            sleep 2
+          done
+          if [ "$BOOT_READY" -ne 1 ]; then echo "::error::BLOCKED — Environment: Android boot timeout after 600 seconds"; exit 2; fi
 
-      - name: Upload instrumentation artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: "4. Preflight — Package Manager ready"
+        shell: bash
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then echo "::error::BLOCKED — Environment: DEVICE missing"; exit 2; fi
+          DIAG="app/build/outputs/ci"
+          PM_READY=0
+          for attempt in $(seq 1 5); do
+            if timeout 8s adb -s "$DEVICE" shell pm list packages > "$DIAG/pm_list.txt" 2>&1 && grep -qx 'package:android' "$DIAG/pm_list.txt"; then
+              PM_READY=1; break
+            fi
+            sleep 2
+          done
+          if [ "$PM_READY" -ne 1 ]; then echo "::error::BLOCKED — Environment: Package Manager not ready"; exit 2; fi
+          if ! timeout 8s adb -s "$DEVICE" shell pm path android > "$DIAG/pm-path-android.txt" 2>&1; then echo "::error::BLOCKED — Environment: pm path android failed"; exit 2; fi
+
+      - name: "5. Preflight — WebView provider ready"
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then echo "::error::BLOCKED — Environment: DEVICE missing"; exit 2; fi
+          DIAG="app/build/outputs/ci"
+          if ! timeout 15s adb -s "$DEVICE" shell dumpsys webviewupdate > "$DIAG/webview-provider.txt" 2>&1; then echo "::error::BLOCKED — Environment: WebView provider query failed"; exit 2; fi
+          if ! grep -Eiq 'com\.(google\.android\.(webview|trichromelibrary)|android\.webview)' "$DIAG/webview-provider.txt"; then echo "::error::BLOCKED — Environment: Selected WebView provider package not recognized"; exit 2; fi
+          if ! grep -Eiq 'version[^0-9]*[0-9]+(\.[0-9]+)+' "$DIAG/webview-provider.txt"; then echo "::error::BLOCKED — Environment: Numeric WebView provider version not found"; exit 2; fi
+
+      - name: Download debug APK
+        timeout-minutes: 3
+        uses: actions/download-artifact@v4
         with:
-          name: rain-android-instrumentation
-          path: |
-            app/build/outputs/apk/androidTest/**
-            app/build/outputs/androidTest-results/connected/**/*.xml
-            app/build/reports/androidTests/connected/debug/**
-            app/build/outputs/ci/**
-          if-no-files-found: warn
-          retention-days: 14
+          name: rain-android-build
+          path: downloaded-build
+
+      - name: "6. Smoke — Install RAIN APK"
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then echo "::error::BLOCKED — Environment: DEVICE missing before install"; exit 2; fi
+          APK_PATH="downloaded-build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK_PATH" ]; then echo "::error::FAILED — Smoke/Product: Debug APK artifact missing"; find downloaded-build -maxdepth 6 -type f -print || true; exit 1; fi
+          if ! timeout 90s adb -s "$DEVICE" install -r "$APK_PATH"; then echo "::error::FAILED — Smoke/Product: RAIN APK installation failed after environment preflight"; exit 1; fi
+          if ! timeout 15s adb -s "$DEVICE" shell pm list packages > app/build/outputs/ci/pm-after-install.txt 2>&1 || ! grep -qx 'package:com.rain.browser' app/build/outputs/ci/pm-after-install.txt; then echo "::error::FAILED — Smoke/Product: RAIN package missing after installation"; exit 1; fi
+
+      - name: "7. Smoke — Launch MainActivity"
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then echo "::error::BLOCKED — Environment: DEVICE missing before launch"; exit 2; fi
+          DIAG="app/build/outputs/ci"
+          timeout 10s adb -s "$DEVICE" logcat -c || true
+          if ! timeout 30s adb -s "$DEVICE" shell am start -W -n com.rain.browser/.MainActivity > "$DIAG/main-activity-launch.txt" 2>&1; then echo "::error::FAILED — Smoke/Product: MainActivity launch command failed"; exit 1; fi
+          if ! grep -q 'Status: ok' "$DIAG/main-activity-launch.txt"; then echo "::error::FAILED — Smoke/Product: MainActivity did not report Status: ok"; exit 1; fi
+          sleep 5
+          if ! timeout 10s adb -s "$DEVICE" shell pidof com.rain.browser > "$DIAG/rain-pid.txt" 2>&1; then echo "::error::FAILED — Smoke/Product: RAIN process not running after launch"; exit 1; fi
+          RAIN_PID="$(tr -d '\r\n ' < "$DIAG/rain-pid.txt")"
+          if [ -z "$RAIN_PID" ]; then echo "::error::FAILED — Smoke/Product: RAIN_PID is empty after launch"; exit 1; fi
+          printf '%s\n' "$RAIN_PID" > "$DIAG/rain-pid.txt"
+
+      - name: Run Android instrumentation tests
+        id: instrumentation_test
+        shell: bash
+        timeout-minutes: 36
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVICE:-}" ]; then
+            echo "::error::BLOCKED — Environment: DEVICE missing before instrumentation"
+            exit 2
+          fi
+          chmod +x ./gradlew
+          set +e
+          timeout 35m env ANDROID_SERIAL="$DEVICE" ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
+          GRADLE_STATUS=$?
+          mkdir -p app/build/outputs/ci
+          exit "$GRADLE_STATUS"
+
+      - name: Collect instrumentation diagnostics
+        if: always()
+        timeout-minutes: 4
+        shell: bash
+        run: |
+          set +e
+          DIAG="app/build/outputs/ci"
+          mkdir -p "$DIAG"
+          SUMMARY="$DIAG/instrumentation-summary.txt"
+          : > "$SUMMARY"
+          echo "RUN_ID=${GITHUB_RUN_ID:-UNKNOWN}" >> "$SUMMARY"
+          echo "JOB=instrumentation" >> "$SUMMARY"
+          echo "DEVICE=${DEVICE:-EMPTY}" >> "$SUMMARY"
+          run_adb() {
+            local name="$1" limit="$2" output="$3"
+            shift 3
+            echo "=== START: $name ===" | tee -a "$SUMMARY"
+            if [ "$name" = "devices" ] || [ -z "${DEVICE:-}" ]; then
+              timeout --signal=TERM --kill-after=3s "${limit}s" adb "$@" > "$DIAG/$output" 2>&1
+            else
+              timeout --signal=TERM --kill-after=3s "${limit}s" adb -s "$DEVICE" "$@" > "$DIAG/$output" 2>&1
+            fi
+            local status=$?
+            echo "ADB_${name}_STATUS=$status" >> "$SUMMARY"
+            if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then echo "TIMEOUT_OR_FAIL: $name" >> "$SUMMARY"; fi
+            echo "=== END: $name (status=$status) ===" | tee -a "$SUMMARY"
+            return 0
+          }
+          run_adb devices 15 diagnostic-adb-devices.txt devices -l
+          run_adb logcat 20 instrumentation-logcat.txt logcat -d -t 500 -v threadtime
+          run_adb activity 15 instrumentation-activity-dump.txt shell dumpsys activity activities
+          run_adb last_anr 15 instrumentation-last-anr.txt shell dumpsys activity lastanr
+          run_adb dropbox 15 instrumentation-dropbox.txt shell dumpsys dropbox --print
+          run_adb processes 15 instrumentation-process-list.txt shell ps -A
+          run_adb packages 15 instrumentation-packages.txt shell pm list packages
+          run_adb rain_package 15 instrumentation-rain-package.txt shell dumpsys package com.rain.browser
+          if [ -n "${EMULATOR_PID:-}" ]; then
+            echo "=== START: host_emulator_process ===" | tee -a "$SUMMARY"
+            timeout 5s ps -o pid,ppid,pgid,sid,stat,args -p "$EMULATOR_PID" > "$DIAG/emulator-process-final.txt" 2>&1
+            echo "HOST_EMULATOR_PS_STATUS=$?" >> "$SUMMARY"
