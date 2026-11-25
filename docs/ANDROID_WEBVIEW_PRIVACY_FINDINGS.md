@@ -72,7 +72,7 @@ The owner approved the dedicated Android process approach on 2026-11-25.
 Initial implementation committed to the repository:
 
 - PrivateBrowsingActivity runs in the manifest process :private.
-- The activity configures WebView.setDataDirectorySuffix("rain_private") before creating its WebView.
+- `RainApplication.attachBaseContext` detects the dedicated `:private` process and configures `WebView.setDataDirectorySuffix("rain_private")` before the process creates or accesses a WebView instance.
 - Normal browsing remains in the default process and default WebView data directory.
 - The private activity is single-task to avoid overlapping private activity instances in the same process.
 - A Private entry point launches the isolated activity.
@@ -81,7 +81,7 @@ Initial implementation committed to the repository:
 
 ### Verified limitations and acceptance requirements
 
-- The process and data-directory separation is implemented in source, but must still pass GitHub Actions compilation and unit-test checks.
+- The process and data-directory separation is implemented in source. GitHub Actions compilation, lint, and unit-test verification are still required; lifecycle and real process-isolation checks also remain pending.
 - Service Worker storage does not have a simple, documented per-session deletion API in the WebView API used here. The dedicated process/data directory isolates its storage from normal browsing, but complete deletion of Service Worker data on close is not yet proven.
 - Android may terminate the private process without calling Activity cleanup. Startup cleanup is therefore performed before the next private WebView is created; cache cleanup occurs immediately after WebView creation.
 - The implementation does not claim RAM-only operation, guaranteed zero traces, or complete erasure of every WebView-managed artifact.
