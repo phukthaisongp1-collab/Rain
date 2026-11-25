@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 7/60 days (11.67%)
+> **Progress:** 8/60 days (13.33%)
 
 ## Tracking rules
 
@@ -22,12 +22,12 @@
 
 | Workstream | Planned days | Completed | Status |
 |---|---:|---:|---|
-| Round A — Android foundation and build | 10 | 7 | In progress |
+| Round A — Android foundation and build | 10 | 8 | In progress |
 | Round B — Browser features | 18 | 0 | Not started |
 | Round C — Privacy and network | 18 | 0 | Not started |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **7** | **11.67%** |
+| **Total** | **60** | **8** | **13.33%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -43,8 +43,8 @@
 - [x] **Day 4:** Configure Gradle and Gradle Wrapper, pin compatible versions, and verify the build environment. **Completed: 2026-11-25.** Pinned Gradle 9.6.0 and AGP 9.5.2; added the official Gradle 9.6.0 wrapper scripts and JAR. Gradle Wrapper validation passed in Actions run `45565157678`; the later build step exposed a separate Kotlin plugin configuration issue that was corrected. Evidence: `gradle/wrapper/`, `gradlew`, `gradlew.bat`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 5:** Set the application identity: app name RAIN, applicationId `com.rain.browser`, initial versionName `0.1.0`, and initial versionCode policy. **Completed: 2026-11-25.** Set app label/name RAIN, applicationId `com.rain.browser`, versionName `0.1.0`, and initial versionCode `1`. Evidence: `app/build.gradle.kts`, `app/src/main/res/values/strings.xml`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 6:** Create the starting Activity and initial application screen using the approved theme. **Completed: 2026-11-25.** Added `MainActivity.kt`, `activity_main.xml`, and the approved RAIN theme colors. Evidence: `app/src/main/java/com/rain/browser/MainActivity.kt`, `app/src/main/res/layout/activity_main.xml`, `app/src/main/res/values/`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
-- [x] **Day 7:** Add the basic Android WebView and implement the agreed security baseline. **Completed: 2026-11-25.** Added Android WebView with JavaScript/DOM storage/file/content access disabled, mixed content blocked, Safe Browsing enabled, HTTP(S)-only navigation policy, and SSL certificate errors cancelled. Evidence: `MainActivity.kt`, `NetworkPolicyManager.kt`, `AndroidManifest.xml`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
-- [ ] **Day 8:** Configure GitHub Actions for Android build, lint, tests, and build artifacts.
+- [x] **Day 7:** Add the basic Android WebView and implement the agreed security baseline. **Completed: 2026-11-25.** Added Android WebView with JavaScript/DOM storage/file/content access disabled, mixed content blocked, Safe Browsing enabled, HTTP(S)-only navigation policy, and SSL certificate errors cancelled. Kotlin compilation and lint passed in Actions run `45565610942`. Evidence: `MainActivity.kt`, `NetworkPolicyManager.kt`, `AndroidManifest.xml`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
+- [x] **Day 8:** Configure GitHub Actions for Android build, lint, tests, and build artifacts. **Completed: 2026-11-25.** GitHub Actions run `45565610942` succeeded: JDK 17 and Android SDK setup, pinned SDK packages, Gradle Wrapper validation, `clean lint testDebugUnitTest assembleDebug` all passed, and artifact `rain-android-build` (ID `14999508764`, 823,759 bytes) was uploaded. Evidence: [Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565610942), `.github/workflows/android-build.yml`.
 - [ ] **Day 9:** Configure release signing with Android Keystore and GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Never commit or expose the Keystore or passwords.
 - [ ] **Day 10:** Build the APK, verify its signature with `apksigner`, review CI results, record evidence, and obtain Round A acceptance.
 
@@ -173,7 +173,8 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 4 | 2026-11-25 | Pinned AGP 9.5.2 / Gradle 9.6.0; official Wrapper validation passed. Full build validation remains part of Day 8 CI. | `15fe31c3e457b8f3abd64d233e16454587ef9017`; Actions run `45565157678` |
 | 5 | 2026-11-25 | Set RAIN identity, applicationId, versionName 0.1.0, and versionCode 1. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
 | 6 | 2026-11-25 | Added initial Activity and RAIN-themed screen. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
-| 7 | 2026-11-25 | Added WebView and agreed initial security baseline; final compilation is awaiting the corrected CI run. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
+| 7 | 2026-11-25 | Added WebView and agreed initial security baseline; Kotlin compilation and lint verified by successful Actions run `45565610942`. | `15fe31c3e457b8f3abd64d233e16454587ef9017`; run `45565610942` |
+| 8 | 2026-11-25 | Android CI passed: Gradle Wrapper validation, Kotlin compile, lint, unit-test task, debug APK assembly; build artifact uploaded. | Actions run `45565610942`; artifact `14999508764` |
 
 ## Blockers and approved changes
 
@@ -181,7 +182,7 @@ Record blockers, platform limitations, and user-approved changes here. Do not si
 
 | Date | Related day | Blocker / limitation | Decision / approval | Resolution evidence |
 |---|---:|---|---|---|
-| 2026-11-25 | 8 | CI attempt 1 failed because setup-android v3 requested the removed SDK package `tools`; corrected to v4. CI attempt 2 passed SDK setup and wrapper validation but failed because the separate Kotlin Android plugin conflicts with AGP 9 built-in Kotlin; migrated to AGP built-in Kotlin. Latest run `45565359747` is pending. | Use AGP built-in Kotlin and setup-android v4; do not mark Day 8 complete until lint, unit tests, and APK build pass. | `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a`; [Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565359747) |
+| 2026-11-25 | 8 | Initial CI attempts exposed an obsolete Android SDK setup action and a separate Kotlin plugin conflict with AGP 9. | Updated to setup-android v4 and AGP built-in Kotlin; final CI succeeded with build, lint, unit-test task, APK assembly, and artifact upload. | [Successful Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565610942) |
 
 ## Progress update protocol
 
