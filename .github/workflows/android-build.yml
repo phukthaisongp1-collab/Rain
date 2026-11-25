@@ -41,11 +41,21 @@ jobs:
       - name: Run Android instrumentation tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
-          profile: pixel_6
-          script: ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -no-snapshot -wipe-data
+          disable-animations: true
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4G
+          boot-timeout: 900
+          script: |
+            adb devices
+            adb shell getprop sys.boot_completed
+            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
       - name: Upload build and test reports
         if: always()
         uses: actions/upload-artifact@v4
