@@ -145,6 +145,28 @@ References:
 - https://developer.android.com/reference/androidx/webkit/ProxyConfig
 - https://developer.android.com/reference/androidx/webkit/ProxyConfig.Builder
 
+## Days 36–39 — WebView security baseline review
+
+### HTTPS and SSL errors (Day 36)
+
+WebViewFactory installs a WebViewClient whose onReceivedSslError implementation always calls handler.cancel(). RAIN does not provide a proceed/ignore path for certificate errors. This prevents the browser from silently accepting an invalid, expired, mismatched, or otherwise untrusted server certificate.
+
+### Mixed content and Safe Browsing (Day 37)
+
+The shared WebView factory configures mixedContentMode = MIXED_CONTENT_NEVER_ALLOW and enables safeBrowsingEnabled on API 26 and later. RAIN's minimum supported API is 29, so the Safe Browsing setting is applied on all supported Android versions. Actual threat-list freshness and provider behavior remain controlled by the installed Android System WebView provider.
+
+### File and content access (Day 38)
+
+The factory explicitly sets allowFileAccess, allowContentAccess, allowFileAccessFromFileURLs, and allowUniversalAccessFromFileURLs to false. The latter two settings are deprecated by Android but remain explicitly disabled as defense in depth. Website JavaScript remains enabled for ordinary modern-site compatibility; local file/content URL access is not enabled.
+
+### External intents and URL schemes (Day 39)
+
+NetworkPolicyManager.isAllowedWebUrl permits only HTTP and HTTPS URLs with a non-empty host and no embedded user information. The WebView navigation callback blocks unsupported schemes, including intent:, file:, content:, javascript:, data:, market:, mailto:, and tel:. RAIN does not automatically launch external intents from WebView navigation. The unit-test suite now covers allowed HTTP(S), case-insensitive schemes, outer whitespace, malformed authorities, embedded credentials, and unsupported/external schemes.
+
+### Verification boundary
+
+These controls are verified by source inspection and automated JVM unit tests plus the Android CI build. They do not replace runtime checks against the installed WebView provider or a physical-device security review, which remain scheduled for the final verification stage.
+
 ## Current conclusion
 
-The owner-approved separate-process design has been committed and an initial implementation exists. It is not yet accepted as a verified Private Browsing feature: GitHub Actions compilation, automated tests, process/data isolation checks, cookie and Web Storage lifecycle checks, cache behavior, and Service Worker limitations still require validation. RAIN must not advertise complete private-session cleanup, RAM-only operation, or zero traces until the relevant behavior is demonstrated. The separate process is the implementation direction, while feature acceptance remains pending Days 31–35.
+The owner-approved separate-process Private Browsing implementation is present and the latest Android CI run 45588957657 passed lint, unit-test execution, and debug APK assembly. Private-session process separation and cleanup still require runtime validation; RAIN must not advertise RAM-only operation, guaranteed zero traces, or complete erasure on providers that lack DELETE_BROWSING_DATA. DNS remains delegated to Android system resolution. No proxy is configured because no trusted, owner-approved proxy endpoint and authentication policy are available. The candidate whitelist is documented but not active; runtime routing verification remains pending.
