@@ -173,7 +173,7 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 4 | 2026-11-25 | Pinned AGP 9.5.2 / Gradle 9.6.0; official Wrapper validation passed. Full build validation remains part of Day 8 CI. | `15fe31c3e457b8f3abd64d233e16454587ef9017`; Actions run `45565157678` |
 | 5 | 2026-11-25 | Set RAIN identity, applicationId, versionName 0.1.0, and versionCode 1. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
 | 6 | 2026-11-25 | Added initial Activity and RAIN-themed screen. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
-| 7 | 2026-11-25 | Added WebView and agreed initial security baseline; final compilation is awaiting the corrected CI run. | `15fe31c3e457b8f3abd64d233e16454587ef9017`
+| 7 | 2026-11-25 | Added WebView and agreed initial security baseline; final compilation is awaiting the corrected CI run. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
 
 ## Blockers and approved changes
 
@@ -181,7 +181,7 @@ Record blockers, platform limitations, and user-approved changes here. Do not si
 
 | Date | Related day | Blocker / limitation | Decision / approval | Resolution evidence |
 |---|---:|---|---|---|
-| 2026-11-25 | 8 | CI attempt 1 failed because setup-android v3 requested the removed SDK package `tools`; corrected to v4. CI attempt 2 passed SDK setup and wrapper validation but failed because the separate Kotlin Android plugin conflicts with AGP 9 built-in Kotlin; migrated to AGP built-in Kotlin. Latest run `45565359747` is pending. | Use AGP built-in Kotlin and setup-android v4; do not mark Day 8 complete until lint, unit tests, and APK build pass. | `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a`; [Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565359747) | — |
+| 2026-11-25 | 8 | CI attempt 1 failed because setup-android v3 requested the removed SDK package `tools`; corrected to v4. CI attempt 2 passed SDK setup and wrapper validation but failed because the separate Kotlin Android plugin conflicts with AGP 9 built-in Kotlin; migrated to AGP built-in Kotlin. Latest run `45565359747` is pending. | Use AGP built-in Kotlin and setup-android v4; do not mark Day 8 complete until lint, unit tests, and APK build pass. | `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a`; [Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565359747) |
 
 ## Progress update protocol
 
