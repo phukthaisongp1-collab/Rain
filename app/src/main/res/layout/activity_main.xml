@@ -4,22 +4,124 @@
     android:layout_height="match_parent"
     android:background="@color/rain_background"
     android:orientation="vertical">
-    <TextView
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/rain_surface"
-        android:paddingStart="20dp"
-        android:paddingTop="18dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="18dp"
-        android:text="@string/app_name"
-        android:textColor="@color/rain_accent"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-    <WebView
-        android:id="@+id/browser_view"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/app_name"
+            android:textColor="@color/rain_accent"
+            android:textSize="21sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/mode_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Mobile"
+            android:textColor="@color/rain_text"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <EditText
+            android:id="@+id/address_input"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/rain_accent"
+            android:hint="Search or enter website"
+            android:imeOptions="actionGo"
+            android:inputType="textUri"
+            android:maxLines="1"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:selectAllOnFocus="true"
+            android:textColor="@color/rain_text"
+            android:textColorHint="#94A3B8" />
+
+        <Button
+            android:id="@+id/go_button"
+            style="@style/RainButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Go" />
+    </LinearLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="false"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp">
+
+            <Button android:id="@+id/back_button" style="@style/RainButton" android:text="Back" />
+            <Button android:id="@+id/forward_button" style="@style/RainButton" android:text="Forward" />
+            <Button android:id="@+id/reload_button" style="@style/RainButton" android:text="Reload" />
+            <Button android:id="@+id/home_button" style="@style/RainButton" android:text="Home" />
+            <Button android:id="@+id/new_tab_button" style="@style/RainButton" android:text="+ Tab" />
+            <Button android:id="@+id/tabs_button" style="@style/RainButton" android:text="Tabs (0)" />
+            <Button android:id="@+id/search_engine_button" style="@style/RainButton" android:text="Search: DuckDuckGo" />
+            <Button android:id="@+id/desktop_button" style="@style/RainButton" android:text="Mobile/Desktop" />
+            <Button android:id="@+id/zoom_out_button" style="@style/RainButton" android:text="Zoom -" />
+            <Button android:id="@+id/zoom_in_button" style="@style/RainButton" android:text="Zoom +" />
+            <Button android:id="@+id/text_out_button" style="@style/RainButton" android:text="Text -" />
+            <Button android:id="@+id/text_in_button" style="@style/RainButton" android:text="Text +" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <ProgressBar
+        android:id="@+id/page_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progressTint="@color/rain_accent"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:id="@+id/webview_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:background="@color/rain_background" />
+
+    <TextView
+        android:id="@+id/status_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/rain_surface"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:paddingStart="12dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp"
+        android:text="RAIN Browser"
+        android:textColor="@color/rain_text"
+        android:textSize="12sp" />
 </LinearLayout>
