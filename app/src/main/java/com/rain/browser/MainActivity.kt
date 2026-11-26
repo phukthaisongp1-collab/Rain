@@ -629,16 +629,16 @@ class MainActivity : Activity(), WebViewCallbacks {
             null
         } ?: WebProtectionManager.Decision(
             action = WebProtectionManager.Action.ALLOW,
-            reason = "Android WebView Safe Browsing is enabled. No external threat-intelligence feed is currently connected."
+            reason = getString(R.string.protection_default_reason)
         )
         val message = if (reportUrl.isBlank()) {
-            "Open a website to view its protection status."
+            getString(R.string.protection_open_site)
         } else {
-            WebProtectionPresentation.message(reportUrl, decision) +
+            localizedProtectionMessage(reportUrl, decision) +
                 "\n\nFalse-positive reports are shared through Android's share sheet. RAIN does not upload reports automatically."
         }
         AlertDialog.Builder(this)
-            .setTitle(WebProtectionPresentation.title(decision))
+            .setTitle(localizedProtectionTitle(decision))
             .setMessage(message)
             .setPositiveButton(R.string.protection_report) { _, _ ->
                 if (reportUrl.isNotBlank()) shareFalsePositiveReport(reportUrl, decision)
@@ -646,6 +646,20 @@ class MainActivity : Activity(), WebViewCallbacks {
             .setNegativeButton("Close", null)
             .show()
     }
+
+    private fun localizedProtectionTitle(decision: WebProtectionManager.Decision): String = when (decision.action) {
+        WebProtectionManager.Action.ALLOW -> getString(R.string.protection_allow_title)
+        WebProtectionManager.Action.WARN -> getString(R.string.protection_warn_title)
+        WebProtectionManager.Action.BLOCK -> getString(R.string.protection_block_title)
+    }
+
+    private fun localizedProtectionMessage(url: String, decision: WebProtectionManager.Decision): String = buildList {
+        add(getString(R.string.protection_website, url))
+        decision.category?.let { add(getString(R.string.protection_category, it.name.lowercase().replace('_', ' '))) }
+        decision.sourceName?.let { add(getString(R.string.protection_source, it)) }
+        if (decision.reason.isNotBlank()) add(getString(R.string.protection_reason, decision.reason))
+        decision.sourceReference?.takeIf { it.isNotBlank() }?.let { add(getString(R.string.protection_reference, it)) }
+    }.joinToString("\n")
 
     private fun shareFalsePositiveReport(
         url: String,
@@ -949,7 +963,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             if (decision.action == DownloadPolicy.Action.BLOCK) {
                 AlertDialog.Builder(this)
                     .setTitle(R.string.download_blocked)
-                    .setMessage(decision.fileName + "\n\n" + decision.reason)
+                    .setMessage(decision.fileName + "\n\n" + localizedDownloadReason(decision.reason))
                     .setPositiveButton(R.string.dialog_ok, null)
                     .show()
                 return@runOnUiThread
@@ -961,7 +975,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                 appendLine(getString(R.string.download_type, decision.mimeType.ifBlank { "Unknown" }))
                 appendLine(getString(R.string.download_size, if (contentLength > 0) android.text.format.Formatter.formatFileSize(this@MainActivity, contentLength) else "Unknown"))
                 appendLine()
-                append(decision.reason)
+                append(localizedDownloadReason(decision.reason))
             }
             AlertDialog.Builder(this)
                 .setTitle(if (decision.isApk) R.string.download_apk_confirm else R.string.download_confirm)
@@ -972,6 +986,20 @@ class MainActivity : Activity(), WebViewCallbacks {
                 .setNegativeButton("Cancel", null)
                 .show()
         }
+    }
+
+    private fun localizedDownloadReason(reason: String): String = when (reason) {
+        "The download URL is invalid or uses an unsupported source." -> getString(R.string.download_reason_invalid)
+        "The server did not provide a safe file name." -> getString(R.string.download_reason_filename)
+        "This executable or script file type is blocked by RAIN." -> getString(R.string.download_reason_executable)
+        "The file extension does not match the server's HTML content type." -> getString(R.string.download_reason_html)
+        "The APK extension conflicts with the reported content type." -> getString(R.string.download_reason_apk)
+        "The file extension and reported content type do not match." -> getString(R.string.download_reason_mismatch)
+        "APK files can install applications. RAIN will only save this file and will never install it automatically. Verify the publisher before opening it." -> getString(R.string.download_reason_apk_confirm)
+        "This download uses an unencrypted HTTP connection. Confirm only if you trust the source." -> getString(R.string.download_reason_http)
+        "RAIN cannot confidently identify this file type. Review the source and file name before downloading." -> getString(R.string.download_reason_unknown)
+        "Review the source and file details before confirming the download." -> getString(R.string.download_reason_review)
+        else -> reason
     }
 
     private fun enqueueDownload(
