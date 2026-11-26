@@ -31,33 +31,72 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
       - name: Install pinned Android SDK packages
-        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "emulator"
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@v4
       - name: Make Gradle Wrapper executable
         run: chmod +x ./gradlew
       - name: Run lint, unit tests, and assemble debug APK
         run: ./gradlew --no-daemon --stacktrace clean lint testDebugUnitTest assembleDebug
-      - name: Run Android instrumentation tests on emulator
+      - name: Verify KVM acceleration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -c /dev/kvm ]; then
+            echo "::error::KVM device is unavailable; Android 16 emulator tests cannot use the required hardware acceleration."
+            exit 2
+          fi
+          sudo chmod 666 /dev/kvm
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            echo "::error::KVM device is not readable and writable by the runner."
+            exit 2
+          fi
+          "$ANDROID_SDK_ROOT/emulator/emulator" -accel-check
+      - name: Run Android 16 instrumentation and launch smoke tests
         uses: reactivecircus/android-emulator-runner@v2
-        env:
-          ANDROID_I_WANT_MY_TCG: "yes"
         with:
-          api-level: 34
+          api-level: 36
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -no-snapshot -wipe-data
+          emulator-options: -accel on -no-window -gpu swiftshader -noaudio -no-boot-anim -no-snapshot -wipe-data
           disable-animations: true
           cores: 2
-          ram-size: 2048M
-          heap-size: 512M
-          disk-size: 4G
+          ram-size: 4096M
+          heap-size: 1024M
+          disk-size: 6G
           emulator-boot-timeout: 900
           script: |
+            set -euo pipefail
             adb devices
-            adb shell getprop sys.boot_completed
+            SDK_VERSION="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+            if [ "$SDK_VERSION" != "36" ]; then
+              echo "::error::Expected Android API 36, got $SDK_VERSION"
+              exit 2
+            fi
+            BOOT_STATE="$(adb shell getprop sys.boot_completed | tr -d '\r')"
+            if [ "$BOOT_STATE" != "1" ]; then
+              echo "::error::Android emulator did not finish booting"
+              exit 2
+            fi
             ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am force-stop com.rain.browser
+            adb shell monkey -p com.rain.browser 1
+            APP_PID=""
+            for attempt in $(seq 1 20); do
+              APP_PID="$(adb shell pidof com.rain.browser | tr -d '\r' || true)"
+              if [ -n "$APP_PID" ]; then
+                break
+              fi
+              sleep 1
+            done
+            if [ -z "$APP_PID" ]; then
+              echo "::error::RAIN did not remain running after launch"
+              adb logcat -d -v threadtime | tail -n 300
+              exit 1
+            fi
+            echo "RAIN launched successfully on Android API $SDK_VERSION (PID $APP_PID)."
       - name: Upload build and test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,5 +106,7 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/reports/lint-results-debug.html
             app/build/test-results/testDebugUnitTest/*.xml
+            app/build/outputs/androidTest-results/connected/**/*.xml
+            app/build/reports/androidTests/connected/debug/**
           if-no-files-found: warn
           retention-days: 14
