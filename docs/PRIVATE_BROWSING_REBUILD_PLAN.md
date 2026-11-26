@@ -96,6 +96,8 @@
 | PB-CI12 | การเก็บ Diagnostics เองเคยทำให้ job ล้มหลัง Test ล้มแล้ว | Run #80 unexpected EOF | **ยืนยันแล้ว** — Diagnostics ต้องใช้ if: always แต่ต้องไม่กลบ exit code ต้นเหตุ |
 | PB-CI13 | การแบ่ง Build job กับ Instrumentation job อาจสร้าง debug keystore ชั่วคราวคนละชุด | Run #80 | **ยืนยันแล้ว** — ให้ Build + Instrumentation อยู่ job เดียวกัน หรือสร้าง/ส่ง signing artifact ที่ออกแบบอย่างชัดเจน; แนวทางแรกง่ายและปลอดภัยกว่า |
 | PB-CI14 | การใช้ adb root เป็นเงื่อนไขบังคับอาจทำให้ CI เปราะบาง | ข้อเสนอจากที่ปรึกษาและข้อจำกัด Emulator image | **แนวทางป้องกัน** — adb root เป็น best-effort เท่านั้น; ใช้ logcat, DropBox, ANR และ process diagnostics เป็นหลัก |
+| PB-CI15 | Artifact Upload อาจไม่เหลือเวลาทำงานหลัง Job timeout | ข้อวิจารณ์จากการทบทวน Workflow draft รอบก่อน | **ความเสี่ยงเชิง Workflow** — ต้องเผื่อเวลา Upload, ใช้ if: always และตรวจว่า Artifact ถูก Finalize ก่อน Job จบ; ห้ามตั้ง Job timeout ชิดเวลารัน Test |
+| PB-CI16 | ต้องตรวจ Emulator process lifecycle ข้าม Step ไม่ใช่เชื่อเพียง PID ตอน Start | PR #3 เพิ่ม PID/PGID และ step-boundary checks; Runs #80–#82 ผ่าน Emulator boot, ADB readiness, provider check, install และ MainActivity launch | **มีหลักฐานเฉพาะ Preflight ผ่าน** — ไม่ได้แปลว่า Private Browsing isolation ผ่าน; คง lifecycle diagnostics แต่ลดความซับซ้อน Workflow |
 
 ### 4.3 ปัญหา Product / WebView / Storage ที่ต้องตรวจต่อ
 
