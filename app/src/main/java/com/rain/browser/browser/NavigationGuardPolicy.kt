@@ -17,7 +17,7 @@ object NavigationGuardPolicy {
 
     private val allowedExternalSchemes = setOf("mailto", "tel", "sms", "geo")
 
-    // Common multi-label public suffixes. Unknown suffixes use the usual final-two-label rule.
+    // Curated public suffixes; unknown second-level suffixes fall back to exact-host matching.
     private val multiLabelPublicSuffixes = setOf(
         "ac.th", "co.th", "go.th", "in.th", "or.th",
         "ac.uk", "co.uk", "gov.uk", "net.uk", "org.uk",
@@ -37,6 +37,11 @@ object NavigationGuardPolicy {
         "github.io", "appspot.com", "blogspot.com", "pages.dev",
         "vercel.app", "netlify.app", "herokuapp.com", "web.app",
         "firebaseapp.com", "wordpress.com"
+    )
+
+    private val commonSecondLevelDomainLabels = setOf(
+        "ac", "co", "com", "edu", "gov", "mil", "net", "org",
+        "go", "or", "ne", "firm"
     )
 
     private val commonSingleLabelPublicSuffixes = setOf(
@@ -136,8 +141,10 @@ object NavigationGuardPolicy {
         val labels = host.split('.').filter { it.isNotBlank() }
         if (labels.size <= 1) return host
         val lastTwo = labels.takeLast(2).joinToString(".")
+        val secondLevelLabel = labels[labels.lastIndex - 1]
         val labelCount = when {
             lastTwo in multiLabelPublicSuffixes -> 3
+            secondLevelLabel in commonSecondLevelDomainLabels -> return host
             labels.last() in commonSingleLabelPublicSuffixes -> 2
             else -> return host
         }
