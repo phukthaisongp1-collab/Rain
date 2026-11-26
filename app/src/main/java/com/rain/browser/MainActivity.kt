@@ -225,12 +225,17 @@ class MainActivity : Activity(), WebViewCallbacks {
         val recentItems = resumeRepository.list().take(5).joinToString("") { entry ->
             "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
                 escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
-        }.ifBlank { "<li>No recent pages</li>" }
+        }.ifBlank { "<li>" + getString(R.string.new_tab_no_recent) + "</li>" }
         val bookmarkItems = bookmarkRepository.search().take(5).joinToString("") { entry ->
             "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
                 escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
-        }.ifBlank { "<li>No bookmarks yet</li>" }
+        }.ifBlank { "<li>" + getString(R.string.new_tab_no_bookmarks) + "</li>" }
         val page = WELCOME_PAGE
+            .replace("{{READY}}", escapeHtml(getString(R.string.new_tab_ready)))
+            .replace("{{RECENT_TITLE}}", getString(R.string.new_tab_recent))
+            .replace("{{BOOKMARK_TITLE}}", getString(R.string.new_tab_bookmarks))
+            .replace("{{NO_RECENT}}", getString(R.string.new_tab_no_recent))
+            .replace("{{NO_BOOKMARKS}}", getString(R.string.new_tab_no_bookmarks))
             .replace("{{RECENT}}", recentItems)
             .replace("{{BOOKMARKS}}", bookmarkItems)
         webView.loadDataWithBaseURL(null, page, "text/html", "UTF-8", null)
@@ -1234,9 +1239,9 @@ class MainActivity : Activity(), WebViewCallbacks {
                     a { color: #38BDF8; text-decoration: none; }
                 </style>
             </head>
-            <body><main><h1>RAIN</h1><p>Your browsing space is ready.</p>
-              <section><h2>Recent pages</h2><ul>{{RECENT}}</ul></section>
-              <section><h2>Bookmarks</h2><ul>{{BOOKMARKS}}</ul></section>
+            <body><main><h1>RAIN</h1><p>{{READY}}</p>
+              <section><h2>{{RECENT_TITLE}}</h2><ul>{{RECENT}}</ul></section>
+              <section><h2>{{BOOKMARK_TITLE}}</h2><ul>{{BOOKMARKS}}</ul></section>
             </main></body>
             </html>
         """
