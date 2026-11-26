@@ -65,6 +65,9 @@ object NavigationGuardPolicy {
         if (!isMainFrame) return if (isWebUrl) Decision.ALLOW_WEB else Decision.BLOCK
 
         if (isWebUrl) {
+            if (isHttpsUrl(currentUrl) && isHttpUrl(destinationUrl) && !hasGesture) {
+                return Decision.BLOCK
+            }
             if (currentUrl.isBlank() || hasGesture || isSameSite(currentUrl, destinationUrl)) {
                 return Decision.ALLOW_WEB
             }
@@ -113,6 +116,14 @@ object NavigationGuardPolicy {
             else -> false
         }
     }
+
+    private fun isHttpsUrl(rawUrl: String): Boolean =
+        runCatching { URI(rawUrl.trim()).scheme.equals("https", ignoreCase = true) }
+            .getOrDefault(false)
+
+    private fun isHttpUrl(rawUrl: String): Boolean =
+        runCatching { URI(rawUrl.trim()).scheme.equals("http", ignoreCase = true) }
+            .getOrDefault(false)
 
     private fun hostOf(rawUrl: String): String? {
         if (!NetworkPolicyManager.isAllowedWebUrl(rawUrl)) return null
