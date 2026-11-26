@@ -67,36 +67,15 @@ jobs:
           disk-size: 6G
           emulator-boot-timeout: 900
           script: |
-            set -eu
             adb devices
-            SDK_VERSION="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
-            if [ "$SDK_VERSION" != "36" ]; then
-              echo "::error::Expected Android API 36, got $SDK_VERSION"
-              exit 2
-            fi
-            BOOT_STATE="$(adb shell getprop sys.boot_completed | tr -d '\r')"
-            if [ "$BOOT_STATE" != "1" ]; then
-              echo "::error::Android emulator did not finish booting"
-              exit 2
-            fi
+            test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = "36"
+            test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
             ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.rain.browser
             adb shell monkey -p com.rain.browser 1
-            APP_PID=""
-            for attempt in $(seq 1 20); do
-              APP_PID="$(adb shell pidof com.rain.browser | tr -d '\r' || true)"
-              if [ -n "$APP_PID" ]; then
-                break
-              fi
-              sleep 1
-            done
-            if [ -z "$APP_PID" ]; then
-              echo "::error::RAIN did not remain running after launch"
-              adb logcat -d -v threadtime | tail -n 300
-              exit 1
-            fi
-            echo "RAIN launched successfully on Android API $SDK_VERSION (PID $APP_PID)."
+            sleep 2
+            adb shell pidof com.rain.browser
       - name: Upload build and test reports
         if: always()
         uses: actions/upload-artifact@v4
