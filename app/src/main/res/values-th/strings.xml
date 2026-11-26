@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RAIN</string>
+    <string name="address_hint">ค้นหาหรือป้อนเว็บไซต์</string>
+    <string name="action_go">ไป</string>
+    <string name="action_back">ย้อนกลับ</string>
+    <string name="action_forward">ถัดไป</string>
+    <string name="action_reload">โหลดใหม่</string>
+    <string name="action_home">หน้าหลัก</string>
+    <string name="action_new_tab">+ แท็บ</string>
+    <string name="action_tabs">แท็บ (0)</string>
+    <string name="action_search_engine">ค้นหา: DuckDuckGo</string>
+    <string name="action_display_mode">มือถือ/เดสก์ท็อป</string>
+    <string name="action_zoom_out">ย่อ</string>
+    <string name="action_zoom_in">ขยาย</string>
+    <string name="action_text_out">ลดขนาดตัวอักษร</string>
+    <string name="action_text_in">เพิ่มขนาดตัวอักษร</string>
+    <string name="action_private">ส่วนตัว</string>
+    <string name="action_protection">การป้องกัน</string>
+    <string name="action_permissions">สิทธิ์</string>
+    <string name="action_bookmarks">บุ๊กมาร์ก</string>
+    <string name="action_history">ประวัติ</string>
+    <string name="action_resume">เรียกคืน</string>
+    <string name="action_settings">ตั้งค่า</string>
+    <string name="status_ready">เบราว์เซอร์ RAIN</string>
+</resources>
