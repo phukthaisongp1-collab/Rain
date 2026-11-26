@@ -1,11 +1,17 @@
 # RAIN Browser — Phase 1: 60-Day Work Tracker
 
 > **Project:** RAIN Browser  
-> **Plan:** v3.1  
+> **Plan:** v3.2  
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 30/60 days (50.00%)
+> **Progress:** 31/60 days (51.67%)
+
+## Approved platform baseline change (2026-11-25)
+
+- The owner approved Android 16 (API 36) and newer only. `minSdk = 36`; Android 15 and older are unsupported.
+- `compileSdk` and `targetSdk` remain 36. Phase 1 emulator CI must use API 36.
+- The original Day 3 `minSdk = 29` configuration is superseded by this approved decision and was applied on Day 31.
 
 ## Tracking rules
 
@@ -26,10 +32,10 @@
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
 | Round C — Privacy controls and network (excluding Private Browsing) | 13 | 2 | In progress |
-| Phase 1 reserve / reallocation capacity | 5 | 0 | Reserved; does not block Phase 1 continuation |
+| Phase 1 reserve / reallocation capacity | 5 | 1 | Day 31 completed; Days 32–35 remain reserved and non-blocking |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **30** | **50.00%** |
+| **Total** | **60** | **31** | **51.67%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -41,7 +47,7 @@
 
 - [x] **Day 1:** Inspect the RAIN repository, default branch, existing plan, and current GitHub project structure. Record the verified baseline and avoid overwriting existing work. **Completed: 2026-11-25.** Verified: default branch `main`; repository is public and accessible with read/write permission; root contains `README.md` and `docs/`; `docs/` contains only `RAIN_BROWSER_PLAN_V3.md` and `PHASE1_60_DAY_TRACKER.md`; no Android source/project scaffold or `.github/workflows` files are present in the inspected root/docs listings. Existing plan confirmed as Android-only v3.1, Kotlin + Android SDK + Gradle + WebView, applicationId `com.rain.browser`, initial versionName `0.1.0`. Baseline commit: `e40dc87e6f4e9ea2d24bfe40d2e22fd5c6f6d4a6`; plan blob: `e44f963ad9eccf1c036df133ffa4a679dd552127`. No application code changed on Day 1.
 - [x] **Day 2:** Prepare the Android project structure in the existing repository, following the approved Android-only architecture. **Completed: 2026-11-25.** Created the approved directory skeleton with `.gitkeep` placeholders for `.github/workflows`, `app/src/main/java/com/rain/browser` and its `browser`, `privacy`, `network`, `data`, `downloads`, and `settings` packages; `app/src/main/res/layout`, `drawable`, `values`, and `values-th`; `app/src/test`; and `gradle/wrapper`. No Kotlin source, Gradle configuration, Android manifest, or workflow implementation was added because those belong to later scheduled tasks. Evidence commit: `a6fea91e7cdcd492ca6750a09ce2739d27198262`. 
-- [x] **Day 3:** Configure Kotlin and Android SDK settings. **Completed: 2026-11-25.** Configured Kotlin compilation through AGP 9 built-in Kotlin support, compileSdk/targetSdk 36, and minSdk 29. Evidence: `app/build.gradle.kts`, `gradle/libs.versions.toml`, commit `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a`.
+- [x] **Day 3:** Configure Kotlin and Android SDK settings. **Completed: 2026-11-25.** Configured Kotlin compilation through AGP 9 built-in Kotlin support, compileSdk/targetSdk 36, and initially minSdk 29. The owner later approved Android 16+ only; see the platform baseline change above and Day 31 evidence. Evidence: `app/build.gradle.kts`, `gradle/libs.versions.toml`, commit `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a`.
 - [x] **Day 4:** Configure Gradle and Gradle Wrapper, pin compatible versions, and verify the build environment. **Completed: 2026-11-25.** Pinned Gradle 9.6.0 and AGP 9.5.2; added the official Gradle 9.6.0 wrapper scripts and JAR. Gradle Wrapper validation passed in Actions run `45565157678`; the later build step exposed a separate Kotlin plugin configuration issue that was corrected. Evidence: `gradle/wrapper/`, `gradlew`, `gradlew.bat`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 5:** Set the application identity: app name RAIN, applicationId `com.rain.browser`, initial versionName `0.1.0`, and initial versionCode policy. **Completed: 2026-11-25.** Set app label/name RAIN, applicationId `com.rain.browser`, versionName `0.1.0`, and initial versionCode `1`. Evidence: `app/build.gradle.kts`, `app/src/main/res/values/strings.xml`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
 - [x] **Day 6:** Create the starting Activity and initial application screen using the approved theme. **Completed: 2026-11-25.** Added `MainActivity.kt`, `activity_main.xml`, and the approved RAIN theme colors. Evidence: `app/src/main/java/com/rain/browser/MainActivity.kt`, `app/src/main/res/layout/activity_main.xml`, `app/src/main/res/values/`, commit `15fe31c3e457b8f3abd64d233e16454587ef9017`.
@@ -95,7 +101,12 @@
 
 - [x] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation. **Completed: 2026-11-25.** Documented process-scoped WebView data directories, cookie/WebStorage scope, Service Worker limitations, and cleanup API constraints in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`.
 - [x] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities. **Completed: 2026-11-25.** Owner approved a dedicated `:private` Android process and unique `rain_private` WebView data-directory suffix. Architecture and limitations recorded in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; any implementation and verification work is now tracked in Phase 2 under `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1.
-**Schedule adjustment (owner-approved 2026-11-26):** The former Private Browsing tasks for Days 31–35 have been transferred to Phase 2 (see `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1). These five calendar slots are reserved for later allocation to already-approved, non-Private Phase 1 work. They are not completed days, do not increase the 30/60 completion count, and do not block continuation with Day 36. The existing Private Browsing source work and Run #82 evidence are retained; no security acceptance is implied.
+**Schedule adjustment (owner-approved 2026-11-26):** The former Private Browsing tasks for Days 31–35 were transferred to Phase 2 (see `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1). Day 31 has now been allocated to the already-approved Android 16+ platform baseline and is complete. Days 32–35 remain reserved for later approved, non-Private Phase 1 work; they are not completed days and do not block Day 36. The existing Private Browsing source work and Run #82 evidence are retained; no security acceptance is implied.
+
+### Phase 1 reserve / reallocation capacity
+
+- [x] **Day 31 (reallocated):** Enforce the approved Android 16+ baseline across the app and Phase 1 CI. **Completed: 2026-11-26.** Set `minSdk = 36`; changed the Phase 1 emulator to API 36; removed the forced TCG override; added a KVM acceleration gate and Android 16 install/launch smoke check. Excluded `PrivateBrowsingIsolationTest` from Phase 1 CI because it is deferred Phase 2 work; no Private Browsing acceptance is implied. Build, lint, unit tests, KVM check, Android 16 emulator boot, app install, and app process launch all passed. Evidence: PR #5; merge commit `18f94670b0f2f95a47a9f7bdb1b4dac51abc27f6`; Actions run `45728277545`; artifact `15075034348`; APK SHA-256 `dfda287deff9fd05c3a1ea6d4164f6c76a0b84e8171e813098732064390ced19`.
+- [ ] **Days 32–35:** Reserved for future allocation to already-approved non-Private Phase 1 work. Not completed; do not count toward progress until separately implemented and verified.
 - [ ] **Day 36:** Verify HTTPS and SSL error handling; never bypass certificate errors.
 - [ ] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing.
 - [ ] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise.
@@ -167,7 +178,7 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 |---:|---|---|---|
 | 1 | 2026-11-25 | Repository baseline inspected; Android scaffold and workflow not yet present. Existing Android v3.1 plan and tracker confirmed. | `e40dc87e6f4e9ea2d24bfe40d2e22fd5c6f6d4a6` (baseline) |
 | 2 | 2026-11-25 | Created approved Android directory skeleton with `.gitkeep` placeholders; no source/config implementation added. | `a6fea91e7cdcd492ca6750a09ce2739d27198262` |
-| 3 | 2026-11-25 | Configured Kotlin through AGP built-in Kotlin, Android API 36, and minimum API 29. | `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a` |
+| 3 | 2026-11-25 | Configured Kotlin through AGP built-in Kotlin, Android API 36, and initially minimum API 29; Android 16+ baseline was applied later on Day 31. | `8e4fde1c224cc2f1e03ee075b1560cf82d7b016a` |
 | 4 | 2026-11-25 | Pinned AGP 9.5.2 / Gradle 9.6.0; official Wrapper validation passed. Full build validation remains part of Day 8 CI. | `15fe31c3e457b8f3abd64d233e16454587ef9017`; Actions run `45565157678` |
 | 5 | 2026-11-25 | Set RAIN identity, applicationId, versionName 0.1.0, and versionCode 1. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
 | 6 | 2026-11-25 | Added initial Activity and RAIN-themed screen. | `15fe31c3e457b8f3abd64d233e16454587ef9017` |
@@ -195,6 +206,7 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 28 | 2026-11-25 | GitHub Actions run `45575054677` completed successfully: Gradle Wrapper validation, lint, `testDebugUnitTest`, `assembleDebug`, and artifact upload all passed. Artifact `rain-android-build` ID `15003498586`, 852,812 bytes; SHA-256 `e08afde4d599e9887c068b2d43709cb7674d3f821f7d71fcf50fbd8a94dabd55`. Cloud verification accepted; physical-device end-to-end testing remains scheduled for Day 57 and has not been claimed. | Actions run `45575054677`; artifact `15003498586`; commit `64c4f3efa87930c6a543d53a3deedde81871f7d8` |
 | 29 | 2026-11-25 | Inspected WebView process/data-directory isolation, cookie and WebStorage scope, Service Worker limitations, and cleanup API constraints. | `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; commit `3942596fe1706865de8d8141eb147f4493bd11aa` |
 | 30 | 2026-11-25 | Defined and recorded the owner-approved separate-process Private Browsing architecture; implementation and verification were subsequently deferred to Phase 2 under `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1. | Owner approval in conversation; `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; commit `3942596fe1706865de8d8141eb147f4493bd11aa` |
+| 31 | 2026-11-26 | Enforced Android 16+ platform baseline (`minSdk = 36`), aligned Phase 1 CI with API 36, verified KVM acceleration, and confirmed RAIN installs and launches on the Android 16 emulator. Private Browsing instrumentation was excluded from Phase 1 CI because it is deferred to Phase 2. | PR #5; merge commit `18f94670b0f2f95a47a9f7bdb1b4dac51abc27f6`; Actions run `45728277545`; artifact `15075034348`; APK SHA-256 `dfda287deff9fd05c3a1ea6d4164f6c76a0b84e8171e813098732064390ced19` |
 
 ## Blockers and approved changes
 
@@ -203,7 +215,7 @@ Record blockers, platform limitations, and user-approved changes here. Do not si
 | Date | Related day | Blocker / limitation | Decision / approval | Resolution evidence |
 |---|---:|---|---|---|
 | 2026-11-25 | 8 | Initial CI attempts exposed an obsolete Android SDK setup action and a separate Kotlin plugin conflict with AGP 9. | Updated to setup-android v4 and AGP built-in Kotlin; final CI succeeded with build, lint, unit-test task, APK assembly, and artifact upload. | [Successful Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565610942) |
-| 2026-11-26 | 31–35 | Private Browsing Instrumentation Run #82 failed before completing the isolation assertions. Diagnostics showed a cross-process `BadParcelableException` / `ClassNotFoundException` involving a Test-APK callback class; this is a confirmed test-harness communication failure, not proof that product isolation passed or failed. | Owner directed all Private Browsing implementation and verification to Phase 2, with a dedicated independent Workflow; exclude it from Phase 1 acceptance and keep Phase 1 moving. | [Run #82](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45723328182); artifact ID `15073318212`; see Phase 2 backlog in `docs/RAIN_BROWSER_PLAN_V3.md` Section 7.1. |
+| 2026-11-26 | 31–35 | Private Browsing Instrumentation Run #82 failed before completing the isolation assertions. Diagnostics showed a cross-process `BadParcelableException` / `ClassNotFoundException` involving a Test-APK callback class; this is a confirmed test-harness communication failure, not proof that product isolation passed or failed. Day 31 was reallocated to the Android 16+ baseline; Days 32–35 remain reserved. | Owner directed all Private Browsing implementation and verification to Phase 2, with a dedicated independent Workflow; exclude it from Phase 1 acceptance and keep Phase 1 moving. | [Run #82](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45723328182); artifact ID `15073318212`; Day 31 PR #5 / run `45728277545`; see Phase 2 backlog in `docs/RAIN_BROWSER_PLAN_V3.md` Section 7.1. |
 
 ## Progress update protocol
 
