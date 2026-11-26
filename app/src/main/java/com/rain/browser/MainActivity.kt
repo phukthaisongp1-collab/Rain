@@ -661,7 +661,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         url: String,
         userAgent: String,
         contentDisposition: String,
-        mimeType: String
+        mimeType: String,
+        contentLength: Long
     ) {
         runOnUiThread {
             val guessedName = URLUtil.guessFileName(url, contentDisposition, mimeType)
@@ -679,6 +680,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                 appendLine("File: ${decision.fileName}")
                 appendLine("Source: ${decision.sourceHost ?: "Unknown"}")
                 appendLine("Type: ${decision.mimeType.ifBlank { "Unknown" }}")
+                appendLine("Size: ${if (contentLength > 0) android.text.format.Formatter.formatFileSize(this@MainActivity, contentLength) else "Unknown"}")
                 appendLine()
                 append(decision.reason)
             }

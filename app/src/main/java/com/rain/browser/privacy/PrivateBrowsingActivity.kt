@@ -189,7 +189,8 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
         url: String,
         userAgent: String,
         contentDisposition: String,
-        mimeType: String
+        mimeType: String,
+        contentLength: Long
     ) {
         Toast.makeText(
             this,

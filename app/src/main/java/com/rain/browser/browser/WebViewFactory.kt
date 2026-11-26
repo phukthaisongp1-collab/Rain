@@ -32,7 +32,8 @@ interface WebViewCallbacks {
         url: String,
         userAgent: String,
         contentDisposition: String,
-        mimeType: String
+        mimeType: String,
+        contentLength: Long
     )
 }
 
@@ -126,13 +127,14 @@ class WebViewFactory(private val context: Context) {
                     callbacks.onTitleChanged(view, title.orEmpty())
                 }
             }
-            setDownloadListener { url, userAgent, contentDisposition, mimeType ->
+            setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
                 callbacks.onDownloadRequested(
                     this,
                     url,
                     userAgent.orEmpty(),
                     contentDisposition.orEmpty(),
-                    mimeType.orEmpty()
+                    mimeType.orEmpty(),
+                    contentLength
                 )
             }
         }
