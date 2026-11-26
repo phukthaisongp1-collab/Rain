@@ -73,7 +73,7 @@ class WebViewFactory(private val context: Context) {
                             currentUrl = view.url.orEmpty(),
                             destinationUrl = url,
                             isMainFrame = request.isForMainFrame,
-                            hasGesture = request.hasGesture
+                            hasGesture = request.hasGesture()
                         )
                     ) {
                         NavigationGuardPolicy.Decision.ALLOW_WEB -> {
