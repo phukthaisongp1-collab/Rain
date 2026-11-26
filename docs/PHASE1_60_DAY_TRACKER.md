@@ -181,9 +181,9 @@
 
 - [x] **Day 47:** Implemented the approved Data Layer boundary with SQLite-backed local storage for bookmarks, normal history, resume metadata, and settings. Completed: 2026-11-26. Evidence: PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; CI run `45766742524` passed.
 - [x] **Day 48:** Implemented allow-listed storage get/set/query/delete operations and repository-level input validation, with regression tests. Completed: 2026-11-26. Evidence: PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; CI run `45765600074` passed and main run `45766742524` passed.
-- [ ] **Day 49:** Implement Bookmark persistence, organization, search, open, and delete operations.
-- [ ] **Day 50:** Implement normal browsing History persistence, retrieval, search, and individual/all-entry deletion. Keep Private Browsing data outside this store; Phase 2 integration remains separate.
-- [ ] **Day 51:** Enforce the History maximum of 5,000 entries and implement/test optional automatic History clearing according to user settings.
+- [x] **Day 49:** Implemented Bookmark persistence, folder organization, search, open, and delete operations in the browser UI. Completed: 2026-11-26. Evidence: PR #15 merge commit `14cbd7ceced7770191605bbd3d632636dda80188`; PR CI run `45767214628` and main CI run `45767992062` passed.
+- [x] **Day 50:** Integrated normal History recording, retrieval, search, individual deletion, and clear-all confirmation. Private Browsing remains outside the normal History store and in Phase 2. Completed: 2026-11-26. Evidence: PR #15 merge commit `14cbd7ceced7770191605bbd3d632636dda80188`; PR CI run `45767214628` and main CI run `45767992062` passed.
+- [x] **Day 51:** Enforced the 5,000-entry History limit and connected the configured automatic retention policy to normal app startup. Repository tests passed in PR CI run `45767214628`; main CI run `45767992062` passed. Completed: 2026-11-26.
 - [ ] **Day 52:** Implement Resume persistence and restoration with a maximum of 10 entries; do not persist passwords or sensitive form data.
 - [ ] **Day 53:** Implement asynchronous cleanup of Resume entries older than 30 days and complete the RAIN New Tab page.
 - [ ] **Day 54:** Implement the Settings page for approved options: language, search engine, default Mobile/Desktop mode, and only verified privacy/network controls.
@@ -272,6 +272,9 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 46 | 2026-11-26 | Completed Round C code/configuration audit; no reproducible source defect required a patch. Documented platform/provider limitations and accepted Round C excluding Phase 2 Private Browsing. | Review `docs/ROUND_C_REVIEW_DAY46.md`; PR #13 merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403 |
 | 47 | 2026-11-26 | Added SQLite-backed application Data Layer and repository boundaries for bookmarks, normal history, resume metadata, and settings. | PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; PR CI run `45765600074`; main CI run `45766742524` |
 | 48 | 2026-11-26 | Added allow-listed storage get/set/query/delete operations and validated CRUD/search/retention/default-setting behavior with unit tests. | PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; PR CI run `45765600074`; main CI run `45766742524` |
+| 49 | 2026-11-26 | Integrated Bookmark persistence, folder organization, search, open, and delete UI; PR CI and main CI passed. | PR #15 merge `14cbd7ceced7770191605bbd3d632636dda80188`; PR run `45767214628`; main run `45767992062` |
+| 50 | 2026-11-26 | Integrated normal History recording, search, open, individual deletion, and clear-all confirmation; Private Browsing remains isolated in Phase 2. | PR #15 merge `14cbd7ceced7770191605bbd3d632636dda80188`; PR run `45767214628`; main run `45767992062` |
+| 51 | 2026-11-26 | Enforced the 5,000-entry History cap and connected automatic retention settings to normal app startup; repository tests and main CI passed. | PR #15 merge `14cbd7ceced7770191605bbd3d632636dda80188`; PR run `45767214628`; main run `45767992062` |
 
 ## Blockers and approved changes
 
