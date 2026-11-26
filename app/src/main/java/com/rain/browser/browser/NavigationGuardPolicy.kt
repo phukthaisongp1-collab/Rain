@@ -26,9 +26,33 @@ object NavigationGuardPolicy {
         "co.jp", "ne.jp", "or.jp",
         "com.br", "com.cn", "com.hk", "com.my", "com.sg", "com.tw",
         "co.in", "firm.in", "net.in", "org.in",
+        "ac.za", "co.za", "gov.za", "net.za", "org.za",
+        "co.kr", "go.kr", "ne.kr", "or.kr",
+        "com.ar", "com.co", "com.mx", "com.ph", "com.pk", "com.tr", "com.vn",
+        "co.id", "go.id", "or.id", "ac.id",
+        "co.il", "org.il", "net.il",
+        "co.ke", "or.ke", "go.ke", "ac.ke",
+        "com.ng", "org.ng", "net.ng",
+        "com.eg", "com.sa", "com.ae", "co.ae", "com.qa",
         "github.io", "appspot.com", "blogspot.com", "pages.dev",
         "vercel.app", "netlify.app", "herokuapp.com", "web.app",
         "firebaseapp.com", "wordpress.com"
+    )
+
+    private val commonSingleLabelPublicSuffixes = setOf(
+        "com", "org", "net", "edu", "gov", "mil", "int",
+        "io", "app", "dev", "ai", "me", "info", "biz", "xyz",
+        "online", "site", "store", "tech", "cloud", "pro", "name",
+        "tv", "cc", "co", "th", "uk", "de", "fr", "jp", "au", "nz",
+        "sg", "my", "in", "br", "cn", "hk", "tw", "mx", "ru", "ua",
+        "pl", "es", "it", "nl", "be", "ch", "se", "no", "dk", "fi",
+        "ca", "us", "id", "kr", "za", "ng", "ke", "eg", "sa", "ae",
+        "qa", "pk", "ph", "vn", "tr", "gr", "pt", "il", "ir", "ie",
+        "at", "cz", "sk", "hu", "ro", "bg", "hr", "si", "rs", "lt",
+        "lv", "ee", "ge", "am", "az", "kz", "uz", "mn", "kh", "la",
+        "mm", "bd", "lk", "np", "af", "iq", "jo", "lb", "ps", "cy",
+        "mt", "lu", "li", "ad", "mc", "sm", "va", "to", "ws", "fm",
+        "gg", "je", "im"
     )
 
     fun evaluate(
@@ -101,7 +125,11 @@ object NavigationGuardPolicy {
         val labels = host.split('.').filter { it.isNotBlank() }
         if (labels.size <= 1) return host
         val lastTwo = labels.takeLast(2).joinToString(".")
-        val labelCount = if (lastTwo in multiLabelPublicSuffixes) 3 else 2
+        val labelCount = when {
+            lastTwo in multiLabelPublicSuffixes -> 3
+            labels.last() in commonSingleLabelPublicSuffixes -> 2
+            else -> return host
+        }
         return labels.takeLast(labelCount.coerceAtMost(labels.size)).joinToString(".")
     }
 
