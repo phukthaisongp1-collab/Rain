@@ -94,6 +94,17 @@ class RepositoryTest {
         assertEquals(item, repository.list().single())
     }
 
+    @Test fun resumeKeepsOnlyTenMostRecentEntries() {
+        val repository = ResumeRepository(MemoryStorage())
+        for (index in 1..12) {
+            repository.save("https://example.com/page$index", "Page $index", 0L, index.toLong())
+        }
+        val entries = repository.list()
+        assertEquals(10, entries.size)
+        assertEquals("Page 12", entries.first().title)
+        assertFalse(entries.any { it.title == "Page 1" || it.title == "Page 2" })
+    }
+
     @Test fun resumeCleanupRemovesEntriesOlderThanThirtyDays() {
         val repository = ResumeRepository(MemoryStorage())
         val now = 40L * 24 * 60 * 60 * 1000

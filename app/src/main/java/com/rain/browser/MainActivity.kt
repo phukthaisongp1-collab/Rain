@@ -4,10 +4,12 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DownloadManager
+import android.app.LocaleManager
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.LocaleList
 import android.os.Environment
 import android.provider.Settings
 import android.view.KeyEvent
@@ -43,6 +45,8 @@ import com.rain.browser.permissions.PermissionManager
 import com.rain.browser.data.BookmarkRepository
 import com.rain.browser.data.HistoryRepository
 import com.rain.browser.data.SettingsRepository
+import com.rain.browser.data.ResumeRepository
+import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
 
 class MainActivity : Activity(), WebViewCallbacks {
@@ -61,6 +65,8 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var bookmarkRepository: BookmarkRepository
     private lateinit var historyRepository: HistoryRepository
     private lateinit var settingsRepository: SettingsRepository
+    private lateinit var resumeRepository: ResumeRepository
+    private val storageExecutor = Executors.newSingleThreadExecutor()
 
     private data class PendingWebPermission(
         val request: PermissionRequest,
@@ -97,7 +103,10 @@ class MainActivity : Activity(), WebViewCallbacks {
         bookmarkRepository = BookmarkRepository(storage)
         historyRepository = HistoryRepository(storage)
         settingsRepository = SettingsRepository(storage)
+        resumeRepository = ResumeRepository(storage)
+        searchEngine = runCatching { SearchEngine.valueOf(settingsRepository.searchEngine) }.getOrDefault(SearchEngine.DUCKDUCKGO)
         applyAutomaticHistoryRetention()
+        cleanupExpiredResumeEntries()
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
@@ -150,6 +159,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.permissions_button).setOnClickListener { showSitePermissionManager() }
         findViewById<Button>(R.id.bookmarks_button).setOnClickListener { showBookmarksDialog() }
         findViewById<Button>(R.id.history_button).setOnClickListener { showHistoryDialog() }
+        findViewById<Button>(R.id.resume_button).setOnClickListener { showResumeDialog() }
+        findViewById<Button>(R.id.settings_button).setOnClickListener { showSettingsDialog() }
 
         addressInput.setOnEditorActionListener { _, actionId, event ->
             val isGo = actionId == EditorInfo.IME_ACTION_GO ||
@@ -166,7 +177,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     private fun restoreTabs(savedInstanceState: Bundle?) {
         val savedTabs = savedInstanceState?.getParcelableArrayList<Bundle>(STATE_TABS)
         if (savedTabs.isNullOrEmpty()) {
-            createTab()
+            restorePersistedTabs()
             return
         }
 
@@ -185,6 +196,23 @@ class MainActivity : Activity(), WebViewCallbacks {
         showActiveTab()
     }
 
+    private fun restorePersistedTabs() {
+        val entries = resumeRepository.list()
+        if (entries.isEmpty()) {
+            createTab()
+            return
+        }
+        entries.forEach { entry ->
+            val webView = webViewFactory.create(this)
+            val tab = tabManager.add(webView)
+            tab.title = entry.title.ifBlank { entry.url }
+            tab.url = entry.url
+            loadUrlInTab(tab, entry.url)
+        }
+        tabManager.selectAt(0)
+        showActiveTab()
+    }
+
     private fun createTab() {
         val webView = webViewFactory.create(this)
         val tab = tabManager.add(webView)
@@ -194,8 +222,31 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun showWelcomePage(webView: WebView) {
-        webView.loadDataWithBaseURL(null, WELCOME_PAGE, "text/html", "UTF-8", null)
+        val recentItems = resumeRepository.list().take(5).joinToString("") { entry ->
+            "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
+                escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
+        }.ifBlank { "<li>" + getString(R.string.new_tab_no_recent) + "</li>" }
+        val bookmarkItems = bookmarkRepository.search().take(5).joinToString("") { entry ->
+            "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
+                escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
+        }.ifBlank { "<li>" + getString(R.string.new_tab_no_bookmarks) + "</li>" }
+        val page = WELCOME_PAGE
+            .replace("{{READY}}", escapeHtml(getString(R.string.new_tab_ready)))
+            .replace("{{RECENT_TITLE}}", getString(R.string.new_tab_recent))
+            .replace("{{BOOKMARK_TITLE}}", getString(R.string.new_tab_bookmarks))
+            .replace("{{NO_RECENT}}", getString(R.string.new_tab_no_recent))
+            .replace("{{NO_BOOKMARKS}}", getString(R.string.new_tab_no_bookmarks))
+            .replace("{{RECENT}}", recentItems)
+            .replace("{{BOOKMARKS}}", bookmarkItems)
+        webView.loadDataWithBaseURL(null, page, "text/html", "UTF-8", null)
     }
+
+    private fun escapeHtml(value: String): String = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;")
 
     private fun loadHome() {
         val tab = tabManager.activeTab ?: return
@@ -212,7 +263,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             return
         }
         val tab = tabManager.activeTab ?: return
-        applyDesktopSettings(tab.webView, desktopModeManager.isDesktopFor(resolvedUrl))
+        applyDesktopSettings(tab.webView, isDesktopForUrl(resolvedUrl))
         tab.url = resolvedUrl
         tab.webView.loadUrl(resolvedUrl)
         hideKeyboard()
@@ -228,7 +279,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             showWelcomePage(tab.webView)
             return
         }
-        applyDesktopSettings(tab.webView, desktopModeManager.isDesktopFor(url))
+        applyDesktopSettings(tab.webView, isDesktopForUrl(url))
         tab.webView.loadUrl(url)
     }
 
@@ -280,6 +331,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         } else {
             SearchEngine.DUCKDUCKGO
         }
+        settingsRepository.searchEngine = searchEngine.name
         updateSearchEngineButton()
         Toast.makeText(this, "Search: ${searchEngineLabel()}", Toast.LENGTH_SHORT).show()
     }
@@ -288,22 +340,26 @@ class MainActivity : Activity(), WebViewCallbacks {
         if (searchEngine == SearchEngine.DUCKDUCKGO) "DuckDuckGo" else "Google"
 
     private fun updateSearchEngineButton() {
-        searchEngineButton.text = "Search: ${searchEngineLabel()}"
+        searchEngineButton.text = getString(R.string.search_button, searchEngineLabel())
     }
 
     private fun toggleDesktopMode() {
         val tab = tabManager.activeTab ?: return
         val url = tab.webView.url.orEmpty().ifBlank { tab.url }
-        if (!desktopModeManager.setDesktopFor(url, !desktopModeManager.isDesktopFor(url))) {
+        if (!desktopModeManager.setDesktopFor(url, !isDesktopForUrl(url))) {
             Toast.makeText(this, "Open a website before changing display mode", Toast.LENGTH_SHORT).show()
             return
         }
-        val enabled = desktopModeManager.isDesktopFor(url)
+        val enabled = isDesktopForUrl(url)
         applyDesktopSettings(tab.webView, enabled)
         tab.isDesktopMode = enabled
         tab.webView.reload()
         updateBrowserControls()
     }
+
+    private fun isDesktopForUrl(url: String): Boolean =
+        if (desktopModeManager.hasPreferenceFor(url)) desktopModeManager.isDesktopFor(url)
+        else settingsRepository.defaultDisplayMode == SettingsRepository.DefaultDisplayMode.DESKTOP
 
     private fun applyDesktopSettings(webView: WebView, enabled: Boolean) {
         val defaultAgent = WebSettings.getDefaultUserAgent(this)
@@ -332,8 +388,8 @@ class MainActivity : Activity(), WebViewCallbacks {
     private fun updateBrowserControls() {
         val tab = tabManager.activeTab
         if (tab == null) {
-            statusText.text = "No tab"
-            modeText.text = "Mobile"
+            statusText.text = getString(R.string.status_no_tab)
+            modeText.text = getString(R.string.mode_mobile)
             tabsButton.text = "Tabs (0)"
             progressBar.visibility = View.GONE
             return
@@ -341,16 +397,118 @@ class MainActivity : Activity(), WebViewCallbacks {
         if (!addressInput.hasFocus()) {
             addressInput.setText(tab.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }.orEmpty())
         }
-        statusText.text = tab.title.ifBlank { "RAIN Browser" }
-        modeText.text = if (tab.isDesktopMode) "Desktop" else "Mobile"
-        tabsButton.text = "Tabs (${tabManager.tabs.size})"
-        reloadButton.text = if (tab.isLoading) "Stop" else "Reload"
+        statusText.text = tab.title.ifBlank { getString(R.string.status_ready) }
+        modeText.text = if (tab.isDesktopMode) getString(R.string.mode_desktop) else getString(R.string.mode_mobile)
+        tabsButton.text = getString(R.string.tabs_count, tabManager.tabs.size)
+        reloadButton.text = if (tab.isLoading) getString(R.string.status_stop) else getString(R.string.action_reload)
         progressBar.progress = tab.progress
         progressBar.visibility = if (tab.isLoading) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.back_button).isEnabled = tab.webView.canGoBack()
         findViewById<Button>(R.id.forward_button).isEnabled = tab.webView.canGoForward()
     }
 
+
+    private fun cleanupExpiredResumeEntries() {
+        storageExecutor.execute { runCatching { resumeRepository.clearExpired() } }
+    }
+
+    private fun saveResumeSession() {
+        val tabs = tabManager.tabs
+        val activeTab = tabManager.activeTab
+        val baseTimestamp = System.currentTimeMillis()
+        val snapshots = tabs.mapIndexedNotNull { index, tab ->
+            val url = tab.webView.url.orEmpty().ifBlank { tab.url }
+            if (url.startsWith("https://") || url.startsWith("http://")) {
+                val priority = if (tab == activeTab) tabs.size + 1L else (tabs.size - index).toLong()
+                Triple(url, tab.title, baseTimestamp + priority)
+            } else null
+        }
+        if (snapshots.isNotEmpty()) {
+            storageExecutor.execute {
+                snapshots.forEach { (url, title, updatedAt) ->
+                    runCatching { resumeRepository.save(url, title, 0L, updatedAt) }
+                }
+            }
+        }
+    }
+
+    private fun showResumeDialog() {
+        val entries = resumeRepository.list()
+        val labels = entries.map { it.title.ifBlank { it.url } + "\n" + it.url }.toTypedArray()
+        val builder = AlertDialog.Builder(this)
+            .setTitle(R.string.resume_title)
+            .setItems(labels) { _, which -> entries.getOrNull(which)?.let { openSavedUrl(it.url) } }
+            .setNegativeButton("Close", null)
+        if (entries.isEmpty()) builder.setMessage(R.string.resume_empty)
+        builder.show()
+    }
+
+
+    private fun showSettingsDialog() {
+        val options = arrayOf(
+            getString(R.string.settings_language, settingsRepository.language.name),
+            getString(R.string.settings_search_engine, settingsRepository.searchEngine),
+            getString(R.string.settings_default_display, settingsRepository.defaultDisplayMode.name),
+            getString(R.string.settings_history_retention, settingsRepository.autoClearHistoryDays)
+        )
+        AlertDialog.Builder(this).setTitle(R.string.settings_title).setItems(options) { _, which ->
+            when (which) {
+                0 -> chooseLanguage()
+                1 -> chooseSearchEngine()
+                2 -> chooseDefaultDisplayMode()
+                3 -> chooseHistoryRetention()
+            }
+        }.setNegativeButton(R.string.dialog_close, null).show()
+    }
+
+    private fun chooseLanguage() {
+        val values = SettingsRepository.Language.values()
+        AlertDialog.Builder(this).setTitle(R.string.language_title)
+            .setItems(arrayOf(getString(R.string.language_system), getString(R.string.language_thai), getString(R.string.language_english))) { _, which ->
+                val selected = values[which]
+                settingsRepository.language = selected
+                val tags = when (selected) {
+                    SettingsRepository.Language.SYSTEM -> ""
+                    SettingsRepository.Language.THAI -> "th"
+                    SettingsRepository.Language.ENGLISH -> "en"
+                }
+                getSystemService(LocaleManager::class.java).applicationLocales =
+                    if (tags.isBlank()) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(tags)
+                recreate()
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
+    }
+
+    private fun chooseSearchEngine() {
+        AlertDialog.Builder(this).setTitle(R.string.search_engine_title)
+            .setItems(arrayOf("DuckDuckGo", "Google")) { _, which ->
+                settingsRepository.searchEngine = if (which == 0) "DUCKDUCKGO" else "GOOGLE"
+                searchEngine = if (which == 0) SearchEngine.DUCKDUCKGO else SearchEngine.GOOGLE
+                updateSearchEngineButton()
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
+    }
+
+    private fun chooseDefaultDisplayMode() {
+        AlertDialog.Builder(this).setTitle(R.string.display_mode_title)
+            .setItems(arrayOf(getString(R.string.mode_mobile), getString(R.string.mode_desktop))) { _, which ->
+                settingsRepository.defaultDisplayMode = if (which == 0) {
+                    SettingsRepository.DefaultDisplayMode.MOBILE
+                } else SettingsRepository.DefaultDisplayMode.DESKTOP
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
+    }
+
+    private fun chooseHistoryRetention() {
+        val days = intArrayOf(0, 1, 7, 30, 90)
+        val labels = arrayOf(
+            getString(R.string.retention_never), getString(R.string.retention_one_day),
+            getString(R.string.retention_seven_days), getString(R.string.retention_thirty_days),
+            getString(R.string.retention_ninety_days)
+        )
+        AlertDialog.Builder(this).setTitle(R.string.history_retention_title)
+            .setItems(labels) { _, which ->
+                settingsRepository.autoClearHistoryDays = days[which]
+                applyAutomaticHistoryRetention()
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
+    }
 
     private fun applyAutomaticHistoryRetention() {
         val days = settingsRepository.autoClearHistoryDays
@@ -460,7 +618,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
         val tab = tabManager.activeTab ?: return
         tab.url = url
-        applyDesktopSettings(tab.webView, desktopModeManager.isDesktopFor(url))
+        applyDesktopSettings(tab.webView, isDesktopForUrl(url))
         tab.webView.loadUrl(url)
     }
 
@@ -477,23 +635,37 @@ class MainActivity : Activity(), WebViewCallbacks {
             null
         } ?: WebProtectionManager.Decision(
             action = WebProtectionManager.Action.ALLOW,
-            reason = "Android WebView Safe Browsing is enabled. No external threat-intelligence feed is currently connected."
+            reason = getString(R.string.protection_default_reason)
         )
         val message = if (reportUrl.isBlank()) {
-            "Open a website to view its protection status."
+            getString(R.string.protection_open_site)
         } else {
-            WebProtectionPresentation.message(reportUrl, decision) +
+            localizedProtectionMessage(reportUrl, decision) +
                 "\n\nFalse-positive reports are shared through Android's share sheet. RAIN does not upload reports automatically."
         }
         AlertDialog.Builder(this)
-            .setTitle(WebProtectionPresentation.title(decision))
+            .setTitle(localizedProtectionTitle(decision))
             .setMessage(message)
-            .setPositiveButton("Report false positive") { _, _ ->
+            .setPositiveButton(R.string.protection_report) { _, _ ->
                 if (reportUrl.isNotBlank()) shareFalsePositiveReport(reportUrl, decision)
             }
-            .setNegativeButton("Close", null)
+            .setNegativeButton(R.string.dialog_close, null)
             .show()
     }
+
+    private fun localizedProtectionTitle(decision: WebProtectionManager.Decision): String = when (decision.action) {
+        WebProtectionManager.Action.ALLOW -> getString(R.string.protection_allow_title)
+        WebProtectionManager.Action.WARN -> getString(R.string.protection_warn_title)
+        WebProtectionManager.Action.BLOCK -> getString(R.string.protection_block_title)
+    }
+
+    private fun localizedProtectionMessage(url: String, decision: WebProtectionManager.Decision): String = buildList {
+        add(getString(R.string.protection_website, url))
+        decision.category?.let { add(getString(R.string.protection_category, it.name.lowercase().replace('_', ' '))) }
+        decision.sourceName?.let { add(getString(R.string.protection_source, it)) }
+        if (decision.reason.isNotBlank()) add(getString(R.string.protection_reason, decision.reason))
+        decision.sourceReference?.takeIf { it.isNotBlank() }?.let { add(getString(R.string.protection_reference, it)) }
+    }.joinToString("\n")
 
     private fun shareFalsePositiveReport(
         url: String,
@@ -603,7 +775,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             if (restored == null) {
                 if (tab.url.isBlank()) showWelcomePage(webView) else loadUrlInTab(tab, tab.url)
             } else if (tab.url.isNotBlank()) {
-                applyDesktopSettings(webView, desktopModeManager.isDesktopFor(tab.url))
+                applyDesktopSettings(webView, isDesktopForUrl(tab.url))
             }
         }
         if (tabManager.tabs.isEmpty()) {
@@ -796,30 +968,44 @@ class MainActivity : Activity(), WebViewCallbacks {
             val decision = DownloadPolicy.evaluate(url, guessedName, mimeType)
             if (decision.action == DownloadPolicy.Action.BLOCK) {
                 AlertDialog.Builder(this)
-                    .setTitle("Download blocked")
-                    .setMessage("${decision.fileName}\n\n${decision.reason}")
-                    .setPositiveButton("OK", null)
+                    .setTitle(R.string.download_blocked)
+                    .setMessage(decision.fileName + "\n\n" + localizedDownloadReason(decision.reason))
+                    .setPositiveButton(R.string.dialog_ok, null)
                     .show()
                 return@runOnUiThread
             }
 
             val message = buildString {
-                appendLine("File: ${decision.fileName}")
-                appendLine("Source: ${decision.sourceHost ?: "Unknown"}")
-                appendLine("Type: ${decision.mimeType.ifBlank { "Unknown" }}")
-                appendLine("Size: ${if (contentLength > 0) android.text.format.Formatter.formatFileSize(this@MainActivity, contentLength) else "Unknown"}")
+                appendLine(getString(R.string.download_file, decision.fileName))
+                appendLine(getString(R.string.download_source, decision.sourceHost ?: "Unknown"))
+                appendLine(getString(R.string.download_type, decision.mimeType.ifBlank { "Unknown" }))
+                appendLine(getString(R.string.download_size, if (contentLength > 0) android.text.format.Formatter.formatFileSize(this@MainActivity, contentLength) else "Unknown"))
                 appendLine()
-                append(decision.reason)
+                append(localizedDownloadReason(decision.reason))
             }
             AlertDialog.Builder(this)
-                .setTitle(if (decision.isApk) "APK download confirmation" else "Confirm download")
+                .setTitle(if (decision.isApk) R.string.download_apk_confirm else R.string.download_confirm)
                 .setMessage(message)
-                .setPositiveButton("Download") { _, _ ->
+                .setPositiveButton(R.string.download_action) { _, _ ->
                     enqueueDownload(decision, url, userAgent)
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.dialog_cancel, null)
                 .show()
         }
+    }
+
+    private fun localizedDownloadReason(reason: String): String = when (reason) {
+        "The download URL is invalid or uses an unsupported source." -> getString(R.string.download_reason_invalid)
+        "The server did not provide a safe file name." -> getString(R.string.download_reason_filename)
+        "This executable or script file type is blocked by RAIN." -> getString(R.string.download_reason_executable)
+        "The file extension does not match the server's HTML content type." -> getString(R.string.download_reason_html)
+        "The APK extension conflicts with the reported content type." -> getString(R.string.download_reason_apk)
+        "The file extension and reported content type do not match." -> getString(R.string.download_reason_mismatch)
+        "APK files can install applications. RAIN will only save this file and will never install it automatically. Verify the publisher before opening it." -> getString(R.string.download_reason_apk_confirm)
+        "This download uses an unencrypted HTTP connection. Confirm only if you trust the source." -> getString(R.string.download_reason_http)
+        "RAIN cannot confidently identify this file type. Review the source and file name before downloading." -> getString(R.string.download_reason_unknown)
+        "Review the source and file details before confirming the download." -> getString(R.string.download_reason_review)
+        else -> reason
     }
 
     private fun enqueueDownload(
@@ -829,14 +1015,14 @@ class MainActivity : Activity(), WebViewCallbacks {
     ) {
         val manager = getSystemService(DOWNLOAD_SERVICE) as? DownloadManager
         if (manager == null) {
-            Toast.makeText(this, "Download service is unavailable", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.download_service_unavailable, Toast.LENGTH_LONG).show()
             return
         }
 
         val request = runCatching {
             DownloadManager.Request(Uri.parse(url)).apply {
                 setTitle(decision.fileName)
-                setDescription("From ${decision.sourceHost ?: "website"}")
+                setDescription(getString(R.string.download_description, decision.sourceHost ?: "website"))
                 if (decision.mimeType.isNotBlank()) setMimeType(decision.mimeType)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, decision.fileName)
@@ -846,16 +1032,16 @@ class MainActivity : Activity(), WebViewCallbacks {
                 }
             }
         }.getOrElse {
-            Toast.makeText(this, "Could not prepare this download", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.download_prepare_failed, Toast.LENGTH_LONG).show()
             return
         }
 
         runCatching { manager.enqueue(request) }
             .onSuccess {
-                Toast.makeText(this, "Download added. RAIN will not install APK files.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, R.string.download_added, Toast.LENGTH_LONG).show()
             }
             .onFailure {
-                Toast.makeText(this, "Download failed to start: ${it.message.orEmpty()}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.download_start_failed, it.message.orEmpty()), Toast.LENGTH_LONG).show()
             }
     }
 
@@ -908,7 +1094,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onNavigationRequested(view: WebView, url: String) {
         val tab = tabManager.findByWebView(view) ?: return
-        val desktop = desktopModeManager.isDesktopFor(url)
+        val desktop = isDesktopForUrl(url)
         applyDesktopSettings(view, desktop)
         tab.isDesktopMode = desktop
     }
@@ -920,16 +1106,16 @@ class MainActivity : Activity(), WebViewCallbacks {
 
         val destinationHost = Uri.parse(url).host ?: "another website"
         AlertDialog.Builder(this)
-            .setTitle("Leave this website?")
-            .setMessage("This page is trying to open $destinationHost without a direct user action. Do you want to continue?")
-            .setPositiveButton("Continue") { _, _ ->
+            .setTitle(R.string.navigation_leave_title)
+            .setMessage(getString(R.string.navigation_leave_message, destinationHost))
+            .setPositiveButton(R.string.navigation_continue) { _, _ ->
                 if (tabManager.findByWebView(view) != null &&
                     com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(url)
                 ) {
                     view.loadUrl(url)
                 }
             }
-            .setNegativeButton("Stay", null)
+            .setNegativeButton(R.string.navigation_stay, null)
             .setOnCancelListener { }
             .show()
     }
@@ -943,15 +1129,15 @@ class MainActivity : Activity(), WebViewCallbacks {
         val scheme = uri.scheme.orEmpty().lowercase()
         val externalIntent = Intent(Intent.ACTION_VIEW, uri)
         AlertDialog.Builder(this)
-            .setTitle("Open external app?")
-            .setMessage("This link uses the $scheme scheme and will leave RAIN. Continue only if you trust the link.")
-            .setPositiveButton("Open") { _, _ ->
+            .setTitle(R.string.external_open_title)
+            .setMessage(getString(R.string.external_open_message, scheme))
+            .setPositiveButton(R.string.navigation_open) { _, _ ->
                 if (tabManager.findByWebView(view) != null) {
                     runCatching { startActivity(externalIntent) }
                         .onFailure {
                             Toast.makeText(
                                 this,
-                                "No compatible app is available for this link",
+                                getString(R.string.external_no_app),
                                 Toast.LENGTH_LONG
                             ).show()
                         }
@@ -967,7 +1153,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             tab.isLoading = true
             tab.progress = 0
             if (url.startsWith("http://") || url.startsWith("https://")) tab.url = url
-            tab.isDesktopMode = desktopModeManager.isDesktopFor(url)
+            tab.isDesktopMode = isDesktopForUrl(url)
             if (tab == tabManager.activeTab) updateBrowserControls()
         }
     }
@@ -979,7 +1165,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             tab.progress = 100
             if (url.startsWith("http://") || url.startsWith("https://")) {
                 tab.url = url
-                tab.isDesktopMode = desktopModeManager.isDesktopFor(url)
+                tab.isDesktopMode = isDesktopForUrl(url)
                 historyRepository.record(url, tab.title)
             } else {
                 tab.url = ""
@@ -1030,6 +1216,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     override fun onPause() {
+        saveResumeSession()
         tabManager.tabs.forEach { it.webView.onPause() }
         super.onPause()
     }
@@ -1041,6 +1228,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onDestroy() {
         tabManager.clear().forEach { destroyWebView(it.webView) }
+        storageExecutor.shutdown()
         super.onDestroy()
     }
 
@@ -1080,9 +1268,15 @@ class MainActivity : Activity(), WebViewCallbacks {
                     main { padding: 24px; }
                     h1 { color: #38BDF8; letter-spacing: 0.12em; }
                     p { color: #CBD5E1; }
+                    section { width: min(90vw, 520px); margin: 18px auto; text-align: left; }
+                    li { margin: 8px 0; overflow-wrap: anywhere; }
+                    a { color: #38BDF8; text-decoration: none; }
                 </style>
             </head>
-            <body><main><h1>RAIN</h1><p>Your browsing space is ready.</p></main></body>
+            <body><main><h1>RAIN</h1><p>{{READY}}</p>
+              <section><h2>{{RECENT_TITLE}}</h2><ul>{{RECENT}}</ul></section>
+              <section><h2>{{BOOKMARK_TITLE}}</h2><ul>{{BOOKMARKS}}</ul></section>
+            </main></body>
             </html>
         """
     }

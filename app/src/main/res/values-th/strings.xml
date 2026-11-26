@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RAIN</string>
+    <string name="address_hint">ค้นหาหรือป้อนเว็บไซต์</string>
+    <string name="action_go">ไป</string>
+    <string name="action_back">ย้อนกลับ</string>
+    <string name="action_forward">ถัดไป</string>
+    <string name="action_reload">โหลดใหม่</string>
+    <string name="action_home">หน้าหลัก</string>
+    <string name="action_new_tab">+ แท็บ</string>
+    <string name="action_tabs">แท็บ (0)</string>
+    <string name="action_search_engine">ค้นหา: DuckDuckGo</string>
+    <string name="action_display_mode">มือถือ/เดสก์ท็อป</string>
+    <string name="action_zoom_out">ย่อ</string>
+    <string name="action_zoom_in">ขยาย</string>
+    <string name="action_text_out">ลดขนาดตัวอักษร</string>
+    <string name="action_text_in">เพิ่มขนาดตัวอักษร</string>
+    <string name="action_private">ส่วนตัว</string>
+    <string name="action_protection">การป้องกัน</string>
+    <string name="action_permissions">สิทธิ์</string>
+    <string name="action_bookmarks">บุ๊กมาร์ก</string>
+    <string name="action_history">ประวัติ</string>
+    <string name="action_resume">เรียกคืน</string>
+    <string name="action_settings">ตั้งค่า</string>
+    <string name="status_ready">เบราว์เซอร์ RAIN</string>
+
+    <string name="settings_title">การตั้งค่า</string>
+    <string name="settings_language">ภาษา: %1$s</string>
+    <string name="settings_search_engine">เครื่องมือค้นหา: %1$s</string>
+    <string name="settings_default_display">โหมดแสดงผลเริ่มต้น: %1$s</string>
+    <string name="settings_history_retention">ล้างประวัติอัตโนมัติ: %1$d วัน</string>
+    <string name="language_title">ภาษา</string>
+    <string name="language_system">ตามระบบ</string>
+    <string name="language_thai">ไทย</string>
+    <string name="language_english">อังกฤษ</string>
+    <string name="search_engine_title">เครื่องมือค้นหาเริ่มต้น</string>
+    <string name="display_mode_title">โหมดแสดงผลเริ่มต้น</string>
+    <string name="history_retention_title">ล้างประวัติอัตโนมัติ</string>
+    <string name="retention_never">ไม่ล้างอัตโนมัติ</string>
+    <string name="retention_one_day">1 วัน</string>
+    <string name="retention_seven_days">7 วัน</string>
+    <string name="retention_thirty_days">30 วัน</string>
+    <string name="retention_ninety_days">90 วัน</string>
+    <string name="resume_title">เรียกคืนการท่องเว็บ</string>
+    <string name="resume_empty">ไม่มีเซสชันที่บันทึกไว้</string>
+    <string name="dialog_close">ปิด</string>
+    <string name="dialog_cancel">ยกเลิก</string>
+    <string name="dialog_ok">ตกลง</string>
+    <string name="download_blocked">บล็อกการดาวน์โหลด</string>
+    <string name="download_apk_confirm">ยืนยันการดาวน์โหลด APK</string>
+    <string name="download_confirm">ยืนยันการดาวน์โหลด</string>
+    <string name="download_file">ไฟล์: %1$s</string>
+    <string name="download_source">แหล่งที่มา: %1$s</string>
+    <string name="download_type">ชนิดไฟล์: %1$s</string>
+    <string name="download_size">ขนาด: %1$s</string>
+    <string name="download_action">ดาวน์โหลด</string>
+    <string name="download_service_unavailable">บริการดาวน์โหลดไม่พร้อมใช้งาน</string>
+    <string name="download_prepare_failed">ไม่สามารถเตรียมการดาวน์โหลดนี้ได้</string>
+    <string name="download_added">เพิ่มรายการดาวน์โหลดแล้ว RAIN จะไม่ติดตั้งไฟล์ APK</string>
+    <string name="download_start_failed">เริ่มดาวน์โหลดไม่สำเร็จ: %1$s</string>
+    <string name="download_description">จาก %1$s</string>
+    <string name="navigation_leave_title">ออกจากเว็บไซต์นี้หรือไม่</string>
+    <string name="navigation_leave_message">หน้านี้พยายามเปิด %1$s โดยไม่มีการแตะจากผู้ใช้โดยตรง ต้องการดำเนินการต่อหรือไม่</string>
+    <string name="external_open_title">เปิดแอปภายนอกหรือไม่</string>
+    <string name="external_open_message">ลิงก์นี้ใช้รูปแบบ %1$s และจะออกจาก RAIN ดำเนินการต่อเฉพาะเมื่อเชื่อถือลิงก์นี้</string>
+    <string name="external_no_app">ไม่มีแอปที่รองรับลิงก์นี้</string>
+    <string name="navigation_continue">ดำเนินการต่อ</string>
+    <string name="navigation_stay">อยู่หน้านี้</string>
+    <string name="navigation_open">เปิด</string>
+    <string name="protection_report">รายงานการบล็อกผิดพลาด</string>
+
+
+    <string name="mode_mobile">มือถือ</string>
+    <string name="mode_desktop">เดสก์ท็อป</string>
+
+
+
+    <string name="search_button">ค้นหา: %1$s</string>
+    <string name="tabs_count">แท็บ (%1$d)</string>
+    <string name="status_no_tab">ไม่มีแท็บ</string>
+    <string name="status_stop">หยุด</string>
+    <string name="new_tab_ready">พื้นที่ท่องเว็บของคุณพร้อมแล้ว</string>
+    <string name="new_tab_recent">หน้าที่เข้าชมล่าสุด</string>
+    <string name="new_tab_bookmarks">บุ๊กมาร์ก</string>
+    <string name="new_tab_no_recent">ยังไม่มีหน้าที่เข้าชมล่าสุด</string>
+    <string name="new_tab_no_bookmarks">ยังไม่มีบุ๊กมาร์ก</string>
+    <string name="protection_allow_title">การป้องกันเว็บไซต์</string>
+    <string name="protection_warn_title">เว็บไซต์น่าสงสัย</string>
+    <string name="protection_block_title">บล็อกเว็บไซต์อันตรายแล้ว</string>
+    <string name="protection_website">เว็บไซต์: %1$s</string>
+    <string name="protection_category">หมวดหมู่: %1$s</string>
+    <string name="protection_source">แหล่งข้อมูล: %1$s</string>
+    <string name="protection_reason">เหตุผล: %1$s</string>
+    <string name="protection_reference">ข้อมูลอ้างอิง: %1$s</string>
+    <string name="download_reason_invalid">URL ดาวน์โหลดไม่ถูกต้องหรือใช้แหล่งที่มาไม่รองรับ</string>
+    <string name="download_reason_filename">เซิร์ฟเวอร์ไม่ได้ระบุชื่อไฟล์ที่ปลอดภัย</string>
+    <string name="download_reason_executable">RAIN บล็อกไฟล์ปฏิบัติการหรือสคริปต์ชนิดนี้</string>
+    <string name="download_reason_html">นามสกุลไฟล์ไม่ตรงกับชนิดเนื้อหา HTML ที่เซิร์ฟเวอร์แจ้ง</string>
+    <string name="download_reason_apk">นามสกุล APK ไม่ตรงกับชนิดเนื้อหาที่รายงาน</string>
+    <string name="download_reason_mismatch">นามสกุลไฟล์และชนิดเนื้อหาที่รายงานไม่ตรงกัน</string>
+    <string name="download_reason_apk_confirm">ไฟล์ APK สามารถติดตั้งแอปได้ RAIN จะบันทึกไฟล์เท่านั้นและไม่ติดตั้งโดยอัตโนมัติ โปรดตรวจสอบผู้เผยแพร่ก่อนเปิดไฟล์</string>
+    <string name="download_reason_http">การดาวน์โหลดนี้ใช้การเชื่อมต่อ HTTP ที่ไม่เข้ารหัส ยืนยันเฉพาะเมื่อเชื่อถือแหล่งที่มา</string>
+    <string name="download_reason_unknown">RAIN ไม่สามารถระบุชนิดไฟล์นี้ได้อย่างมั่นใจ โปรดตรวจสอบแหล่งที่มาและชื่อไฟล์ก่อนดาวน์โหลด</string>
+    <string name="download_reason_review">โปรดตรวจสอบแหล่งที่มาและรายละเอียดไฟล์ก่อนยืนยันการดาวน์โหลด</string>
+
+
+    <string name="protection_open_site">เปิดเว็บไซต์เพื่อดูสถานะการป้องกัน</string>
+    <string name="protection_false_positive_note">การรายงานผลบวกลวงจะแชร์ผ่านเมนูแชร์ของ Android โดย RAIN จะไม่อัปโหลดรายงานโดยอัตโนมัติ</string>
+
+    <string name="protection_default_reason">เปิดใช้ Android WebView Safe Browsing แล้ว แต่ยังไม่ได้เชื่อมต่อแหล่งข้อมูลภัยคุกคามภายนอก</string>
+</resources>

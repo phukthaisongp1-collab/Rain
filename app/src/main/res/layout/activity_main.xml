@@ -47,7 +47,7 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             android:backgroundTint="@color/rain_accent"
-            android:hint="Search or enter website"
+            android:hint="@string/address_hint"
             android:imeOptions="actionGo"
             android:inputType="textUri"
             android:maxLines="1"
@@ -62,7 +62,7 @@
             style="@style/RainButton"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:text="Go" />
+            android:text="@string/action_go" />
     </LinearLayout>
 
     <HorizontalScrollView
@@ -78,19 +78,19 @@
             android:paddingStart="4dp"
             android:paddingEnd="4dp">
 
-            <Button android:id="@+id/back_button" style="@style/RainButton" android:text="Back" />
-            <Button android:id="@+id/forward_button" style="@style/RainButton" android:text="Forward" />
-            <Button android:id="@+id/reload_button" style="@style/RainButton" android:text="Reload" />
-            <Button android:id="@+id/home_button" style="@style/RainButton" android:text="Home" />
-            <Button android:id="@+id/new_tab_button" style="@style/RainButton" android:text="+ Tab" />
-            <Button android:id="@+id/tabs_button" style="@style/RainButton" android:text="Tabs (0)" />
-            <Button android:id="@+id/search_engine_button" style="@style/RainButton" android:text="Search: DuckDuckGo" />
-            <Button android:id="@+id/desktop_button" style="@style/RainButton" android:text="Mobile/Desktop" />
-            <Button android:id="@+id/zoom_out_button" style="@style/RainButton" android:text="Zoom -" />
-            <Button android:id="@+id/zoom_in_button" style="@style/RainButton" android:text="Zoom +" />
-            <Button android:id="@+id/text_out_button" style="@style/RainButton" android:text="Text -" />
-            <Button android:id="@+id/text_in_button" style="@style/RainButton" android:text="Text +" />
-            <Button android:id="@+id/private_button" style="@style/RainButton" android:text="Private" />
+            <Button android:id="@+id/back_button" style="@style/RainButton" android:text="@string/action_back" />
+            <Button android:id="@+id/forward_button" style="@style/RainButton" android:text="@string/action_forward" />
+            <Button android:id="@+id/reload_button" style="@style/RainButton" android:text="@string/action_reload" />
+            <Button android:id="@+id/home_button" style="@style/RainButton" android:text="@string/action_home" />
+            <Button android:id="@+id/new_tab_button" style="@style/RainButton" android:text="@string/action_new_tab" />
+            <Button android:id="@+id/tabs_button" style="@style/RainButton" android:text="@string/action_tabs" />
+            <Button android:id="@+id/search_engine_button" style="@style/RainButton" android:text="@string/action_search_engine" />
+            <Button android:id="@+id/desktop_button" style="@style/RainButton" android:text="@string/action_display_mode" />
+            <Button android:id="@+id/zoom_out_button" style="@style/RainButton" android:text="@string/action_zoom_out" />
+            <Button android:id="@+id/zoom_in_button" style="@style/RainButton" android:text="@string/action_zoom_in" />
+            <Button android:id="@+id/text_out_button" style="@style/RainButton" android:text="@string/action_text_out" />
+            <Button android:id="@+id/text_in_button" style="@style/RainButton" android:text="@string/action_text_in" />
+            <Button android:id="@+id/private_button" style="@style/RainButton" android:text="@string/action_private" />
         </LinearLayout>
     </HorizontalScrollView>
 
@@ -104,10 +104,12 @@
             android:orientation="horizontal"
             android:paddingStart="4dp"
             android:paddingEnd="4dp">
-            <Button android:id="@+id/protection_button" style="@style/RainButton" android:text="Protection" />
-            <Button android:id="@+id/permissions_button" style="@style/RainButton" android:text="Permissions" />
-            <Button android:id="@+id/bookmarks_button" style="@style/RainButton" android:text="Bookmarks" />
-            <Button android:id="@+id/history_button" style="@style/RainButton" android:text="History" />
+            <Button android:id="@+id/protection_button" style="@style/RainButton" android:text="@string/action_protection" />
+            <Button android:id="@+id/permissions_button" style="@style/RainButton" android:text="@string/action_permissions" />
+            <Button android:id="@+id/bookmarks_button" style="@style/RainButton" android:text="@string/action_bookmarks" />
+            <Button android:id="@+id/history_button" style="@style/RainButton" android:text="@string/action_history" />
+            <Button android:id="@+id/resume_button" style="@style/RainButton" android:text="@string/action_resume" />
+            <Button android:id="@+id/settings_button" style="@style/RainButton" android:text="@string/action_settings" />
         </LinearLayout>
     </HorizontalScrollView>
 
@@ -139,7 +141,7 @@
         android:paddingTop="6dp"
         android:paddingEnd="12dp"
         android:paddingBottom="6dp"
-        android:text="RAIN Browser"
+        android:text="@string/status_ready"
         android:textColor="@color/rain_text"
         android:textSize="12sp" />
 </LinearLayout>
