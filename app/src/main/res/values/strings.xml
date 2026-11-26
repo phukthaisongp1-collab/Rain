@@ -69,4 +69,8 @@
     <string name="navigation_open">Open</string>
     <string name="protection_report">Report false positive</string>
 
+
+    <string name="mode_mobile">Mobile</string>
+    <string name="mode_desktop">Desktop</string>
+
 </resources>
