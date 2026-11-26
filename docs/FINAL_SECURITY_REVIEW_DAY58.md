@@ -12,7 +12,12 @@
 - Release workflow reads the four signing values from GitHub Actions Secrets; no Keystore or password value is embedded in source.
 - Release workflow restores the Keystore into the runner's temporary directory, validates the alias, and removes the temporary file in an `if: always()` step.
 - The workflow pins the expected signing-certificate SHA-256 and checks APK metadata before artifact upload.
-- The Production APK run is tracked separately; this review does not claim the APK is signed until the Day 59 workflow completes.
+- Day 59 Production APK verification passed in [Actions run 45772070104](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45772070104).
+- Artifact: `rain-signed-release-apk`, ID `15094990948`, 1,823,647 bytes.
+- APK SHA-256: `c03373c059fd72c01d5f1abcf1db028c52bc4817a2d5c7888fff8a52ce4fbedb`.
+- Signing certificate SHA-256 matched the pinned original certificate: `d1b9587fd636c1e0e92a5718576381aadbc72190f5c927f45e7d4ebe0eadb592`.
+- Verified metadata: applicationId `com.rain.browser`, versionName `0.1.0`, versionCode `1`.
+- The temporary Keystore cleanup step passed.
 
 ### Application and data handling
 
@@ -54,4 +59,4 @@
 
 ## Conclusion
 
-The reviewed Phase 1 source and configuration show the documented security controls in place, and no confirmed critical defect requiring an immediate source patch was found in this static review. Release acceptance remains conditional on successful Day 59 signed-APK verification, Day 57 physical-device testing, and Day 60 owner review. No unsupported privacy, isolation, HTTP, or network guarantees should be advertised.
+The reviewed Phase 1 source and configuration show the documented security controls in place, and no confirmed critical defect requiring an immediate source patch was found in this static review. Release signing and metadata verification are complete. Final Phase 1 acceptance remains conditional on Day 57 physical-device testing and Day 60 owner review. No unsupported privacy, isolation, HTTP, or network guarantees should be advertised.
