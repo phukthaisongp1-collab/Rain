@@ -94,6 +94,21 @@
         </LinearLayout>
     </HorizontalScrollView>
 
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp">
+            <Button android:id="@+id/protection_button" style="@style/RainButton" android:text="Protection" />
+            <Button android:id="@+id/permissions_button" style="@style/RainButton" android:text="Permissions" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
     <ProgressBar
         android:id="@+id/page_progress"
         style="?android:attr/progressBarStyleHorizontal"
