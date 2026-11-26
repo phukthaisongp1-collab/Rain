@@ -1,6 +1,16 @@
 name: Android Signed Release Verification
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/android-release.yml'
   workflow_dispatch:
 
 permissions:
