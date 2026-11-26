@@ -1,7 +1,7 @@
-# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.1
+# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.2
 
 > สถานะ: Development Specification — ฉบับหลักแทน v3  
-> เวอร์ชันแผน: **v3.1**  
+> เวอร์ชันแผน: **v3.2**  
 > เวอร์ชันแอปเริ่มต้น: **0.1.0**  
 > Android applicationId: **com.rain.browser**  
 > แพลตฟอร์ม: **Android เท่านั้น**
@@ -35,7 +35,7 @@ RAIN ต้องรวมความสามารถหลักของ Go
 
 ### 1.3 แพลตฟอร์มและสถาปัตยกรรม
 - เป้าหมาย Android เท่านั้น
-- Android ขั้นต่ำที่รองรับ: Android 10 (API 29) เพื่อสมดุลระหว่างความเข้ากันได้ ความปลอดภัย และภาระดูแลระยะยาว
+- Android ขั้นต่ำที่รองรับ: Android 16 (API 36) ขึ้นไปเท่านั้น; `minSdk = 36`; Android 15 และเก่ากว่าไม่รองรับ (ตามมติอนุมัติ 2026-11-25)
 - ใช้ Kotlin, Android SDK และ Gradle
 - ใช้ Android WebView เป็น engine แสดงเว็บไซต์
 - ใช้ Android UI สำหรับแถบเครื่องมือ เมนู แท็บ และ Settings
@@ -312,31 +312,183 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 
 ## 7. ความสามารถสำหรับเฟสถัดไป
 
-### 7.1 Phase 2 — Private Browsing (ย้ายออกจาก Phase 1)
+### 7.1 Phase 2 — Private Browsing
 
-**สถานะ:** Deferred to Phase 2 ตามคำสั่งเจ้าของโครงการ หลัง Private Browsing Instrumentation Run #82 ไม่ผ่าน  
-**หลักการ:** พัฒนาและตรวจรับเป็นงานอิสระ มี Workflow และเกณฑ์ทดสอบเฉพาะ ไม่เป็น dependency หรือ blocker ของ Phase 1
+**สถานะ:** งาน Phase 2 ที่ได้รับมอบหมายให้จัดทำแผนแล้ว; การเริ่มพัฒนายังต้องได้รับคำสั่งอนุมัติแยกต่างหาก  
+**หลักการบังคับ:** Private Browsing เป็น workstream อิสระ ไม่เป็น dependency, acceptance gate หรือ blocker ของ Phase 1 และต้องไม่ดึงกลับไปผูกกับ Round C หรือ Phase 1 โดยอัตโนมัติ
 
-ขอบเขตงาน:
-1. คงสถาปัตยกรรมที่เจ้าของโครงการอนุมัติ: Android process แยก `:private` และ WebView data-directory suffix `rain_private` ซึ่งต้องกำหนดก่อนเรียก WebView API ใด ๆ
-2. แยก Cookie, Cache, localStorage, Web Storage และข้อมูลเว็บไซต์อื่นตามขอบเขตที่ Android WebView รองรับจริง
-3. ตรวจสอบ Service Worker cleanup แบบ feature-detection และรายงานข้อจำกัดของ provider; ห้ามอ้างว่าล้างได้หาก API/provider ไม่รองรับ
-4. ไม่บันทึกข้อมูล Private Session ลง History, Resume, Download metadata, favicon, thumbnail หรือ persistent stores ของโหมดปกติ
-5. เมื่อปิด Private Session ให้ปิด WebView และล้างข้อมูลที่ API รองรับ; ตรวจสอบการเปิดใหม่ว่าข้อมูล private เดิมไม่คงอยู่ และข้อมูลโหมดปกติไม่ถูกกระทบ
-6. ไม่กล่าวอ้างว่าเป็น RAM-only หรือไม่สามารถถูกติดตามได้ เว้นแต่มีหลักฐานที่พิสูจน์ขอบเขตนั้นจริง
+#### 7.1.1 เป้าหมายและข้อกำหนดคงที่
 
-**Dedicated Instrumentation Workflow และเกณฑ์ตรวจรับ:**
-- แยก Workflow สำหรับ Private Browsing โดยเฉพาะ ไม่ต้องรันงานทดสอบที่ไม่เกี่ยวข้องซ้ำ แต่ยังใช้ source commit เดียวกับที่กำลังตรวจสอบ
-- ใช้ Android 16 / API 36 Emulator และตรวจสอบ KVM/Emulator readiness ก่อนเริ่ม Instrumentation
-- ตรวจ process name ว่าเป็น `com.rain.browser:private` และยืนยัน process lifecycle
-- โหลดหน้า HTML จริงเพื่อพิสูจน์ Cookie และ localStorage isolation ระหว่าง Normal/Private
-- ปิดและเปิด Private ใหม่ แล้วตรวจว่าข้อมูล private ถูกล้าง ขณะที่ข้อมูล normal ยังคงอยู่
-- ทดสอบการสื่อสารข้าม process ด้วย Parcelable/API ที่ปลอดภัย ห้ามส่งคลาส callback จาก Test APK ไปให้ App Process โหลด
-- เก็บ JUnit XML/HTML, Logcat, process diagnostics และ artifact ทุกครั้ง
-- ต้องผ่าน 3 CI runs ติดต่อกันก่อนขอรับรอง Private Browsing
-- การทดสอบบนโทรศัพท์จริงยังคงทำตามกำหนด Day 57–60 เมื่อถึงรอบตรวจรับอุปกรณ์
+1. คง Android WebView และสถาปัตยกรรม Android process แยก `:private` พร้อม WebView data-directory suffix `rain_private`; ห้ามเปลี่ยน Engine หรือ Architecture หลักโดยไม่มีหลักฐานและการอนุมัติแยกต่างหาก
+2. รองรับ Android 16 / API 36 ขึ้นไปตาม baseline ของโครงการ
+3. กำหนด Suffix ก่อนเรียก WebView API ใด ๆ ใน Private Process และต้องไม่มี WebView API ถูกเรียกก่อนการกำหนด Suffix
+4. แยกข้อมูล WebView ของ Private ออกจาก Normal ตามขอบเขตที่ Provider รองรับ
+5. Application Code ต้องป้องกัน Private URL, Title, Search Query, Session State และข้อมูลอื่นไม่ให้เข้า Normal History, Resume, Downloads Metadata, Favicon, Thumbnail, Logs หรือ Persistent Store
+6. ไม่มี RAIN Account และไม่มี Cloud Sync
+7. ห้ามกล่าวอ้างว่าเป็น RAM-only, ไม่มีร่องรอยโดยสมบูรณ์ หรือป้องกันการติดตามระดับ OS/Network ได้ เว้นแต่มีหลักฐานที่พิสูจน์ขอบเขตนั้นจริง
 
-**เงื่อนไขเริ่มงาน:** เริ่ม Phase 2 เมื่อ Phase 1 เดินหน้าตามแผนและมีทรัพยากรแยกสำหรับงานนี้ โดยไม่ย้อนกลับไปบล็อกงาน Phase 1; ก่อนเริ่มให้ตรวจ Source/Workflow/หลักฐานล่าสุดและแก้ Test Harness จากสาเหตุที่ยืนยันได้
+#### 7.1.2 หลักฐานเดิมและการแยกสาเหตุ
+
+Run #77–#82 เป็นประวัติการวิเคราะห์ Harness/CI และยังไม่ใช่หลักฐานว่า Product Isolation ผ่าน:
+- Run #80: App APK และ Test APK ที่สร้างคนละ Job ใช้ Debug Signing Key ไม่ตรงกัน ทำให้ติดตั้งร่วมกันไม่ได้
+- Run #81: Test เรียก `CookieManager.setCookie()` จาก Thread ที่ไม่มี Looper ทำให้เกิด `IllegalStateException`
+- Run #82: ส่ง `ResultReceiver` ที่ Class อยู่ใน Test APK ข้าม Process ทำให้เกิด `BadParcelableException` / `ClassNotFoundException` ก่อน WebView Initialization
+- ปัญหา KVM, ADB Parser, Shell Quoting และ Emulator Acceleration ต้องยืนยันจาก Log ของแต่ละ Run; ห้ามอนุมาน CPU contention หรือ TCG เป็น Root Cause หากไม่มีหลักฐาน
+
+**กติกาการวินิจฉัย:** Harness Failure หมายถึงยังไม่ได้ทดสอบ Product Isolation; ห้ามนับเป็น Isolation Pass หรือ Product Failure จนกว่าการทดสอบจะไปถึง Assertion ของผลิตภัณฑ์จริง
+
+#### 7.1.3 Architecture และ IPC
+
+- คง Process `:private` และ Suffix `rain_private`; ห้ามใช้ Default WebView Data Directory ใน Private Process
+- ตรวจ Initialization Order ตั้งแต่ Application/Component Startup เพื่อยืนยันว่าไม่มี Android WebView API ถูกเรียกก่อน Suffix
+- เสนอใช้ Android Messenger บน Handler/Looper เป็น IPC เริ่มต้นสำหรับ Test Control Interface; AIDL เป็นทางเลือกที่ต้องเสนอพร้อมเหตุผลก่อนเปลี่ยน
+- IPC รับเฉพาะ Message/Bundle ที่ผ่าน Allow-list ของ Key และ Primitive Types เช่น String, Int และ Boolean
+- ห้ามส่ง Custom Parcelable, Serializable, Callback หรือ Class ที่นิยามใน Test APK ไปยัง App Process
+- ทุกคำสั่งต้องมี Request ID, Timeout, Command Allow-list และ Error Result ที่ชัดเจน
+- แยก Test เป็น IPC Contract, Process Readiness และ WebView Isolation; IPC/Readiness ต้องพิสูจน์ผ่านก่อนเริ่ม WebView Isolation
+- ใช้ Readiness Handshake/Response จาก Private Process แทน Fixed Sleep; ตรวจ Process Name และ PID จริง
+- Test Control Interface ต้องจำกัดการเข้าถึงเฉพาะ Debug/Test Build หรือกลไก Permission ที่ผ่าน Security Review; การเพิ่ม Service/Component หรือแก้ Manifest ต้องอยู่ใน Change Set ที่ได้รับอนุมัติ
+
+#### 7.1.4 Data Isolation และ Cleanup Matrix
+
+| Data Type | Owner / Strategy | Verification / Limitation |
+|---|---|---|
+| Cookies | WebView Private Data Directory และ CookieManager Cleanup | ตรวจ Cookie จริงระหว่าง Normal/Private; เรียกบน Thread/Looper ตาม API contract และรอ Callback |
+| localStorage / Web Storage | WebView Private Data Directory และ Cleanup API ที่รองรับ | ทดสอบอ่าน/เขียนและเปิด Session ใหม่ |
+| Session Storage | Private Tab/Session Lifecycle | ตรวจว่าไม่ข้าม Session และไม่ถูก Restore ใน Normal |
+| IndexedDB | WebView Private Data Directory | ทดสอบแยก Profile และ Cleanup บน Provider จริง |
+| HTTP Cache | WebView Private Data Directory และ API ที่รองรับ | ระบุขอบเขต Cache ที่พิสูจน์ได้; ไม่เหมารวม Network/OS Cache |
+| Cache Storage | WebView Private Data Directory / Provider Capability | Feature Detection และ Test แยก |
+| Service Worker | Provider-dependent | ห้ามรับรอง Cleanup หากไม่มี API/หลักฐานเฉพาะ |
+| History / Resume | Application Code | ห้ามเขียน Private ลง Normal Store |
+| Downloads / Metadata | Application Code | แยก Metadata; ไฟล์ที่ผู้ใช้บันทึกออกนอก Private Data Directory อาจยังอยู่ในเครื่อง |
+| Website Permissions | Application Code และ Android Runtime Permission Boundary | แยก Site Permission; Android Runtime Permission เป็นระดับแอป ไม่ใช่ระดับ Tab |
+| Favicon / Thumbnail | Application Code และ WebView Data Boundary | ห้ามบันทึก Private Metadata ลง Normal Cache |
+| Logs / Diagnostics | Application Code และ CI Artifact Handling | หลีกเลี่ยง URL, Query, Cookie, Token และเนื้อหาส่วนตัวใน Log |
+
+Cleanup ต้องใช้ Feature Detection ก่อนเรียก API เช่น `WebStorageCompat.deleteBrowsingData` เมื่อ Provider รองรับ และต้องรอ Completion Callback ตาม API Contract; ห้ามตีความ Callback ของ API หนึ่งว่าเป็นหลักฐานว่าข้อมูลทุกชนิดรวมถึง Service Worker ถูกล้างแล้ว
+
+Cleanup Report ต้องรายงานแยกประเภทด้วยสถานะ:
+- `SUCCESS`
+- `PARTIAL`
+- `UNSUPPORTED`
+- `TIMEOUT`
+- `FAILED`
+
+ห้ามรายงาน Global Success หากมี Data Type ที่ไม่รองรับหรือยังยืนยันผลไม่ได้
+
+#### 7.1.5 Cleanup และ Lifecycle Scenarios
+
+ต้องออกแบบและทดสอบ:
+1. Normal Close: หยุด Navigation, ทำลาย WebView ตามลำดับที่ปลอดภัย, Cleanup, รอ Callback/Timeout และบันทึกผล
+2. Reopen: เปิด Session ใหม่และยืนยันว่าไม่มีข้อมูล Session เก่าตามขอบเขตที่รองรับ
+3. App/Process Death ระหว่าง Cleanup: ห้ามถือว่า Cleanup สำเร็จ; ตรวจสถานะเมื่อเริ่มครั้งถัดไป
+4. Force-stop: ถือว่า Cleanup อาจไม่สมบูรณ์; ห้ามใช้ Force-stop เป็น Cleanup ปกติ
+5. Low Memory: Private Process อาจถูก OS ฆ่า; Normal Browsing ต้องไม่ล่มตาม และ Private Session ใหม่ต้องไม่ Restore State เก่า
+6. Provider Unsupported / API Error / Timeout: รายงานข้อจำกัดหรือ Failure ตามจริง
+7. Repeated Session Soak: เปิด-ปิดซ้ำและตรวจ Resource Leak, Process Leak และ Data Leakage
+8. ห้ามลบ Data Directory ขณะที่ WebView Provider หรือ Process ยังใช้งาน; การลบ Directory ตอน Startup ต้องมีหลักฐาน Lifecycle/Lock Safety ก่อนเสนอใช้
+
+#### 7.1.6 Dedicated Private Browsing Workflow
+
+สร้าง Workflow เฉพาะ Phase 2 แยกจาก Phase 1 โดยใช้ Source Commit เดียวกันสำหรับ App/Test APK ที่ติดตั้งร่วมกัน
+
+**KVM / Emulator Gate**
+- ตรวจ /dev/kvm ด้วยการเปิดใช้งานจริง ไม่ใช่เพียงตรวจว่ามีไฟล์
+- ตรวจ Emulator Acceleration และ Startup Log ว่าใช้ Hardware Acceleration
+- ไม่ใช้ TCG หรือ `-accel off` เป็น Fallback
+- หาก KVM/Acceleration ไม่พร้อม ให้ Fail Fast และเก็บ Diagnostics
+- ไม่กำหนด `adb root` เป็นเงื่อนไขบังคับ
+
+**Build / ADB / Timeout**
+- Build App APK และ Test APK ภายใน Job เดียวกันและติดตั้ง Artifact จาก Job นั้น
+- ตรวจ APK Signature Compatibility
+- ใส่ Timeout ครอบคลุม ADB, Shell/Pipeline, Emulator Boot, Instrumentation และ Cleanup
+- ตรวจ ADB Parser กับรูปแบบ `adb devices -l` จริง
+- ควบคุม CPU/Worker ตามผลวัด ไม่ตั้งสมมติฐานว่า CPU contention เป็นสาเหตุโดยไม่มีหลักฐาน
+
+**Artifacts**
+- JUnit XML, HTML Report, Logcat, Process/PID Diagnostics, Emulator Startup Log, KVM/ADB Diagnostics, Cleanup Report และ APK Hash
+- ใช้ Artifact Upload ที่ทำงานแม้ Test ล้มเหลว และเผื่อเวลา Upload ก่อน Job Timeout
+- เก็บ/ปกปิดข้อมูล Private และ Secrets ก่อนอัปโหลด Artifact
+
+**Stability**
+- M0/M1 ต้องผ่าน 3 รอบติดต่อกัน
+- Isolation/Cleanup ต้องมีรอบทดสอบซ้ำที่กำหนดและแยก Flaky Harness ออกจาก Product Failure
+- Retry ได้เฉพาะ Infrastructure Flake ที่จำแนกสาเหตุได้; ห้าม Retry เพื่อกลบ Isolation/Cleanup Failure
+
+#### 7.1.7 Milestones และ Gate
+
+**M0 — Dedicated CI & Harness Proof**
+- สร้าง Dedicated Workflow, KVM Gate, Emulator Readiness, ADB/Shell Timeout, Diagnostics และ Artifact Upload
+- Build App/Test APK ใน Job เดียวกันและยืนยัน Signature Compatibility
+- Gate: Harness/CI ผ่าน 3 รอบติดต่อกันโดยไม่มี Signing, Quoting, Parser หรือ Timeout Failure ที่ยังอธิบายไม่ได้
+- Stop: KVM/Acceleration ไม่พร้อม หรือ Emulator/ system_server ล้มซ้ำโดยไม่มีแนวทางแก้ที่พิสูจน์ได้
+- หาก M0 ไม่ผ่าน ห้ามเริ่ม M1
+
+**M1 — IPC & Process Readiness**
+- ทดสอบ IPC Ping/Pong, Request/Response, Invalid Command, Timeout และ Error Handling โดยไม่สร้าง WebView
+- ยืนยัน Private Process Name/PID และ Readiness Handshake
+- Gate: IPC/Readiness ผ่าน 3 รอบติดต่อกัน ไม่มี BadParcelableException, ClassNotFoundException, Looper Error, Deadlock หรือ Race ที่ยังไม่แก้
+- หาก M1 ไม่ผ่าน ห้ามเริ่ม M2
+
+**M2 — WebView Isolation Proof**
+- ทดสอบ Cookie, localStorage, Session Storage, IndexedDB, HTTP Cache, Cache Storage และ Service Worker แยกตาม Provider Capability
+- ใช้หน้า HTML/Test Origin จริงและตรวจ Normal/Private ทั้งสองทิศทาง
+- Gate: ไม่มีข้อมูลข้าม Profile ใน Data Type ที่ระบุว่ารองรับ และมี Evidence รายประเภท
+- หากพบ Data Leakage ให้หยุดและแก้ก่อนเดินหน้าต่อ
+
+**M3 — Cleanup, Lifecycle & Soak**
+- ทดสอบ Close/Reopen, Process Death, Force-stop, Low Memory, API Unsupported, Exception, Timeout และเปิด-ปิดซ้ำ
+- ตรวจ Cleanup Report และ Startup Recovery
+- Gate: Report ตรงกับผลจริง, Normal Data ไม่เสียหาย, Session ใหม่สะอาดตามขอบเขตที่รับรอง
+
+**M4 — Security Review & Real Device Validation**
+- ตรวจ Application Metadata, History/Resume, Downloads, Permissions, Favicon/Thumbnail, Logs และ Diagnostics
+- ผ่าน Security Review ก่อนทดสอบบนอุปกรณ์จริง
+- ทดสอบบนโทรศัพท์ Android 16+ ตามกำหนด Day 57–60 โดยไม่อ้างว่าผ่านก่อนมีผลจริง
+- Gate: Isolation/Cleanup ผ่านบนอุปกรณ์จริงตามขอบเขตที่รับรองและมี Evidence ครบ
+
+#### 7.1.8 Acceptance Criteria รวม
+
+1. Dedicated Workflow แยกจาก Phase 1 และทำงานกับ Source Commit ที่ตรวจสอบได้
+2. KVM/Hardware Acceleration ผ่าน Gate จริง
+3. App/Test APK สร้างและติดตั้งจาก Job เดียวกันโดย Signature Compatible
+4. IPC และ Process Readiness ผ่าน 3 รอบติดต่อกัน
+5. Process Name เป็น `com.rain.browser:private` และกำหนด `rain_private` ก่อน WebView API
+6. Normal/Private Isolation ผ่านสำหรับ Data Type ที่ Provider รองรับและมีหลักฐานแยก
+7. Normal Browsing ไม่ได้รับผลกระทบ
+8. Cleanup Report ระบุ Success/Partial/Unsupported/Timeout/Failed ตามจริง
+9. เปิด Private Session ใหม่แล้วไม่มีข้อมูลเก่าตามขอบเขตที่รับรอง
+10. มี JUnit XML, HTML, Logcat, Process/KVM/ADB Diagnostics และ Cleanup Report
+11. ผ่าน 3 CI Runs ติดต่อกันตามชุดทดสอบสำคัญ
+12. ผ่าน Security Review และ Real Device Validation ใน Day 57–60
+13. Privacy Disclosure ระบุข้อจำกัด Android OS, Network, WebView Provider และไฟล์ที่ผู้ใช้ดาวน์โหลดอย่างชัดเจน
+
+#### 7.1.9 Timeline และ Stop Conditions
+
+กรอบประมาณการสำหรับวางแผน: **7–11 สัปดาห์หลังอนุมัติ** ไม่ใช่กำหนดส่งที่รับประกัน; ปรับประมาณการอีกครั้งหลัง M0 ผ่าน โดยห้ามลด Acceptance Criteria เพื่อเร่งกำหนดส่ง
+
+หยุดงานและรายงาน CEO เมื่อ:
+- KVM/Hardware Acceleration Gate ไม่ผ่าน
+- Emulator หรือ system_server ล้มซ้ำโดยไม่มีหลักฐานใหม่
+- IPC Deadlock/Crash/Race ยังแก้ไม่ได้
+- พบ Private Data Leakage ข้าม Profile
+- Cleanup เสี่ยงลบ Directory ขณะ Provider ใช้งาน
+- Provider ไม่รองรับความสามารถที่จำเป็นต่อการรับรอง
+- ต้องเปลี่ยน Architecture, Manifest Contract หรือ Product Behavior ที่ยังไม่ได้รับอนุมัติ
+
+#### 7.1.10 สิ่งที่ต้องอนุมัติก่อนเริ่มพัฒนา
+
+1. อนุมัติแผน M0–M4 และกรอบเวลา
+2. อนุมัติ Dedicated Private Browsing Workflow
+3. อนุมัติ Messenger และ Test Control Interface
+4. อนุมัติการเพิ่ม Test Service/Component ใน Manifest หากจำเป็น
+5. อนุมัติ Cleanup Reporting และขอบเขตการรับรอง
+6. อนุมัติ Privacy Disclosure
+7. การเปลี่ยน Architecture หรือ Product Behavior ต้องเสนอเป็น Option แยกพร้อมหลักฐานและผลกระทบ
+
+**สถานะสุดท้าย:** แผน Phase 2 นี้เป็นข้อกำหนดวางแผนที่รวมไว้ในเอกสารหลักแล้ว แต่ไม่ใช่คำสั่งเริ่มพัฒนา; ต้องได้รับคำสั่งเริ่ม M0 แยกต่างหาก
 
 ### 7.2 Backlog ความสามารถอื่นสำหรับเฟสถัดไป
 
@@ -402,4 +554,4 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 - กำหนด GitHub PAT สำหรับ Termux โดยจำกัดสิทธิ์และเก็บอย่างปลอดภัย
 - ระบุข้อจำกัดจริงของ Android WebView สำหรับ Private Session, DoH และ Proxy
 - คงเป้าหมาย Privacy, tabs, bookmarks, history, resume, downloads, offline, localization และเฟสต่อยอดตามลำดับ
-- ปรับแผนตามคำสั่งเจ้าของโครงการ 2026-11-26: ย้าย Private Browsing ทั้ง implementation และ verification จาก Phase 1 ไป Phase 2; เพิ่ม dedicated Instrumentation Workflow และ acceptance criteria; แยก Phase 1 privacy/network scope ให้เดินหน้าต่อได้โดยไม่รอ Private Browsing
+- ปรับแผนตามคำสั่งเจ้าของโครงการ 2026-11-26: ย้าย Private Browsing ทั้ง implementation และ verification จาก Phase 1 ไป Phase 2; ขยาย Section 7.1 เป็นแผน M0–M4 ครอบคลุม CI/Harness, IPC/Readiness, Isolation, Cleanup/Lifecycle, Security Review, Real Device Validation, Acceptance Criteria, Timeline และ Stop Conditions; ปรับ Android minimum baseline เป็น API 36 ให้ตรงกับมติอนุมัติ

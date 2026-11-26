@@ -23,7 +23,8 @@
 6. Work is sequential within each active round. Deferred Phase 2 work and reserved Phase 1 capacity do not block unrelated Phase 1 tasks; do not start the next round until the active round has been reviewed and accepted.
 7. The 60 days are a planning baseline, not a promise. Waiting for user input, credentials, Keystore setup, platform limitations, or unresolved defects may move the schedule. Do not reduce security or acceptance requirements to meet the target.
 8. Do not add Phase 2 features to Phase 1 without approval.
-9. Private Browsing is Phase 2 work and is excluded from Phase 1 round acceptance; its incomplete status must remain visible in the Phase 2 backlog.
+9. Private Browsing is Phase 2 work and is excluded from Phase 1 round acceptance; its incomplete status and M0–M4 gates must remain visible in the Phase 2 workstream below.
+10. Phase 2 progress is tracked separately and never changes the 60-day Phase 1 denominator or completion percentage.
 
 ## Progress summary
 
@@ -38,6 +39,50 @@
 | **Total** | **60** | **31** | **51.67%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
+
+---
+
+## Phase 2 Workstream — Private Browsing (tracked separately from Phase 1)
+
+**Plan reference:** `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1 (v3.2)  
+**Status:** Planned; not started; requires explicit authorization to begin M0.  
+**Scope rule:** This workstream is independent of Phase 1. It does not block Phase 1, does not count toward the 60-day Phase 1 progress, and must not be used to mark any Phase 1 day complete.
+
+### Fixed constraints
+- Android 16 / API 36+, Android WebView only; retain process `:private` and data-directory suffix `rain_private`.
+- Set the suffix before any WebView API in the Private Process.
+- No RAIN account, no Cloud Sync, and no architecture/engine change without separate approval.
+- Do not claim complete trace removal or cleanup beyond verified Provider capabilities.
+- No Source Code, Manifest, Gradle, or Workflow changes are authorized merely by adding this plan to the tracker.
+
+### Milestones and acceptance gates
+
+| Milestone | Scope | Gate / evidence required | Status |
+|---|---|---|---|
+| M0 — Dedicated CI & Harness Proof | Dedicated Workflow, KVM/acceleration gate, ADB/Shell timeouts, same-job App/Test APK build, diagnostics and artifact upload | 3 consecutive stable runs; no unresolved signing/parser/quoting/timeout failure; KVM acceleration proven | Not started |
+| M1 — IPC & Process Readiness | Messenger-based allow-listed Test Control Interface, Ping/Pong, Request ID, Timeout, Process Name/PID and readiness handshake | 3 consecutive IPC/readiness passes; no BadParcelableException, ClassNotFoundException, Looper error, deadlock or unresolved race | Blocked on M0 |
+| M2 — WebView Isolation Proof | Cookie, localStorage, Session Storage, IndexedDB, HTTP Cache, Cache Storage and Service Worker according to Provider capability | Real WebView page tests prove both directions of Normal/Private isolation; evidence per data type | Blocked on M1 |
+| M3 — Cleanup, Lifecycle & Soak | Close/Reopen, Process Death, Force-stop, Low Memory, Unsupported API, Exception, Timeout and repeated sessions | Cleanup Report accurately records SUCCESS/PARTIAL/UNSUPPORTED/TIMEOUT/FAILED; new Session clean within supported scope; Normal data preserved | Blocked on M2 |
+| M4 — Security Review & Real Device Validation | Application metadata/security review and real-device testing on Android 16+ during Day 57–60 | Security review passed; device evidence recorded; limitations disclosed | Blocked on M3 |
+
+### Stop conditions
+- Fail Fast when KVM/Hardware Acceleration is unavailable; no TCG or `-accel off` fallback.
+- Do not begin M1 before M0 passes; do not begin M2 before M1 passes.
+- Stop on unresolved IPC crash/deadlock/race, confirmed cross-profile data leakage, unsafe cleanup race, or unsupported Provider capability needed for a claimed guarantee.
+- Harness failure is not Product Isolation pass or failure. Retry only a classified infrastructure flake; never retry to hide a product failure.
+- Any architecture, Manifest contract, or product-behavior change requires separate approval.
+
+### Timeline and reporting
+- Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
+- Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
+- Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
+- Phase 2 progress is reported separately from Phase 1's 31/60 (51.67%) and never alters that figure.
+
+### Current evidence / history
+- Run #80: App/Test APK debug signing mismatch across jobs.
+- Run #81: CookieManager.setCookie called without a Looper on the test thread.
+- Run #82: Test-APK ResultReceiver class failed cross-process deserialization before WebView initialization; therefore Run #82 does not prove Product Isolation pass or failure.
+- Existing implementation is retained as unaccepted Phase 2 work. No new run is authorized by this plan update.
 
 ---
 
