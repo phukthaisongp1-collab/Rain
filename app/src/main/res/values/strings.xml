@@ -73,4 +73,35 @@
     <string name="mode_mobile">Mobile</string>
     <string name="mode_desktop">Desktop</string>
 
+
+    <string name="mode_mobile">Mobile</string>
+    <string name="mode_desktop">Desktop</string>
+    <string name="search_button">Search: %1$s</string>
+    <string name="tabs_count">Tabs (%1$d)</string>
+    <string name="status_no_tab">No tab</string>
+    <string name="status_stop">Stop</string>
+    <string name="new_tab_ready">Your browsing space is ready.</string>
+    <string name="new_tab_recent">Recent pages</string>
+    <string name="new_tab_bookmarks">Bookmarks</string>
+    <string name="new_tab_no_recent">No recent pages</string>
+    <string name="new_tab_no_bookmarks">No bookmarks yet</string>
+    <string name="protection_allow_title">Website protection</string>
+    <string name="protection_warn_title">Suspicious website</string>
+    <string name="protection_block_title">Dangerous website blocked</string>
+    <string name="protection_website">Website: %1$s</string>
+    <string name="protection_category">Category: %1$s</string>
+    <string name="protection_source">Source: %1$s</string>
+    <string name="protection_reason">Reason: %1$s</string>
+    <string name="protection_reference">Reference: %1$s</string>
+    <string name="download_reason_invalid">The download URL is invalid or uses an unsupported source.</string>
+    <string name="download_reason_filename">The server did not provide a safe file name.</string>
+    <string name="download_reason_executable">This executable or script file type is blocked by RAIN.</string>
+    <string name="download_reason_html">The file extension does not match the server's HTML content type.</string>
+    <string name="download_reason_apk">The APK extension conflicts with the reported content type.</string>
+    <string name="download_reason_mismatch">The file extension and reported content type do not match.</string>
+    <string name="download_reason_apk_confirm">APK files can install applications. RAIN will only save this file and will never install it automatically. Verify the publisher before opening it.</string>
+    <string name="download_reason_http">This download uses an unencrypted HTTP connection. Confirm only if you trust the source.</string>
+    <string name="download_reason_unknown">RAIN cannot confidently identify this file type. Review the source and file name before downloading.</string>
+    <string name="download_reason_review">Review the source and file details before confirming the download.</string>
+
 </resources>
