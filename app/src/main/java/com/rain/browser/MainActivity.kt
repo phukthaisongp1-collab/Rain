@@ -157,6 +157,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.permissions_button).setOnClickListener { showSitePermissionManager() }
         findViewById<Button>(R.id.bookmarks_button).setOnClickListener { showBookmarksDialog() }
         findViewById<Button>(R.id.history_button).setOnClickListener { showHistoryDialog() }
+        findViewById<Button>(R.id.resume_button).setOnClickListener { showResumeDialog() }
 
         addressInput.setOnEditorActionListener { _, actionId, event ->
             val isGo = actionId == EditorInfo.IME_ACTION_GO ||
@@ -218,8 +219,26 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun showWelcomePage(webView: WebView) {
-        webView.loadDataWithBaseURL(null, WELCOME_PAGE, "text/html", "UTF-8", null)
+        val recentItems = resumeRepository.list().take(5).joinToString("") { entry ->
+            "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
+                escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
+        }.ifBlank { "<li>No recent pages</li>" }
+        val bookmarkItems = bookmarkRepository.search().take(5).joinToString("") { entry ->
+            "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
+                escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
+        }.ifBlank { "<li>No bookmarks yet</li>" }
+        val page = WELCOME_PAGE
+            .replace("{{RECENT}}", recentItems)
+            .replace("{{BOOKMARKS}}", bookmarkItems)
+        webView.loadDataWithBaseURL(null, page, "text/html", "UTF-8", null)
     }
+
+    private fun escapeHtml(value: String): String = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;")
 
     private fun loadHome() {
         val tab = tabManager.activeTab ?: return
@@ -1135,9 +1154,15 @@ class MainActivity : Activity(), WebViewCallbacks {
                     main { padding: 24px; }
                     h1 { color: #38BDF8; letter-spacing: 0.12em; }
                     p { color: #CBD5E1; }
+                    section { width: min(90vw, 520px); margin: 18px auto; text-align: left; }
+                    li { margin: 8px 0; overflow-wrap: anywhere; }
+                    a { color: #38BDF8; text-decoration: none; }
                 </style>
             </head>
-            <body><main><h1>RAIN</h1><p>Your browsing space is ready.</p></main></body>
+            <body><main><h1>RAIN</h1><p>Your browsing space is ready.</p>
+              <section><h2>Recent pages</h2><ul>{{RECENT}}</ul></section>
+              <section><h2>Bookmarks</h2><ul>{{BOOKMARKS}}</ul></section>
+            </main></body>
             </html>
         """
     }
