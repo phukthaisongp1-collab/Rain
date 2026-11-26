@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 31/60 days (51.67%)
+> **Progress:** 32/60 days (53.33%)
 
 ## Approved platform baseline change (2026-11-25)
 
@@ -33,10 +33,10 @@
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
 | Round C — Privacy controls and network (excluding Private Browsing) | 13 | 2 | In progress |
-| Phase 1 reserve / reallocation capacity | 5 | 1 | Day 31 completed; Days 32–35 allocated to approved non-Private Phase 1 features; completion tracked individually |
+| Phase 1 reserve / reallocation capacity | 5 | 2 | Days 31–32 completed; Days 33–35 allocated to approved non-Private Phase 1 features; completion tracked individually |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **31** | **51.67%** |
+| **Total** | **60** | **32** | **53.33%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -76,7 +76,7 @@
 - Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
 - Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
 - Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
-- Phase 2 progress is reported separately from Phase 1's 31/60 (51.67%) and never alters that figure.
+- Phase 2 progress is reported separately from Phase 1's 32/60 (53.33%) and never alters that figure.
 
 ### Current evidence / history
 - Run #80: App/Test APK debug signing mismatch across jobs.
@@ -146,12 +146,12 @@
 
 - [x] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation. **Completed: 2026-11-25.** Documented process-scoped WebView data directories, cookie/WebStorage scope, Service Worker limitations, and cleanup API constraints in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`.
 - [x] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities. **Completed: 2026-11-25.** Owner approved a dedicated `:private` Android process and unique `rain_private` WebView data-directory suffix. Architecture and limitations recorded in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; any implementation and verification work is now tracked in Phase 2 under `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1.
-**Schedule adjustment (owner-approved 2026-11-26):** The former Private Browsing tasks for Days 31–35 were transferred to Phase 2 (see `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1). Day 31 has now been allocated to the already-approved Android 16+ platform baseline and is complete. Days 32–35 are now allocated to approved non-Private Phase 1 features (Web Protection, Permission Manager, and safe Downloads). Anti-Redirect/Tab Guard is scheduled with external-intent validation on Day 39. These tasks remain incomplete until individually verified and do not block Day 36. The existing Private Browsing source work and Run #82 evidence are retained; no security acceptance is implied.
+**Schedule adjustment (owner-approved 2026-11-26):** The former Private Browsing tasks for Days 31–35 were transferred to Phase 2 (see `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1). Day 31 has now been allocated to the already-approved Android 16+ platform baseline and is complete. Day 32 is complete; Days 33–35 remain allocated to approved non-Private Phase 1 features (Web Protection feedback, Permission Manager, and safe Downloads). Anti-Redirect/Tab Guard is scheduled with external-intent validation on Day 39. These tasks remain incomplete until individually verified and do not block Day 36. The existing Private Browsing source work and Run #82 evidence are retained; no security acceptance is implied.
 
 ### Phase 1 reserve / reallocation capacity
 
 - [x] **Day 31 (reallocated):** Enforce the approved Android 16+ baseline across the app and Phase 1 CI. **Completed: 2026-11-26.** Set `minSdk = 36`; changed the Phase 1 emulator to API 36; removed the forced TCG override; added a KVM acceleration gate and Android 16 install/launch smoke check. Excluded `PrivateBrowsingIsolationTest` from Phase 1 CI because it is deferred Phase 2 work; no Private Browsing acceptance is implied. Build, lint, unit tests, KVM check, Android 16 emulator boot, app install, and app process launch all passed. Evidence: PR #5; merge commit `18f94670b0f2f95a47a9f7bdb1b4dac51abc27f6`; Actions run `45728905806`; artifact `15076530135`; APK SHA-256 `b5e582f2347db11bb13b0914dac5aa3f19bba57e1df2f245155f404665cc546d`.
-- [ ] **Day 32:** Implement evidence-based Web Protection decisions for credible phishing/malware and evidenced scams. Use a warning when evidence is insufficient; do not block ordinary websites without evidence. Keep gambling as a separate configurable category. Record the reason and trustworthy source for each decision.
+- [x] **Day 32:** Implement evidence-based Web Protection decisions for credible phishing/malware and evidenced scams. Use a warning when evidence is insufficient; do not block ordinary websites without evidence. Keep gambling as a separate configurable category. Record the reason and trustworthy source for each decision. **Completed: 2026-11-26.** Added deterministic ALLOW/WARN/BLOCK evidence policy with freshness, confidence, source-trust, corroboration, and separate opt-in gambling rules; retained Android WebView Safe Browsing interstitials. Policy unit-test task, lint, and debug assembly passed; Android 16 emulator install/launch smoke test and KVM gate passed. User-facing warning/block presentation, false-positive reporting, and external threat-intelligence feed are not included in this day and remain explicit limitations/follow-up scope. Evidence: `WebProtectionManager.kt`, `WebProtectionManagerTest.kt`, `WebViewFactory.kt`; PR #10; merge commit `0297145fe339b68c81bba166a0f462dcb97947e4`; Actions run `45744827602`; artifact `15082408766` (SHA-256 `493ce0dbaae7f14b2b3f8af2f1100c7b3713ddfc598f0626d9e9a00260fb816e`).
 - [ ] **Day 33:** Complete Web Protection user feedback and verification: clear warning/block presentation, source/reason visibility, false-positive reporting path, and unit tests for allow/warn/block decisions. Do not rely on AI classification alone.
 - [ ] **Day 34:** Implement Permission Manager for camera, microphone, location, and notifications: show the requesting origin, require explicit user consent, respect Android runtime permission boundaries, and support reviewing/revoking site permissions. Add permission-flow tests.
 - [ ] **Day 35:** Implement safe Downloads baseline: allow user-initiated downloads; require confirmation and validate source/type for APKs and other requested files; warn or block dangerous/disguised unknown files; never auto-install. Verify download metadata and error handling.
@@ -255,6 +255,7 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 29 | 2026-11-25 | Inspected WebView process/data-directory isolation, cookie and WebStorage scope, Service Worker limitations, and cleanup API constraints. | `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; commit `3942596fe1706865de8d8141eb147f4493bd11aa` |
 | 30 | 2026-11-25 | Defined and recorded the owner-approved separate-process Private Browsing architecture; implementation and verification were subsequently deferred to Phase 2 under `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1. | Owner approval in conversation; `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; commit `3942596fe1706865de8d8141eb147f4493bd11aa` |
 | 31 | 2026-11-26 | Enforced Android 16+ platform baseline (`minSdk = 36`), aligned Phase 1 CI with API 36, verified KVM acceleration, and confirmed RAIN installs and launches on the Android 16 emulator. Private Browsing instrumentation was excluded from Phase 1 CI because it is deferred to Phase 2. | PR #5; merge commit `18f94670b0f2f95a47a9f7bdb1b4dac51abc27f6`; Actions run `45728905806`; artifact `15076530135`; APK SHA-256 `b5e582f2347db11bb13b0914dac5aa3f19bba57e1df2f245155f404665cc546d` |
+| 32 | 2026-11-26 | Added evidence-based threat decision policy and Safe Browsing interstitial handling. `lint`, `testDebugUnitTest`, `assembleDebug`, KVM acceleration, Android 16 emulator install/launch, and artifact upload all succeeded. Warnings/UI and external threat feed remain follow-up scope; no physical-device test claimed. | PR #10; merge commit `0297145fe339b68c81bba166a0f462dcb97947e4`; Actions run `45744827602`; artifact `15082408766`; SHA-256 `493ce0dbaae7f14b2b3f8af2f1100c7b3713ddfc598f0626d9e9a00260fb816e` |
 
 ## Blockers and approved changes
 
