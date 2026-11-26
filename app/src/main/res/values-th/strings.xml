@@ -107,4 +107,5 @@
     <string name="protection_open_site">เปิดเว็บไซต์เพื่อดูสถานะการป้องกัน</string>
     <string name="protection_false_positive_note">การรายงานผลบวกลวงจะแชร์ผ่านเมนูแชร์ของ Android โดย RAIN จะไม่อัปโหลดรายงานโดยอัตโนมัติ</string>
 
+    <string name="protection_default_reason">เปิดใช้ Android WebView Safe Browsing แล้ว แต่ยังไม่ได้เชื่อมต่อแหล่งข้อมูลภัยคุกคามภายนอก</string>
 </resources>
