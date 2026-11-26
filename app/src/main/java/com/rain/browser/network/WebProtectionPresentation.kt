@@ -10,9 +10,9 @@ object WebProtectionPresentation {
     fun message(url: String, decision: WebProtectionManager.Decision): String {
         val details = buildList {
             add("Website: $url")
-            decision.category?.let { add("Category: \${it.name.lowercase().replace('_', ' ')}") }
+            decision.category?.let { add("Category: ${it.name.lowercase().replace('_', ' ')}") }
             decision.sourceName?.let { add("Source: $it") }
-            if (decision.reason.isNotBlank()) add("Reason: \${decision.reason}")
+            if (decision.reason.isNotBlank()) add("Reason: ${decision.reason}")
             decision.sourceReference.takeIf { !it.isNullOrBlank() }?.let {
                 add("Reference: $it")
             }
@@ -29,11 +29,11 @@ object WebProtectionPresentation {
         appendLine("Website: $url")
         appendLine("Reported at: $reportedAtEpochMillis")
         if (decision != null) {
-            decision.category?.let { appendLine("Category: \${it.name}") }
+            decision.category?.let { appendLine("Category: ${it.name}") }
             decision.sourceName?.let { appendLine("Detection source: $it") }
             decision.sourceReference?.let { appendLine("Source reference: $it") }
-            appendLine("Detection reason: \${decision.reason}")
-            appendLine("Decision: \${decision.action}")
+            appendLine("Detection reason: ${decision.reason}")
+            appendLine("Decision: ${decision.action}")
         }
         append("The user believes this website was incorrectly warned about or blocked.")
     }
