@@ -55,9 +55,15 @@ jobs:
           disk-size: 4G
           emulator-boot-timeout: 900
           script: |
+            set +e
             adb devices
             adb shell getprop sys.boot_completed
             ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
+            gradle_status=$?
+            mkdir -p app/build/outputs/ci
+            adb logcat -d -v threadtime > app/build/outputs/ci/emulator-logcat.txt 2>&1 || true
+            adb shell dumpsys activity activities > app/build/outputs/ci/activity-dump.txt 2>&1 || true
+            exit "$gradle_status"
       - name: Upload build and test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,5 +73,8 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/reports/lint-results-debug.html
             app/build/test-results/testDebugUnitTest/*.xml
+            app/build/outputs/androidTest-results/connected/**/*.xml
+            app/build/reports/androidTests/connected/debug/**
+            app/build/outputs/ci/**
           if-no-files-found: warn
           retention-days: 14
