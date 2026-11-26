@@ -42,6 +42,22 @@ class NavigationGuardPolicyTest {
     }
 
     @Test
+    fun identifiesRegistrableDomainsUnderAdditionalCountrySuffixes() {
+        assertTrue(
+            NavigationGuardPolicy.isSameSite(
+                "https://www.example.co.za",
+                "https://shop.example.co.za"
+            )
+        )
+        assertFalse(
+            NavigationGuardPolicy.isSameSite(
+                "https://a.co.za",
+                "https://b.co.za"
+            )
+        )
+    }
+
+    @Test
     fun requiresConfirmationForCrossSiteMainFrameNavigationWithoutGesture() {
         assertEquals(
             NavigationGuardPolicy.Decision.CONFIRM_CROSS_SITE,
