@@ -76,6 +76,7 @@
 | PB-T04 | ใช้ ActivityScenario กับ Activity ที่อยู่คนละ Process ไม่เหมาะสม | แนวทางเดิมพยายามเปิด PrivateBrowsingActivity ผ่าน ActivityScenario; การแก้รอบหลังเปลี่ยนเป็น explicit Intent + FLAG_ACTIVITY_NEW_TASK | **ยืนยันจากรูปแบบ Test เดิม** — Test ใหม่ต้องไม่พึ่ง process-local ActivityScenario สำหรับ :private |
 | PB-T05 | Debug test bridge ถูกเพิ่มใน PrivateBrowsingActivity บน PR #3 | PR #3 diff เพิ่ม dynamic BroadcastReceiver, operation strings และ ResultReceiver handling ใน Activity | **ยืนยันแล้ว** — ไม่ควรปล่อย test-only control surface เข้า Production APK; ย้ายไป debug/test source set หรือใช้ test harness ที่ไม่อยู่ใน Production |
 | PB-T06 | การสื่อสารข้าม Process ยังไม่มีวิธีที่ผ่านการพิสูจน์ | Run #82 ล้มใน deserialization ก่อนคำสั่ง Test ทำงาน | **ยืนยันแล้ว** — ต้องทำ IPC smoke test แยกก่อนนำไปใช้กับ Isolation Test |
+| PB-T07 | ยังไม่มี Instrumentation run ใดพิสูจน์ Isolation/Cleanup ผ่าน และยังไม่เคยผ่าน 3 runs ติดต่อกัน | Run #80 ติดตั้ง APK ไม่สำเร็จ; Run #81 และ #82 รัน Test ได้แต่ล้มจาก Harness | **ยืนยันแล้ว** — ยังห้ามรับรอง Private Browsing หรืออ้างว่า Product isolation ผ่าน |
 
 ### 4.2 ปัญหา Build / APK / Workflow
 
@@ -119,6 +120,8 @@
 - Run #76 / 45617663615 มี WebView Chromium native SIGTRAP ระหว่าง WebViewChromium.init/AwContents ขณะเปิด MainActivity ก่อนเข้า Private Activity; ยังไม่มีหลักฐานว่าเกิดจาก Private process หรือ data-directory suffix
 - Run #78 / 45623390946 มี Android framework/system_server watchdog หรือ DeadSystem และ ADB รายงาน No compatible devices; Test ไม่ได้ทำงานครบ
 - Run #82 ยืนยันว่า Activity ใน :private ถูกแสดงขึ้นจริง แต่ Receiver crash ก่อนส่ง status และก่อน Test จะพิสูจน์ WebView readiness
+- Run #77 ยืนยันว่า KVM version 12 ใช้งานได้หลังปรับ permission ของ /dev/kvm แบบชั่วคราวบน ephemeral runner; Runs #80–#82 ยืนยัน KVM/Emulator boot และ MainActivity smoke preflight ผ่าน แต่ไม่ได้พิสูจน์ Private Browsing isolation
+- Runs #80–#82 ใช้การตรวจ process PID/ADB/boot/provider ก่อน instrumentation ได้สำเร็จ; จึงควรเก็บ Preflight เหล่านี้ไว้โดยไม่ต้องคัดลอก Workflow draft ขนาดใหญ่ทั้งชุด
 - จำนวน CPU Emulator 4 cores บน runner 4 vCPU อาจแย่งทรัพยากรกับ Gradle/ADB ตามข้อสังเกตที่ปรึกษา แต่ยังเป็น **สมมติฐานความเชื่อมั่นต่ำ** ไม่ใช่ Root Cause ที่พิสูจน์แล้ว
 - KVM permission, Emulator boot, ADB readiness และ WebView product behavior เป็นคนละชั้น ต้องเก็บผลแยกกันทุกครั้ง
 
@@ -145,7 +148,7 @@
 2. ยืนยัน private suffix ถูกกำหนดก่อน WebView API
 3. Normal Cookie ต้องไม่ปรากฏใน Private และ Private Cookie ต้องไม่ปรากฏใน Normal
 4. localStorage และ IndexedDB แยกกัน
-5. Cache Storage และ HTTP/network cache ตามความสามารถ provider
+5. Cache Storage และ HTTP/network cache ตามความสามารถ provider; ใช้ controlled origin ที่มี HTTP request/response จริง ไม่พึ่ง loadDataWithBaseURL อย่างเดียว
 6. Service Worker registration/controlled page และ cleanup support
 7. Cookie attributes ที่สำคัญ เช่น Secure, HttpOnly และ SameSite ในกรณีที่ test fixture รองรับ
 8. ตรวจว่าการโหลดหน้าและ redirect ไม่ทำให้ข้อมูลข้าม process
