@@ -33,10 +33,12 @@ object WebViewProxyManager {
             get() = "$scheme://$authority"
     }
 
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val mainExecutor = Executor { command ->
-        mainHandler.post(command)
-        Unit
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val mainExecutor by lazy {
+        Executor { command ->
+            mainHandler.post(command)
+            Unit
+        }
     }
 
     private val bypassDomains = listOf(
@@ -117,7 +119,7 @@ object WebViewProxyManager {
         }
 
         val configBuilder = ProxyConfig.Builder().addProxyRule(endpoint.proxyUrl)
-        approvedBypassRules().forEach(configBuilder::addBypassRule)
+        approvedBypassRules().forEach { rule -> configBuilder.addBypassRule(rule) }
 
         runCatching {
             ProxyController.getInstance().setProxyOverride(
