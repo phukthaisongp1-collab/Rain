@@ -40,6 +40,7 @@ import com.rain.browser.browser.WebViewCallbacks
 import com.rain.browser.browser.WebViewFactory
 import com.rain.browser.downloads.DownloadPolicy
 import com.rain.browser.network.WebProtectionManager
+import com.rain.browser.network.WebProtectionPresentation
 import com.rain.browser.permissions.PermissionManager
 import com.rain.browser.data.BookmarkRepository
 import com.rain.browser.data.HistoryRepository
