@@ -43,6 +43,8 @@ import com.rain.browser.permissions.PermissionManager
 import com.rain.browser.data.BookmarkRepository
 import com.rain.browser.data.HistoryRepository
 import com.rain.browser.data.SettingsRepository
+import com.rain.browser.data.ResumeRepository
+import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
 
 class MainActivity : Activity(), WebViewCallbacks {
@@ -61,6 +63,8 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var bookmarkRepository: BookmarkRepository
     private lateinit var historyRepository: HistoryRepository
     private lateinit var settingsRepository: SettingsRepository
+    private lateinit var resumeRepository: ResumeRepository
+    private val storageExecutor = Executors.newSingleThreadExecutor()
 
     private data class PendingWebPermission(
         val request: PermissionRequest,
@@ -97,7 +101,10 @@ class MainActivity : Activity(), WebViewCallbacks {
         bookmarkRepository = BookmarkRepository(storage)
         historyRepository = HistoryRepository(storage)
         settingsRepository = SettingsRepository(storage)
+        resumeRepository = ResumeRepository(storage)
+        searchEngine = runCatching { SearchEngine.valueOf(settingsRepository.searchEngine) }.getOrDefault(SearchEngine.DUCKDUCKGO)
         applyAutomaticHistoryRetention()
+        cleanupExpiredResumeEntries()
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
@@ -166,7 +173,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     private fun restoreTabs(savedInstanceState: Bundle?) {
         val savedTabs = savedInstanceState?.getParcelableArrayList<Bundle>(STATE_TABS)
         if (savedTabs.isNullOrEmpty()) {
-            createTab()
+            restorePersistedTabs()
             return
         }
 
@@ -182,6 +189,23 @@ class MainActivity : Activity(), WebViewCallbacks {
             }
         }
         tabManager.selectAt(savedInstanceState.getInt(STATE_ACTIVE_INDEX, 0))
+        showActiveTab()
+    }
+
+    private fun restorePersistedTabs() {
+        val entries = resumeRepository.list()
+        if (entries.isEmpty()) {
+            createTab()
+            return
+        }
+        entries.forEach { entry ->
+            val webView = webViewFactory.create(this)
+            val tab = tabManager.add(webView)
+            tab.title = entry.title.ifBlank { entry.url }
+            tab.url = entry.url
+            loadUrlInTab(tab, entry.url)
+        }
+        tabManager.selectAt(0)
         showActiveTab()
     }
 
@@ -351,6 +375,35 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.forward_button).isEnabled = tab.webView.canGoForward()
     }
 
+
+    private fun cleanupExpiredResumeEntries() {
+        storageExecutor.execute { runCatching { resumeRepository.clearExpired() } }
+    }
+
+    private fun saveResumeSession() {
+        val snapshots = tabManager.tabs.mapNotNull { tab ->
+            val url = tab.webView.url.orEmpty().ifBlank { tab.url }
+            if (url.startsWith("https://") || url.startsWith("http://")) Triple(url, tab.title, 0L) else null
+        }
+        if (snapshots.isNotEmpty()) {
+            storageExecutor.execute {
+                snapshots.forEach { (url, title, position) ->
+                    runCatching { resumeRepository.save(url, title, position) }
+                }
+            }
+        }
+    }
+
+    private fun showResumeDialog() {
+        val entries = resumeRepository.list()
+        val labels = entries.map { it.title.ifBlank { it.url } + "\n" + it.url }.toTypedArray()
+        val builder = AlertDialog.Builder(this)
+            .setTitle("Resume browsing")
+            .setItems(labels) { _, which -> entries.getOrNull(which)?.let { openSavedUrl(it.url) } }
+            .setNegativeButton("Close", null)
+        if (entries.isEmpty()) builder.setMessage("No saved browsing sessions.")
+        builder.show()
+    }
 
     private fun applyAutomaticHistoryRetention() {
         val days = settingsRepository.autoClearHistoryDays
@@ -1030,6 +1083,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     override fun onPause() {
+        saveResumeSession()
         tabManager.tabs.forEach { it.webView.onPause() }
         super.onPause()
     }
@@ -1041,6 +1095,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onDestroy() {
         tabManager.clear().forEach { destroyWebView(it.webView) }
+        storageExecutor.shutdown()
         super.onDestroy()
     }
 
