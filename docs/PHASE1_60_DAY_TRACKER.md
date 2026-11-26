@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 45/60 days (75.00%)
+> **Progress:** 46/60 days (76.67%)
 
 ## Approved platform baseline change (2026-11-25)
 
@@ -32,11 +32,11 @@
 |---|---:|---:|---|
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
-| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 13 | In progress; Day 46 review pending |
-| Phase 1 reserve / reallocation capacity | 5 | 4 | Days 31–32 completed; Days 44–45 reallocated to Round C network verification and completed; one reserve day remains |
+| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 13 | Accepted with documented platform limitations (Day 46 review) |
+| Phase 1 reserve / reallocation capacity | 5 | 5 | Days 31–32 completed; Days 44–45 reallocated to Round C network verification; Day 46 review checkpoint completed |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **45** | **75.00%** |
+| **Total** | **60** | **46** | **76.67%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -76,7 +76,7 @@
 - Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
 - Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
 - Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
-- Phase 2 progress is reported separately from Phase 1's 45/60 (75.00%) and never alters that figure.
+- Phase 2 progress is reported separately from Phase 1's 46/60 (76.67%) and never alters that figure.
 
 ### Current evidence / history
 - Run #80: App/Test APK debug signing mismatch across jobs.
@@ -165,13 +165,13 @@
 - [x] **Day 43:** Implement Proxy only to the extent supported by a verified, approved approach; otherwise document the limitation and request a decision. **Completed: 2026-11-26.** Added WebViewProxyManager with runtime feature detection, explicit user-supplied HTTP/HTTPS/SOCKS endpoint validation, asynchronous apply/clear callbacks, and no default proxy, hard-coded endpoint, credentials, public/free proxy, secondary proxy, or direct fallback. No Settings UI or persistent proxy profile was added; no proxy is active unless an authorized caller explicitly applies one.
 - [x] **Day 44:** Verify the planned network whitelist candidates: `*.scb.co.th`, `*.kbank.com`, `*.go.th`, `*.gmail.com`, and `*.outlook.com`. Record actual behavior and limitations. **Completed: 2026-11-26.** Added root and subdomain bypass rules for SCB, KBank, .go.th, Gmail, and Outlook. These are direct-connection bypasses when a user proxy is configured, not proxy destinations. Unit tests cover root/nested subdomains and lookalike/suffix-attack hosts. Actual network routing through a live proxy is not claimed.
 - [x] **Day 45:** Run combined privacy and network tests; record reproducible results. **Completed: 2026-11-26.** Added 13 unit tests for proxy endpoint validation and bypass rules. PR CI passed Lint, Unit Tests, Debug APK Build, KVM acceleration, Android 16 Emulator install/launch smoke test, and artifact upload. No physical-device or live proxy traffic test is claimed. Evidence: PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403; SHA-256 99354ce2abec5855e2cd3d6547e4e4424e75a60b61d973e1a444fbe288fcb940.
-- [ ] **Day 46:** Resolve verified defects, document remaining platform limitations, record evidence, and obtain Round C acceptance.
+- [x] **Day 46:** Resolve verified defects, document remaining platform limitations, record evidence, and obtain Round C acceptance. **Completed: 2026-11-26.** Audited the merged Days 32–45 implementation across Web Protection, permissions, downloads, navigation/security, DNS and Proxy. No reproducible defect requiring a source change was confirmed; no speculative code changes were made. Recorded all remaining limitations and accepted Round C excluding Private Browsing (Phase 2). Evidence: `docs/ROUND_C_REVIEW_DAY46.md`; PR #13 merge commit `7707492e679df68234129431412d47ff64e9231e`; PR Actions run `45761567129` (all checks passed); artifact `15089598403`, SHA-256 `99354ce2abec5855e2cd3d6547e4e4424e75a60b61d973e1a444fbe288fcb940`.
 
 **Round C review record**
-- Review status: Not reviewed; acceptance scope excludes Private Browsing (tracked in Phase 2)
-- Review date:
-- Evidence / commit / Actions run:
-- Blockers or approved deviations:
+- Review status: **Accepted with documented platform limitations**; Private Browsing remains excluded and tracked in Phase 2.
+- Review date: 2026-11-26
+- Evidence: `docs/ROUND_C_REVIEW_DAY46.md`; PR #13 merge commit `7707492e679df68234129431412d47ff64e9231e`; Actions run `45761567129`; artifact `15089598403`.
+- Blockers or approved deviations: No confirmed Round C defect remains open. DoH is not implemented; proxy has no Settings UI/persistent profile and no live-routing proof; website notification permission is unsupported by the current WebView API; no external threat-intelligence feed or automatic false-positive upload is connected; no physical-device testing is claimed. These limitations are explicitly documented and do not imply unsupported functionality.
 
 ---
 
@@ -269,6 +269,7 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 43 | 2026-11-26 | Added optional user-configured WebView proxy manager with endpoint validation, feature detection, async apply/clear, and no default proxy. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
 | 44 | 2026-11-26 | Added root and subdomain direct-bypass patterns for SCB, KBank, .go.th, Gmail, and Outlook with policy unit tests; live proxy routing is not claimed. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
 | 45 | 2026-11-26 | Added 13 proxy policy tests; full PR CI passed Lint, Unit Tests, Debug APK, KVM, Android 16 Emulator install/launch, and artifact upload. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403; SHA-256 99354ce2abec5855e2cd3d6547e4e4424e75a60b61d973e1a444fbe288fcb940 |
+| 46 | 2026-11-26 | Completed Round C code/configuration audit; no reproducible source defect required a patch. Documented platform/provider limitations and accepted Round C excluding Phase 2 Private Browsing. | Review `docs/ROUND_C_REVIEW_DAY46.md`; PR #13 merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403 |
 
 ## Blockers and approved changes
 
