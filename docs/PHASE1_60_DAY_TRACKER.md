@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 48/60 days (80.00%)
+> **Progress:** 58/60 days (96.67%)
 
 ## Approved platform baseline change (2026-11-25)
 
@@ -34,9 +34,9 @@
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
 | Round C — Privacy controls and network (excluding Private Browsing) | 13 | 13 | Accepted with documented platform limitations (Day 46 review) |
 | Phase 1 reserve / reallocation capacity | 5 | 5 | Days 31–32 completed; Days 44–45 reallocated to Round C network verification; Day 46 review checkpoint completed |
-| Round D — Data and settings | 10 | 2 | In progress |
-| Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **48** | **80.00%** |
+| Round D — Data and settings | 10 | 10 | Accepted for cloud-verified implementation; physical-device checks remain in final acceptance |
+| Final verification and release | 4 | 2 | In progress; Day 57 device testing and Day 60 final acceptance remain open |
+| **Total** | **60** | **58** | **96.67%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -76,7 +76,7 @@
 - Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
 - Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
 - Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
-- Phase 2 progress is reported separately from Phase 1's 48/60 (80.00%) and never alters that figure.
+- Phase 2 progress is reported separately from Phase 1's 58/60 (96.67%) and never alters that figure.
 
 ### Current evidence / history
 - Run #80: App/Test APK debug signing mismatch across jobs.
@@ -184,17 +184,17 @@
 - [x] **Day 49:** Implemented Bookmark persistence, folder organization, search, open, and delete operations in the browser UI. Completed: 2026-11-26. Evidence: PR #15 merge commit `14cbd7ceced7770191605bbd3d632636dda80188`; PR CI run `45767214628` and main CI run `45767992062` passed.
 - [x] **Day 50:** Integrated normal History recording, retrieval, search, individual deletion, and clear-all confirmation. Private Browsing remains outside the normal History store and in Phase 2. Completed: 2026-11-26. Evidence: PR #15 merge commit `14cbd7ceced7770191605bbd3d632636dda80188`; PR CI run `45767214628` and main CI run `45767992062` passed.
 - [x] **Day 51:** Enforced the 5,000-entry History limit and connected the configured automatic retention policy to normal app startup. Repository tests passed in PR CI run `45767214628`; main CI run `45767992062` passed. Completed: 2026-11-26.
-- [ ] **Day 52:** Implement Resume persistence and restoration with a maximum of 10 entries; do not persist passwords or sensitive form data.
-- [ ] **Day 53:** Implement asynchronous cleanup of Resume entries older than 30 days and complete the RAIN New Tab page.
-- [ ] **Day 54:** Implement the Settings page for approved options: language, search engine, default Mobile/Desktop mode, and only verified privacy/network controls.
-- [ ] **Day 55:** Implement Thai and English localization, including Settings and user-facing security/download messages.
-- [ ] **Day 56:** Test Data Layer, Bookmarks, History, Resume, New Tab, Settings, and localization; record evidence, fix verified defects, and obtain Round D acceptance.
+- [x] **Day 52:** Connected Resume persistence and restoration for normal tabs, capped at 10 entries; only HTTP(S) URL/title metadata is saved, with no passwords or sensitive form data. Completed: 2026-11-26. Evidence: PR #17 merge commit `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; CI run `45771644136`.
+- [x] **Day 53:** Added asynchronous cleanup of Resume entries older than 30 days and a New Tab page showing recent normal pages and bookmarks with HTML escaping. Completed: 2026-11-26. Evidence: PR #17 merge commit `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; CI run `45771644136`.
+- [x] **Day 54:** Added persistent Settings controls for language, search engine, default Mobile/Desktop mode, and automatic History retention. Explicit per-host display-mode preferences take precedence over the default. Completed: 2026-11-26. Evidence: PR #17 merge commit `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; CI run `45771644136`.
+- [x] **Day 55:** Added Thai and English resources for the browser interface, New Tab, Settings, Web Protection, navigation confirmations, and download safety prompts. Completed: 2026-11-26. Evidence: PR #17 merge commit `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; CI run `45771644136`.
+- [x] **Day 56:** Reviewed and cloud-tested Data Layer, Bookmarks, History, Resume, New Tab, Settings, and localization. All 13 repository unit tests, lint, Debug APK build, KVM gate, Android 16 emulator install/launch, and artifact upload passed. Completed: 2026-11-26. Evidence: `docs/ROUND_D_REVIEW_DAY56.md`; PR #17 merge commit `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; Actions run `45771644136`; artifact `15094232799`; SHA-256 `1f317e964f689c2f413bf39b34c963a5eb190e62adbe1df6724240942b7c245a`.
 
 **Round D review record**
-- Review status: Not reviewed
-- Review date:
-- Evidence / commit / Actions run:
-- Blockers or approved deviations:
+- Review status: Developer review complete; cloud verification passed; owner final acceptance remains part of Day 60.
+- Review date: 2026-11-26
+- Evidence / commit / Actions run: `docs/ROUND_D_REVIEW_DAY56.md`; PR #17 merge `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; Actions run `45771644136`.
+- Blockers or approved deviations: Interactive flows still require physical-device testing; see `docs/DEVICE_TEST_CHECKLIST_DAY57.md`.
 
 ---
 
@@ -202,19 +202,20 @@
 
 **Release acceptance:** Production APK is built and signed with the same protected Keystore, signature verification passes, required tests pass, and delivery evidence is recorded.
 
-- [ ] **Day 57:** Run end-to-end tests for all Phase 1 Browser features on the target Android device/environment.
-- [ ] **Day 58:** Perform the final security review: secrets exposure, private data handling, WebView configuration, permissions, URL handling, and known limitations.
-- [ ] **Day 59:** Build the Production Release APK, verify the APK signature with `apksigner`, and confirm the expected applicationId and version metadata.
-- [ ] **Day 60:** Review the complete acceptance checklist, record test/build/release evidence, document known issues, and obtain final Phase 1 acceptance.
+- [ ] **Day 57:** Run end-to-end tests for all Phase 1 Browser features on the owner's Android 16+ TECNO device. Not yet performed; checklist prepared at `docs/DEVICE_TEST_CHECKLIST_DAY57.md`.
+- [x] **Day 58:** Completed static security review of secrets handling, private/normal data boundaries, WebView configuration, permissions, URL handling, downloads, and known limitations. No confirmed critical source-level defect found in the reviewed Phase 1 paths. Completed: 2026-11-26. Evidence: `docs/FINAL_SECURITY_REVIEW_DAY58.md`.
+- [x] **Day 59:** Built the Production Release APK, verified the signature and pinned certificate with `apksigner`, and confirmed applicationId/version metadata. Completed: 2026-11-26. Evidence: Actions run `45772070104`; artifact `15094990948`; APK SHA-256 `c03373c059fd72c01d5f1abcf1db028c52bc4817a2d5c7888fff8a52ce4fbedb`; certificate SHA-256 `d1b9587fd636c1e0e92a5718576381aadbc72190f5c927f45e7d4ebe0eadb592`.
+- [ ] **Day 60:** Review the complete acceptance checklist, record physical-device evidence and known issues, and obtain final Phase 1 owner acceptance. Blocked on Day 57 device testing.
 
 **Final release record**
-- Release status: Not released
-- Release date:
-- Version name:
-- Version code:
-- APK artifact / GitHub Actions run:
-- Signature verification result:
-- Final acceptance:
+- Release status: Signed Production APK built and verified; not published to an app store.
+- Release date: 2026-11-26
+- Version name: 0.1.0
+- Version code: 1
+- APK artifact / GitHub Actions run: `rain-signed-release-apk`, ID `15094990948`; Actions run `45772070104`
+- APK SHA-256: `c03373c059fd72c01d5f1abcf1db028c52bc4817a2d5c7888fff8a52ce4fbedb`
+- Signature verification result: `apksigner verify` passed; pinned certificate SHA-256 matched; metadata checks passed; temporary Keystore cleanup passed.
+- Final acceptance: Pending Day 57 physical-device test and Day 60 owner review.
 
 ---
 
@@ -275,6 +276,14 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 49 | 2026-11-26 | Integrated Bookmark persistence, folder organization, search, open, and delete UI; PR CI and main CI passed. | PR #15 merge `14cbd7ceced7770191605bbd3d632636dda80188`; PR run `45767214628`; main run `45767992062` |
 | 50 | 2026-11-26 | Integrated normal History recording, search, open, individual deletion, and clear-all confirmation; Private Browsing remains isolated in Phase 2. | PR #15 merge `14cbd7ceced7770191605bbd3d632636dda80188`; PR run `45767214628`; main run `45767992062` |
 | 51 | 2026-11-26 | Enforced the 5,000-entry History cap and connected automatic retention settings to normal app startup; repository tests and main CI passed. | PR #15 merge `14cbd7ceced7770191605bbd3d632636dda80188`; PR run `45767214628`; main run `45767992062` |
+| 52 | 2026-11-26 | Persisted/restored normal browsing tabs through Resume (max 10); active tab is prioritized on restore; URL/title only, no password/form data. | PR #17 merge `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; PR CI run `45771644136` |
+| 53 | 2026-11-26 | Added asynchronous 30-day Resume cleanup and a New Tab page with escaped recent-page/bookmark links. | PR #17 merge `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; PR CI run `45771644136` |
+| 54 | 2026-11-26 | Added persistent Settings for language, search engine, default display mode, and History retention; per-host overrides remain authoritative. | PR #17 merge `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; PR CI run `45771644136` |
+| 55 | 2026-11-26 | Added Thai/English browser, New Tab, Settings, Web Protection, navigation, and download safety resources. | PR #17 merge `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`; PR CI run `45771644136` |
+| 56 | 2026-11-26 | Round D review; 13 repository tests, lint, Debug APK, KVM, Android 16 emulator install/launch, and artifact upload passed. | `docs/ROUND_D_REVIEW_DAY56.md`; Actions run `45771644136`; artifact `15094232799` |
+| 57 | — | Physical-device end-to-end testing not yet performed; checklist prepared. | `docs/DEVICE_TEST_CHECKLIST_DAY57.md` |
+| 58 | 2026-11-26 | Completed static security review; no confirmed critical source-level defect in reviewed Phase 1 paths; HTTP/cleartext and other limitations documented. | `docs/FINAL_SECURITY_REVIEW_DAY58.md` |
+| 59 | 2026-11-26 | Signed Production APK built; pinned certificate and application metadata verified; temporary Keystore cleanup passed. | Actions run `45772070104`; artifact `15094990948`; APK SHA-256 `c03373c059fd72c01d5f1abcf1db028c52bc4817a2d5c7888fff8a52ce4fbedb` |
 
 ## Blockers and approved changes
 
