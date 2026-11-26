@@ -67,7 +67,7 @@ jobs:
           disk-size: 6G
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
+            set -eu
             adb devices
             SDK_VERSION="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
             if [ "$SDK_VERSION" != "36" ]; then
