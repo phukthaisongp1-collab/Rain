@@ -5,6 +5,8 @@ import android.net.http.SslError
 import android.os.Build
 import android.view.ViewGroup
 import android.webkit.SslErrorHandler
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -18,6 +20,21 @@ interface WebViewCallbacks {
     fun onPageFinished(view: WebView, url: String)
     fun onProgressChanged(view: WebView, progress: Int)
     fun onTitleChanged(view: WebView, title: String)
+    fun onWebPermissionRequested(view: WebView, request: PermissionRequest)
+    fun onWebPermissionRequestCanceled(request: PermissionRequest)
+    fun onSafeBrowsingThreat(view: WebView, url: String, threatType: Int)
+    fun onGeolocationPermissionRequested(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    )
+    fun onDownloadRequested(
+        view: WebView,
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long
+    )
 }
 
 class WebViewFactory(private val context: Context) {
@@ -80,12 +97,28 @@ class WebViewFactory(private val context: Context) {
                     threatType: Int,
                     callback: android.webkit.SafeBrowsingResponse
                 ) {
+                    callbacks.onSafeBrowsingThreat(view, request.url.toString(), threatType)
                     // Keep the WebView provider's security interstitial in control.
                     // Do not allow navigation through a detected Safe Browsing threat.
                     callback.showInterstitial(true)
                 }
             }
             webChromeClient = object : WebChromeClient() {
+                override fun onPermissionRequest(request: PermissionRequest) {
+                    callbacks.onWebPermissionRequested(this@apply, request)
+                }
+
+                override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                    callbacks.onWebPermissionRequestCanceled(request)
+                }
+
+                override fun onGeolocationPermissionsShowPrompt(
+                    origin: String,
+                    callback: GeolocationPermissions.Callback
+                ) {
+                    callbacks.onGeolocationPermissionRequested(origin, callback)
+                }
+
                 override fun onProgressChanged(view: WebView, newProgress: Int) {
                     callbacks.onProgressChanged(view, newProgress)
                 }
@@ -93,6 +126,16 @@ class WebViewFactory(private val context: Context) {
                 override fun onReceivedTitle(view: WebView, title: String?) {
                     callbacks.onTitleChanged(view, title.orEmpty())
                 }
+            }
+            setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+                callbacks.onDownloadRequested(
+                    this,
+                    url,
+                    userAgent.orEmpty(),
+                    contentDisposition.orEmpty(),
+                    mimeType.orEmpty(),
+                    contentLength
+                )
             }
         }
     }

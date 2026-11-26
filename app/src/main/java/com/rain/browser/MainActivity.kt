@@ -1,17 +1,27 @@
 package com.rain.browser
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.DownloadManager
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import android.content.Intent
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
+import android.webkit.URLUtil
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -25,6 +35,10 @@ import com.rain.browser.browser.SearchEngine
 import com.rain.browser.browser.TabManager
 import com.rain.browser.browser.WebViewCallbacks
 import com.rain.browser.browser.WebViewFactory
+import com.rain.browser.downloads.DownloadPolicy
+import com.rain.browser.network.WebProtectionManager
+import com.rain.browser.network.WebProtectionPresentation
+import com.rain.browser.permissions.PermissionManager
 
 class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var tabManager: TabManager
@@ -38,7 +52,27 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var tabsButton: Button
     private lateinit var reloadButton: Button
     private lateinit var searchEngineButton: Button
+    private lateinit var permissionManager: PermissionManager
 
+    private data class PendingWebPermission(
+        val request: PermissionRequest,
+        val origin: String,
+        val resources: Array<String>,
+        val sitePermissions: List<PermissionManager.SitePermission>,
+        val androidPermissions: Array<String>
+    )
+
+    private data class PendingGeoPermission(
+        val origin: String,
+        val callback: GeolocationPermissions.Callback
+    )
+
+    private var pendingWebPermission: PendingWebPermission? = null
+    private var pendingGeoPermission: PendingGeoPermission? = null
+    private var lastWebProtectionUrl: String? = null
+    private var lastWebProtectionPageUrl: String? = null
+    private var lastWebProtectionView: WebView? = null
+    private var lastWebProtectionDecision: WebProtectionManager.Decision? = null
     private var searchEngine = SearchEngine.DUCKDUCKGO
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +84,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         tabManager = TabManager()
         desktopModeManager = DesktopModeManager(this)
         webViewFactory = WebViewFactory(this)
+        permissionManager = PermissionManager(this)
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
@@ -98,6 +133,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.private_button).setOnClickListener {
             startActivity(Intent(this, com.rain.browser.privacy.PrivateBrowsingActivity::class.java))
         }
+        findViewById<Button>(R.id.protection_button).setOnClickListener { showProtectionDialog() }
+        findViewById<Button>(R.id.permissions_button).setOnClickListener { showSitePermissionManager() }
 
         addressInput.setOnEditorActionListener { _, actionId, event ->
             val isGo = actionId == EditorInfo.IME_ACTION_GO ||
@@ -299,6 +336,449 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.forward_button).isEnabled = tab.webView.canGoForward()
     }
 
+
+    private fun showProtectionDialog() {
+        val activeWebView = tabManager.activeTab?.webView
+        val currentUrl = activeWebView?.url.orEmpty()
+        val hasMatchingThreat = activeWebView != null &&
+            activeWebView === lastWebProtectionView &&
+            currentUrl == lastWebProtectionPageUrl
+        val reportUrl = if (hasMatchingThreat) lastWebProtectionUrl.orEmpty() else currentUrl
+        val decision = if (hasMatchingThreat) {
+            lastWebProtectionDecision
+        } else {
+            null
+        } ?: WebProtectionManager.Decision(
+            action = WebProtectionManager.Action.ALLOW,
+            reason = "Android WebView Safe Browsing is enabled. No external threat-intelligence feed is currently connected."
+        )
+        val message = if (reportUrl.isBlank()) {
+            "Open a website to view its protection status."
+        } else {
+            WebProtectionPresentation.message(reportUrl, decision) +
+                "\n\nFalse-positive reports are shared through Android's share sheet. RAIN does not upload reports automatically."
+        }
+        AlertDialog.Builder(this)
+            .setTitle(WebProtectionPresentation.title(decision))
+            .setMessage(message)
+            .setPositiveButton("Report false positive") { _, _ ->
+                if (reportUrl.isNotBlank()) shareFalsePositiveReport(reportUrl, decision)
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun shareFalsePositiveReport(
+        url: String,
+        decision: WebProtectionManager.Decision?
+    ) {
+        val safeReportUrl = safeReportOrigin(url)
+        val safeDecision = decision?.copy(
+            sourceReference = decision.sourceReference?.let(::safeReportOrigin)
+        )
+        val report = WebProtectionPresentation.falsePositiveReport(
+            safeReportUrl,
+            safeDecision,
+            System.currentTimeMillis()
+        )
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "RAIN Browser false-positive report")
+            putExtra(Intent.EXTRA_TEXT, report)
+        }
+        startActivity(Intent.createChooser(shareIntent, "Share false-positive report"))
+    }
+
+    private fun safeReportOrigin(rawUrl: String): String {
+        val parsed = Uri.parse(rawUrl)
+        val host = parsed.host ?: return rawUrl.substringBefore('?').substringBefore('#').take(256)
+        val scheme = parsed.scheme?.takeIf { it == "https" || it == "http" } ?: "https"
+        val port = parsed.port.takeIf { it > 0 }?.let { ":$it" }.orEmpty()
+        return "$scheme://$host$port"
+    }
+
+    private fun showSitePermissionManager() {
+        val grants = permissionManager.getSiteGrants()
+        val origins = grants.keys.toList()
+        val builder = AlertDialog.Builder(this)
+            .setTitle("Site permissions")
+            .setPositiveButton("App notifications") { _, _ -> showAppNotificationPermission() }
+            .setNegativeButton("Close", null)
+
+        if (origins.isEmpty()) {
+            builder.setMessage(
+                "No site permissions have been granted. Camera, microphone, and location requests require your approval for each HTTPS origin. Website notifications are not supported by the current Android WebView; the separate button manages RAIN app notifications only."
+            )
+        } else {
+            builder.setMessage(
+                "Select an origin to review or revoke its saved permissions. Website Notification.requestPermission is not supported by the current Android WebView."
+            )
+            builder.setItems(origins.map { origin ->
+                val labels = grants[origin].orEmpty().map { it.label }.joinToString(", ")
+                "$origin\n$labels"
+            }.toTypedArray()) { _, which ->
+                origins.getOrNull(which)?.let { showSitePermissionActions(it) }
+            }
+        }
+        builder.show()
+    }
+
+    private fun showSitePermissionActions(origin: String) {
+        val grants = permissionManager.getSiteGrants()[origin].orEmpty().toList()
+        if (grants.isEmpty()) {
+            showSitePermissionManager()
+            return
+        }
+        val labels = grants.map { "Revoke ${it.label}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(origin)
+            .setItems(labels) { _, which ->
+                grants.getOrNull(which)?.let { permission ->
+                    permissionManager.revoke(origin, permission)
+                    recreateTabsAfterPermissionRevocation()
+                    Toast.makeText(this, "${permission.label} permission revoked", Toast.LENGTH_SHORT).show()
+                    showSitePermissionManager()
+                }
+            }
+            .setNeutralButton("Revoke all") { _, _ ->
+                permissionManager.revokeAll(origin)
+                recreateTabsAfterPermissionRevocation()
+                Toast.makeText(this, "All site permissions revoked", Toast.LENGTH_SHORT).show()
+                showSitePermissionManager()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+
+    private fun recreateTabsAfterPermissionRevocation() {
+        val activeIndex = tabManager.activeIndex
+        val snapshots = tabManager.tabs.map { tab ->
+            val state = Bundle()
+            runCatching { tab.webView.saveState(state) }
+            state.putString(STATE_TITLE, tab.title)
+            state.putString(STATE_URL, tab.url)
+            state.putBoolean(STATE_DESKTOP, tab.isDesktopMode)
+            state
+        }
+        tabManager.clear().forEach { destroyWebView(it.webView) }
+        lastWebProtectionView = null
+        lastWebProtectionUrl = null
+        lastWebProtectionPageUrl = null
+        lastWebProtectionDecision = null
+        snapshots.forEach { state ->
+            val webView = webViewFactory.create(this)
+            val tab = tabManager.add(webView)
+            tab.title = state.getString(STATE_TITLE).orEmpty().ifBlank { "New Tab" }
+            tab.url = state.getString(STATE_URL).orEmpty()
+            tab.isDesktopMode = state.getBoolean(STATE_DESKTOP, false)
+            val restored = runCatching { webView.restoreState(state) }.getOrNull()
+            if (restored == null) {
+                if (tab.url.isBlank()) showWelcomePage(webView) else loadUrlInTab(tab, tab.url)
+            } else if (tab.url.isNotBlank()) {
+                applyDesktopSettings(webView, desktopModeManager.isDesktopFor(tab.url))
+            }
+        }
+        if (tabManager.tabs.isEmpty()) {
+            createTab()
+        } else {
+            tabManager.selectAt(activeIndex)
+            showActiveTab()
+        }
+    }
+
+    private fun showAppNotificationPermission() {
+        val appNotificationsAllowed =
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val status = if (appNotificationsAllowed) "allowed" else "not allowed"
+        AlertDialog.Builder(this)
+            .setTitle("Notification permissions")
+            .setMessage(
+                "Website Notification.requestPermission is not supported by the current Android WebView, so RAIN cannot grant website notifications per origin. RAIN app notifications are currently $status; this is a separate Android app-level setting."
+            )
+            .setPositiveButton("Open Android settings") { _, _ -> openAppNotificationSettings() }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun openAppNotificationSettings() {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            }
+    }
+
+    override fun onWebPermissionRequested(view: WebView, request: PermissionRequest) {
+        val origin = PermissionManager.normalizeOrigin(request.origin.toString())
+        if (origin == null) {
+            request.deny()
+            return
+        }
+
+        val resources = request.resources?.toList().orEmpty()
+        if (resources.isEmpty()) {
+            request.deny()
+            return
+        }
+
+        val mapped = resources.mapNotNull { resource ->
+            when (resource) {
+                PermissionRequest.RESOURCE_VIDEO_CAPTURE -> PermissionManager.SitePermission.CAMERA
+                PermissionRequest.RESOURCE_AUDIO_CAPTURE -> PermissionManager.SitePermission.MICROPHONE
+                else -> null
+            }
+        }
+        if (mapped.size != resources.size) {
+            request.deny()
+            return
+        }
+
+        val androidPermissions = buildList {
+            if (PermissionManager.SitePermission.CAMERA in mapped) add(Manifest.permission.CAMERA)
+            if (PermissionManager.SitePermission.MICROPHONE in mapped) add(Manifest.permission.RECORD_AUDIO)
+        }.distinct().toTypedArray()
+
+        if (pendingWebPermission != null) {
+            request.deny()
+            return
+        }
+
+        if (mapped.all { permissionManager.isGranted(origin, it) } &&
+            androidPermissions.all(::isRuntimePermissionGranted)
+        ) {
+            runCatching { request.grant(resources.toTypedArray()) }
+            return
+        }
+
+        val labels = mapped.map { it.label }.distinct().joinToString(" and ")
+        AlertDialog.Builder(this)
+            .setTitle("Website permission")
+            .setMessage("$origin requests access to $labels. Allow this origin to use these device features?")
+            .setPositiveButton("Allow") { _, _ ->
+                pendingWebPermission = PendingWebPermission(
+                    request, origin, resources.toTypedArray(), mapped, androidPermissions
+                )
+                val missing = androidPermissions.filterNot(::isRuntimePermissionGranted).toTypedArray()
+                if (missing.isEmpty()) {
+                    completeWebPermissionRequest(true)
+                } else {
+                    requestPermissions(missing, REQUEST_SITE_PERMISSION)
+                }
+            }
+            .setNegativeButton("Deny") { _, _ -> runCatching { request.deny() } }
+            .setOnCancelListener { runCatching { request.deny() } }
+            .show()
+    }
+
+    override fun onWebPermissionRequestCanceled(request: PermissionRequest) {
+        if (pendingWebPermission?.request == request) pendingWebPermission = null
+    }
+
+    override fun onGeolocationPermissionRequested(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
+        val normalizedOrigin = PermissionManager.normalizeOrigin(origin)
+        if (normalizedOrigin == null) {
+            callback.invoke(origin, false, false)
+            return
+        }
+
+        if (permissionManager.isGranted(
+                normalizedOrigin,
+                PermissionManager.SitePermission.LOCATION
+            ) && hasRuntimeLocationPermission()
+        ) {
+            callback.invoke(origin, true, false)
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Location permission")
+            .setMessage("$normalizedOrigin wants to access your device location. Allow this site?")
+            .setPositiveButton("Allow") { _, _ ->
+                pendingGeoPermission = PendingGeoPermission(origin, callback)
+                if (hasRuntimeLocationPermission()) {
+                    completeGeoPermissionRequest(true)
+                } else {
+                    requestPermissions(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        ),
+                        REQUEST_GEOLOCATION
+                    )
+                }
+            }
+            .setNegativeButton("Deny") { _, _ -> callback.invoke(origin, false, false) }
+            .setOnCancelListener { callback.invoke(origin, false, false) }
+            .show()
+    }
+
+    private fun completeWebPermissionRequest(granted: Boolean) {
+        val pending = pendingWebPermission ?: return
+        pendingWebPermission = null
+        if (!granted || !pending.androidPermissions.all(::isRuntimePermissionGranted)) {
+            runCatching { pending.request.deny() }
+            return
+        }
+        pending.sitePermissions.forEach { permission ->
+            permissionManager.grant(pending.origin, permission)
+        }
+        runCatching { pending.request.grant(pending.resources) }
+    }
+
+    private fun completeGeoPermissionRequest(granted: Boolean) {
+        val pending = pendingGeoPermission ?: return
+        pendingGeoPermission = null
+        val allowed = granted && hasRuntimeLocationPermission()
+        if (allowed) {
+            permissionManager.grant(
+                pending.origin,
+                PermissionManager.SitePermission.LOCATION
+            )
+        }
+        pending.callback.invoke(pending.origin, allowed, false)
+    }
+
+    private fun isRuntimePermissionGranted(permission: String): Boolean =
+        checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasRuntimeLocationPermission(): Boolean =
+        isRuntimePermissionGranted(Manifest.permission.ACCESS_FINE_LOCATION) ||
+            isRuntimePermissionGranted(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+    override fun onDownloadRequested(
+        view: WebView,
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long
+    ) {
+        runOnUiThread {
+            val guessedName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val decision = DownloadPolicy.evaluate(url, guessedName, mimeType)
+            if (decision.action == DownloadPolicy.Action.BLOCK) {
+                AlertDialog.Builder(this)
+                    .setTitle("Download blocked")
+                    .setMessage("${decision.fileName}\n\n${decision.reason}")
+                    .setPositiveButton("OK", null)
+                    .show()
+                return@runOnUiThread
+            }
+
+            val message = buildString {
+                appendLine("File: ${decision.fileName}")
+                appendLine("Source: ${decision.sourceHost ?: "Unknown"}")
+                appendLine("Type: ${decision.mimeType.ifBlank { "Unknown" }}")
+                appendLine("Size: ${if (contentLength > 0) android.text.format.Formatter.formatFileSize(this@MainActivity, contentLength) else "Unknown"}")
+                appendLine()
+                append(decision.reason)
+            }
+            AlertDialog.Builder(this)
+                .setTitle(if (decision.isApk) "APK download confirmation" else "Confirm download")
+                .setMessage(message)
+                .setPositiveButton("Download") { _, _ ->
+                    enqueueDownload(decision, url, userAgent)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
+    private fun enqueueDownload(
+        decision: DownloadPolicy.Decision,
+        url: String,
+        userAgent: String
+    ) {
+        val manager = getSystemService(DOWNLOAD_SERVICE) as? DownloadManager
+        if (manager == null) {
+            Toast.makeText(this, "Download service is unavailable", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val request = runCatching {
+            DownloadManager.Request(Uri.parse(url)).apply {
+                setTitle(decision.fileName)
+                setDescription("From ${decision.sourceHost ?: "website"}")
+                if (decision.mimeType.isNotBlank()) setMimeType(decision.mimeType)
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, decision.fileName)
+                setAllowedOverRoaming(false)
+                if (userAgent.isNotBlank() && userAgent.length <= 512) {
+                    addRequestHeader("User-Agent", userAgent)
+                }
+            }
+        }.getOrElse {
+            Toast.makeText(this, "Could not prepare this download", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        runCatching { manager.enqueue(request) }
+            .onSuccess {
+                Toast.makeText(this, "Download added. RAIN will not install APK files.", Toast.LENGTH_LONG).show()
+            }
+            .onFailure {
+                Toast.makeText(this, "Download failed to start: ${it.message.orEmpty()}", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            REQUEST_SITE_PERMISSION -> completeWebPermissionRequest(
+                permissions.isNotEmpty() && permissions.all(::isRuntimePermissionGranted)
+            )
+            REQUEST_GEOLOCATION -> completeGeoPermissionRequest(
+                permissions.isNotEmpty() && hasRuntimeLocationPermission()
+            )
+        }
+    }
+
+    override fun onSafeBrowsingThreat(view: WebView, url: String, threatType: Int) {
+        val category = when (threatType) {
+            WebViewClient.SAFE_BROWSING_THREAT_MALWARE ->
+                WebProtectionManager.ThreatCategory.MALWARE
+            WebViewClient.SAFE_BROWSING_THREAT_PHISHING ->
+                WebProtectionManager.ThreatCategory.PHISHING
+            else -> null
+        }
+        val reason = when (threatType) {
+            WebViewClient.SAFE_BROWSING_THREAT_MALWARE ->
+                "Android Safe Browsing identified a malware threat."
+            WebViewClient.SAFE_BROWSING_THREAT_PHISHING ->
+                "Android Safe Browsing identified a phishing threat."
+            WebViewClient.SAFE_BROWSING_THREAT_UNWANTED_SOFTWARE ->
+                "Android Safe Browsing identified potentially unwanted software."
+            WebViewClient.SAFE_BROWSING_THREAT_BILLING ->
+                "Android Safe Browsing identified a billing-related threat."
+            else -> "Android Safe Browsing identified a threat (type $threatType)."
+        }
+        lastWebProtectionUrl = url
+        lastWebProtectionPageUrl = view.url.orEmpty()
+        lastWebProtectionView = view
+        lastWebProtectionDecision = WebProtectionManager.Decision(
+            action = WebProtectionManager.Action.BLOCK,
+            category = category,
+            reason = reason,
+            sourceName = "Android WebView Safe Browsing",
+            sourceReference = url
+        )
+    }
+
     override fun onNavigationRequested(view: WebView, url: String) {
         val tab = tabManager.findByWebView(view) ?: return
         val desktop = desktopModeManager.isDesktopFor(url)
@@ -404,6 +884,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val STATE_TITLE = "rain_state_title"
         const val STATE_URL = "rain_state_url"
         const val STATE_DESKTOP = "rain_state_desktop"
+        const val REQUEST_SITE_PERMISSION = 4101
+        const val REQUEST_GEOLOCATION = 4102
 
         const val WELCOME_PAGE = """
             <!doctype html>

@@ -7,6 +7,8 @@ import android.view.KeyEvent
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.WebStorage
 import android.webkit.WebView
 import androidx.webkit.WebStorageCompat
@@ -166,6 +168,36 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
     override fun onProgressChanged(view: WebView, progress: Int) = Unit
 
     override fun onTitleChanged(view: WebView, title: String) = Unit
+
+    override fun onWebPermissionRequested(view: WebView, request: PermissionRequest) {
+        request.deny()
+    }
+
+    override fun onWebPermissionRequestCanceled(request: PermissionRequest) = Unit
+
+    override fun onSafeBrowsingThreat(view: WebView, url: String, threatType: Int) = Unit
+
+    override fun onGeolocationPermissionRequested(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
+        callback.invoke(origin, false, false)
+    }
+
+    override fun onDownloadRequested(
+        view: WebView,
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long
+    ) {
+        Toast.makeText(
+            this,
+            "Downloads are disabled in Private Browsing",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
 
     override fun onDestroy() {
         if (!isClosing) {
