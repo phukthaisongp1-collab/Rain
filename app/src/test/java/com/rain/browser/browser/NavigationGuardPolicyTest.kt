@@ -71,6 +71,19 @@ class NavigationGuardPolicyTest {
     }
 
     @Test
+    fun blocksAutomaticHttpsToHttpDowngrades() {
+        assertEquals(
+            NavigationGuardPolicy.Decision.BLOCK,
+            NavigationGuardPolicy.evaluate(
+                "https://secure.example.com",
+                "http://secure.example.com/redirect",
+                true,
+                false
+            )
+        )
+    }
+
+    @Test
     fun allowsCrossSiteNavigationWithUserGesture() {
         assertEquals(
             NavigationGuardPolicy.Decision.ALLOW_WEB,
