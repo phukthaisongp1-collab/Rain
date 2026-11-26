@@ -1,4 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">RAIN</string>
+    <string name="address_hint">Search or enter website</string>
+    <string name="action_go">Go</string>
+    <string name="action_back">Back</string>
+    <string name="action_forward">Forward</string>
+    <string name="action_reload">Reload</string>
+    <string name="action_home">Home</string>
+    <string name="action_new_tab">+ Tab</string>
+    <string name="action_tabs">Tabs (0)</string>
+    <string name="action_search_engine">Search: DuckDuckGo</string>
+    <string name="action_display_mode">Mobile/Desktop</string>
+    <string name="action_zoom_out">Zoom -</string>
+    <string name="action_zoom_in">Zoom +</string>
+    <string name="action_text_out">Text -</string>
+    <string name="action_text_in">Text +</string>
+    <string name="action_private">Private</string>
+    <string name="action_protection">Protection</string>
+    <string name="action_permissions">Permissions</string>
+    <string name="action_bookmarks">Bookmarks</string>
+    <string name="action_history">History</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_settings">Settings</string>
+    <string name="status_ready">RAIN Browser</string>
 </resources>
