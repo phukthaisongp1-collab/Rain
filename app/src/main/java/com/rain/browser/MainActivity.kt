@@ -29,6 +29,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import com.rain.browser.browser.BrowserTab
+import com.rain.browser.browser.NavigationGuardPolicy
 import com.rain.browser.browser.BrowserUrlResolver
 import com.rain.browser.browser.DesktopModeManager
 import com.rain.browser.browser.SearchEngine
@@ -784,6 +785,54 @@ class MainActivity : Activity(), WebViewCallbacks {
         val desktop = desktopModeManager.isDesktopFor(url)
         applyDesktopSettings(view, desktop)
         tab.isDesktopMode = desktop
+    }
+
+    override fun onCrossSiteNavigationRequested(view: WebView, url: String) {
+        if (tabManager.findByWebView(view) == null ||
+            !com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(url)
+        ) return
+
+        val destinationHost = Uri.parse(url).host ?: "another website"
+        AlertDialog.Builder(this)
+            .setTitle("Leave this website?")
+            .setMessage("This page is trying to open $destinationHost without a direct user action. Do you want to continue?")
+            .setPositiveButton("Continue") { _, _ ->
+                if (tabManager.findByWebView(view) != null &&
+                    com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(url)
+                ) {
+                    view.loadUrl(url)
+                }
+            }
+            .setNegativeButton("Stay", null)
+            .setOnCancelListener { }
+            .show()
+    }
+
+    override fun onExternalNavigationRequested(view: WebView, url: String) {
+        if (tabManager.findByWebView(view) == null ||
+            !NavigationGuardPolicy.isAllowedExternalUrl(url)
+        ) return
+
+        val uri = Uri.parse(url)
+        val scheme = uri.scheme.orEmpty().lowercase()
+        val externalIntent = Intent(Intent.ACTION_VIEW, uri)
+        AlertDialog.Builder(this)
+            .setTitle("Open external app?")
+            .setMessage("This link uses the $scheme scheme and will leave RAIN. Continue only if you trust the link.")
+            .setPositiveButton("Open") { _, _ ->
+                if (tabManager.findByWebView(view) != null) {
+                    runCatching { startActivity(externalIntent) }
+                        .onFailure {
+                            Toast.makeText(
+                                this,
+                                "No compatible app is available for this link",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     override fun onPageStarted(view: WebView, url: String) {

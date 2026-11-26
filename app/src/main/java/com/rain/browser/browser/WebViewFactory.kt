@@ -2,7 +2,6 @@ package com.rain.browser.browser
 
 import android.content.Context
 import android.net.http.SslError
-import android.os.Build
 import android.view.ViewGroup
 import android.webkit.SslErrorHandler
 import android.webkit.GeolocationPermissions
@@ -12,10 +11,11 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import com.rain.browser.network.NetworkPolicyManager
 
 interface WebViewCallbacks {
     fun onNavigationRequested(view: WebView, url: String)
+    fun onCrossSiteNavigationRequested(view: WebView, url: String) = Unit
+    fun onExternalNavigationRequested(view: WebView, url: String) = Unit
     fun onPageStarted(view: WebView, url: String)
     fun onPageFinished(view: WebView, url: String)
     fun onProgressChanged(view: WebView, progress: Int)
@@ -47,22 +47,20 @@ class WebViewFactory(private val context: Context) {
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
-                allowFileAccess = false
-                allowContentAccess = false
-                allowFileAccessFromFileURLs = false
-                allowUniversalAccessFromFileURLs = false
-                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                javaScriptCanOpenWindowsAutomatically = false
-                setSupportMultipleWindows(false)
+                allowFileAccess = BrowserSecurityPolicy.allowFileAccess
+                allowContentAccess = BrowserSecurityPolicy.allowContentAccess
+                allowFileAccessFromFileURLs = BrowserSecurityPolicy.allowFileAccessFromFileUrls
+                allowUniversalAccessFromFileURLs = BrowserSecurityPolicy.allowUniversalAccessFromFileUrls
+                mixedContentMode = BrowserSecurityPolicy.mixedContentMode
+                javaScriptCanOpenWindowsAutomatically = BrowserSecurityPolicy.javaScriptCanOpenWindowsAutomatically
+                setSupportMultipleWindows(BrowserSecurityPolicy.supportMultipleWindows)
                 builtInZoomControls = true
                 displayZoomControls = false
                 setSupportZoom(true)
                 useWideViewPort = false
                 loadWithOverviewMode = false
                 cacheMode = WebSettings.LOAD_DEFAULT
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    safeBrowsingEnabled = true
-                }
+                safeBrowsingEnabled = BrowserSecurityPolicy.safeBrowsingEnabled
             }
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(
@@ -70,9 +68,24 @@ class WebViewFactory(private val context: Context) {
                     request: WebResourceRequest
                 ): Boolean {
                     val url = request.url.toString()
-                    if (!NetworkPolicyManager.isAllowedWebUrl(url)) return true
-                    if (request.isForMainFrame) callbacks.onNavigationRequested(view, url)
-                    return false
+                    return when (
+                        NavigationGuardPolicy.evaluate(
+                            currentUrl = view.url.orEmpty(),
+                            destinationUrl = url,
+                            isMainFrame = request.isForMainFrame,
+                            hasGesture = request.hasGesture()
+                        )
+                    ) {
+                        NavigationGuardPolicy.Decision.ALLOW_WEB -> {
+                            if (request.isForMainFrame) callbacks.onNavigationRequested(view, url)
+                            false
+                        }
+                        NavigationGuardPolicy.Decision.CONFIRM_CROSS_SITE ->
+                            callbacks.onCrossSiteNavigationRequested(view, url).let { true }
+                        NavigationGuardPolicy.Decision.CONFIRM_EXTERNAL ->
+                            callbacks.onExternalNavigationRequested(view, url).let { true }
+                        NavigationGuardPolicy.Decision.BLOCK -> true
+                    }
                 }
 
                 override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
@@ -88,7 +101,9 @@ class WebViewFactory(private val context: Context) {
                     handler: SslErrorHandler,
                     error: SslError
                 ) {
-                    handler.cancel()
+                    when (BrowserSecurityPolicy.sslErrorAction) {
+                        BrowserSecurityPolicy.SslErrorAction.CANCEL -> handler.cancel()
+                    }
                 }
 
                 override fun onSafeBrowsingHit(
@@ -104,6 +119,16 @@ class WebViewFactory(private val context: Context) {
                 }
             }
             webChromeClient = object : WebChromeClient() {
+                override fun onCreateWindow(
+                    view: WebView,
+                    isDialog: Boolean,
+                    isUserGesture: Boolean,
+                    resultMsg: android.os.Message
+                ): Boolean {
+                    // Reject popup creation before a secondary WebView can be attached.
+                    return false
+                }
+
                 override fun onPermissionRequest(request: PermissionRequest) {
                     callbacks.onWebPermissionRequested(this@apply, request)
                 }
