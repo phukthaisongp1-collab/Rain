@@ -1,10 +1,12 @@
-# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.1
+# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.2
 
 > สถานะ: Development Specification — ฉบับหลักแทน v3  
-> เวอร์ชันแผน: **v3.1**  
+> เวอร์ชันแผน: **v3.2**  
 > เวอร์ชันแอปเริ่มต้น: **0.1.0**  
 > Android applicationId: **com.rain.browser**  
 > แพลตฟอร์ม: **Android เท่านั้น**
+
+การปรับปรุง v3.2 (2026-11-26): ยืนยัน Android 16 (API 36) ขึ้นไปเป็น baseline, ย้าย Private Browsing ไป Phase 2 และเพิ่มเอกสารแผนสร้างใหม่/บัญชีปัญหาเดิมที่ docs/PRIVATE_BROWSING_REBUILD_PLAN.md
 
 เอกสารนี้รวมแผนเดิมและข้อกำหนดเพิ่มเติมจากเจ้าของโครงการ โดยเปลี่ยนสถาปัตยกรรมจาก Electron เป็น Android อย่างชัดเจน การอัปเดตเอกสารนี้ไม่ใช่การอนุมัติให้เริ่มเขียนโค้ด ต้องได้รับคำสั่งเริ่มงานแยกต่างหาก
 
@@ -35,7 +37,8 @@ RAIN ต้องรวมความสามารถหลักของ Go
 
 ### 1.3 แพลตฟอร์มและสถาปัตยกรรม
 - เป้าหมาย Android เท่านั้น
-- Android ขั้นต่ำที่รองรับ: Android 10 (API 29) เพื่อสมดุลระหว่างความเข้ากันได้ ความปลอดภัย และภาระดูแลระยะยาว
+- Android ขั้นต่ำที่รองรับ: Android 16 (API 36) ขึ้นไปเท่านั้น (minSdk = 36) ตามการอนุมัติของเจ้าของโครงการ; Android 15 และเก่ากว่าไม่รองรับ
+- compileSdk และ targetSdk ปัจจุบันเป็น 36; Phase 1 และ Phase 2 Emulator CI ใช้ API 36 เป็น baseline
 - ใช้ Kotlin, Android SDK และ Gradle
 - ใช้ Android WebView เป็น engine แสดงเว็บไซต์
 - ใช้ Android UI สำหรับแถบเครื่องมือ เมนู แท็บ และ Settings
@@ -325,6 +328,8 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 5. เมื่อปิด Private Session ให้ปิด WebView และล้างข้อมูลที่ API รองรับ; ตรวจสอบการเปิดใหม่ว่าข้อมูล private เดิมไม่คงอยู่ และข้อมูลโหมดปกติไม่ถูกกระทบ
 6. ไม่กล่าวอ้างว่าเป็น RAM-only หรือไม่สามารถถูกติดตามได้ เว้นแต่มีหลักฐานที่พิสูจน์ขอบเขตนั้นจริง
 
+**เอกสารแผนสร้างใหม่และบัญชีปัญหาเดิม:** ดู docs/PRIVATE_BROWSING_REBUILD_PLAN.md ซึ่งแยกข้อเท็จจริงจากสมมติฐานและกำหนดลำดับแก้ Test Harness ก่อนทดสอบ Isolation ใหม่
+
 **Dedicated Instrumentation Workflow และเกณฑ์ตรวจรับ:**
 - แยก Workflow สำหรับ Private Browsing โดยเฉพาะ ไม่ต้องรันงานทดสอบที่ไม่เกี่ยวข้องซ้ำ แต่ยังใช้ source commit เดียวกับที่กำลังตรวจสอบ
 - ใช้ Android 16 / API 36 Emulator และตรวจสอบ KVM/Emulator readiness ก่อนเริ่ม Instrumentation
@@ -360,7 +365,7 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 
 เมื่อเจ้าของโครงการอนุมัติให้เริ่มรอบ (ก) ให้ดำเนินการดังนี้:
 
-> เริ่มทำรอบ (ก) ของ RAIN Browser ตามแผน v3.1 โดยใช้ Kotlin, Android SDK และ Gradle:
+> เริ่มทำรอบ (ก) ของ RAIN Browser ตามแผน v3.2 โดยใช้ Kotlin, Android SDK และ Gradle:
 > 1. ตรวจสอบ Repository ปัจจุบันก่อนแก้ไข และรักษาไฟล์/ประวัติที่ไม่เกี่ยวข้อง
 > 2. สร้าง Android project scaffold และ Gradle Wrapper พร้อม pin เวอร์ชัน JDK, Gradle และ Android Gradle Plugin ที่เข้ากัน
 > 3. กำหนด applicationId com.rain.browser, product name RAIN, versionName 0.1.0 และ versionCode เริ่มต้นที่เหมาะสม พร้อมบันทึกไว้
@@ -403,3 +408,10 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 - ระบุข้อจำกัดจริงของ Android WebView สำหรับ Private Session, DoH และ Proxy
 - คงเป้าหมาย Privacy, tabs, bookmarks, history, resume, downloads, offline, localization และเฟสต่อยอดตามลำดับ
 - ปรับแผนตามคำสั่งเจ้าของโครงการ 2026-11-26: ย้าย Private Browsing ทั้ง implementation และ verification จาก Phase 1 ไป Phase 2; เพิ่ม dedicated Instrumentation Workflow และ acceptance criteria; แยก Phase 1 privacy/network scope ให้เดินหน้าต่อได้โดยไม่รอ Private Browsing
+
+
+### ประวัติการเปลี่ยนแปลง v3.2 (2026-11-26)
+
+- ยืนยัน Android 16 (API 36) ขึ้นไปเป็นขั้นต่ำที่รองรับ (minSdk = 36) ให้ตรงกับการตั้งค่าจริงบน main และ Phase 1 Tracker
+- เชื่อมโยงเอกสาร PRIVATE_BROWSING_REBUILD_PLAN.md ซึ่งรวบรวมหลักฐานความล้มเหลวเดิม ปัญหาที่ยืนยันแล้ว ความเสี่ยงที่ยังต้องพิสูจน์ แผน Test Harness ใหม่ และเกณฑ์ตรวจรับ Phase 2
+- คงสถาปัตยกรรม Private Browsing แบบ process แยก :private และ data-directory suffix rain_private ตามการอนุมัติเดิม; ไม่มีการแก้ไข Source Code หรือ Workflow ในการปรับแผนครั้งนี้
