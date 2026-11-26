@@ -12,6 +12,11 @@ class DesktopModeManager(context: Context) {
         return preferences.getBoolean("$HOST_KEY_PREFIX$host", false)
     }
 
+    fun hasPreferenceFor(url: String): Boolean {
+        val host = hostFor(url) ?: return false
+        return preferences.contains("$HOST_KEY_PREFIX$host")
+    }
+
     fun setDesktopFor(url: String, enabled: Boolean): Boolean {
         val host = hostFor(url) ?: return false
         preferences.edit().putBoolean("$HOST_KEY_PREFIX$host", enabled).apply()
