@@ -425,35 +425,35 @@ class MainActivity : Activity(), WebViewCallbacks {
         val entries = resumeRepository.list()
         val labels = entries.map { it.title.ifBlank { it.url } + "\n" + it.url }.toTypedArray()
         val builder = AlertDialog.Builder(this)
-            .setTitle("Resume browsing")
+            .setTitle(R.string.resume_title)
             .setItems(labels) { _, which -> entries.getOrNull(which)?.let { openSavedUrl(it.url) } }
             .setNegativeButton("Close", null)
-        if (entries.isEmpty()) builder.setMessage("No saved browsing sessions.")
+        if (entries.isEmpty()) builder.setMessage(R.string.resume_empty)
         builder.show()
     }
 
 
     private fun showSettingsDialog() {
         val options = arrayOf(
-            "Language: " + settingsRepository.language.name,
-            "Search engine: " + settingsRepository.searchEngine,
-            "Default display: " + settingsRepository.defaultDisplayMode.name,
-            "Auto-clear history: " + settingsRepository.autoClearHistoryDays + " days"
+            getString(R.string.settings_language, settingsRepository.language.name),
+            getString(R.string.settings_search_engine, settingsRepository.searchEngine),
+            getString(R.string.settings_default_display, settingsRepository.defaultDisplayMode.name),
+            getString(R.string.settings_history_retention, settingsRepository.autoClearHistoryDays)
         )
-        AlertDialog.Builder(this).setTitle("Settings").setItems(options) { _, which ->
+        AlertDialog.Builder(this).setTitle(R.string.settings_title).setItems(options) { _, which ->
             when (which) {
                 0 -> chooseLanguage()
                 1 -> chooseSearchEngine()
                 2 -> chooseDefaultDisplayMode()
                 3 -> chooseHistoryRetention()
             }
-        }.setNegativeButton("Close", null).show()
+        }.setNegativeButton(R.string.dialog_close, null).show()
     }
 
     private fun chooseLanguage() {
         val values = SettingsRepository.Language.values()
-        AlertDialog.Builder(this).setTitle("Language")
-            .setItems(arrayOf("System default", "ไทย", "English")) { _, which ->
+        AlertDialog.Builder(this).setTitle(R.string.language_title)
+            .setItems(arrayOf(getString(R.string.language_system), getString(R.string.language_thai), getString(R.string.language_english))) { _, which ->
                 val selected = values[which]
                 settingsRepository.language = selected
                 val tags = when (selected) {
@@ -464,35 +464,39 @@ class MainActivity : Activity(), WebViewCallbacks {
                 getSystemService(LocaleManager::class.java).applicationLocales =
                     if (tags.isBlank()) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(tags)
                 recreate()
-            }.setNegativeButton("Cancel", null).show()
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
     }
 
     private fun chooseSearchEngine() {
-        AlertDialog.Builder(this).setTitle("Default search engine")
+        AlertDialog.Builder(this).setTitle(R.string.search_engine_title)
             .setItems(arrayOf("DuckDuckGo", "Google")) { _, which ->
                 settingsRepository.searchEngine = if (which == 0) "DUCKDUCKGO" else "GOOGLE"
                 searchEngine = if (which == 0) SearchEngine.DUCKDUCKGO else SearchEngine.GOOGLE
                 updateSearchEngineButton()
-            }.setNegativeButton("Cancel", null).show()
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
     }
 
     private fun chooseDefaultDisplayMode() {
-        AlertDialog.Builder(this).setTitle("Default display mode")
-            .setItems(arrayOf("Mobile", "Desktop")) { _, which ->
+        AlertDialog.Builder(this).setTitle(R.string.display_mode_title)
+            .setItems(arrayOf(getString(R.string.mode_mobile), getString(R.string.mode_desktop))) { _, which ->
                 settingsRepository.defaultDisplayMode = if (which == 0) {
                     SettingsRepository.DefaultDisplayMode.MOBILE
                 } else SettingsRepository.DefaultDisplayMode.DESKTOP
-            }.setNegativeButton("Cancel", null).show()
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
     }
 
     private fun chooseHistoryRetention() {
         val days = intArrayOf(0, 1, 7, 30, 90)
-        val labels = arrayOf("Never", "1 day", "7 days", "30 days", "90 days")
-        AlertDialog.Builder(this).setTitle("Automatically clear history")
+        val labels = arrayOf(
+            getString(R.string.retention_never), getString(R.string.retention_one_day),
+            getString(R.string.retention_seven_days), getString(R.string.retention_thirty_days),
+            getString(R.string.retention_ninety_days)
+        )
+        AlertDialog.Builder(this).setTitle(R.string.history_retention_title)
             .setItems(labels) { _, which ->
                 settingsRepository.autoClearHistoryDays = days[which]
                 applyAutomaticHistoryRetention()
-            }.setNegativeButton("Cancel", null).show()
+            }.setNegativeButton(R.string.dialog_cancel, null).show()
     }
 
     private fun applyAutomaticHistoryRetention() {
@@ -631,7 +635,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         AlertDialog.Builder(this)
             .setTitle(WebProtectionPresentation.title(decision))
             .setMessage(message)
-            .setPositiveButton("Report false positive") { _, _ ->
+            .setPositiveButton(R.string.protection_report) { _, _ ->
                 if (reportUrl.isNotBlank()) shareFalsePositiveReport(reportUrl, decision)
             }
             .setNegativeButton("Close", null)
@@ -939,25 +943,25 @@ class MainActivity : Activity(), WebViewCallbacks {
             val decision = DownloadPolicy.evaluate(url, guessedName, mimeType)
             if (decision.action == DownloadPolicy.Action.BLOCK) {
                 AlertDialog.Builder(this)
-                    .setTitle("Download blocked")
-                    .setMessage("${decision.fileName}\n\n${decision.reason}")
-                    .setPositiveButton("OK", null)
+                    .setTitle(R.string.download_blocked)
+                    .setMessage(decision.fileName + "\n\n" + decision.reason)
+                    .setPositiveButton(R.string.dialog_ok, null)
                     .show()
                 return@runOnUiThread
             }
 
             val message = buildString {
-                appendLine("File: ${decision.fileName}")
-                appendLine("Source: ${decision.sourceHost ?: "Unknown"}")
-                appendLine("Type: ${decision.mimeType.ifBlank { "Unknown" }}")
-                appendLine("Size: ${if (contentLength > 0) android.text.format.Formatter.formatFileSize(this@MainActivity, contentLength) else "Unknown"}")
+                appendLine(getString(R.string.download_file, decision.fileName))
+                appendLine(getString(R.string.download_source, decision.sourceHost ?: "Unknown"))
+                appendLine(getString(R.string.download_type, decision.mimeType.ifBlank { "Unknown" }))
+                appendLine(getString(R.string.download_size, if (contentLength > 0) android.text.format.Formatter.formatFileSize(this@MainActivity, contentLength) else "Unknown"))
                 appendLine()
                 append(decision.reason)
             }
             AlertDialog.Builder(this)
-                .setTitle(if (decision.isApk) "APK download confirmation" else "Confirm download")
+                .setTitle(if (decision.isApk) R.string.download_apk_confirm else R.string.download_confirm)
                 .setMessage(message)
-                .setPositiveButton("Download") { _, _ ->
+                .setPositiveButton(R.string.download_action) { _, _ ->
                     enqueueDownload(decision, url, userAgent)
                 }
                 .setNegativeButton("Cancel", null)
@@ -972,14 +976,14 @@ class MainActivity : Activity(), WebViewCallbacks {
     ) {
         val manager = getSystemService(DOWNLOAD_SERVICE) as? DownloadManager
         if (manager == null) {
-            Toast.makeText(this, "Download service is unavailable", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.download_service_unavailable, Toast.LENGTH_LONG).show()
             return
         }
 
         val request = runCatching {
             DownloadManager.Request(Uri.parse(url)).apply {
                 setTitle(decision.fileName)
-                setDescription("From ${decision.sourceHost ?: "website"}")
+                setDescription(getString(R.string.download_description, decision.sourceHost ?: "website"))
                 if (decision.mimeType.isNotBlank()) setMimeType(decision.mimeType)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, decision.fileName)
@@ -989,16 +993,16 @@ class MainActivity : Activity(), WebViewCallbacks {
                 }
             }
         }.getOrElse {
-            Toast.makeText(this, "Could not prepare this download", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.download_prepare_failed, Toast.LENGTH_LONG).show()
             return
         }
 
         runCatching { manager.enqueue(request) }
             .onSuccess {
-                Toast.makeText(this, "Download added. RAIN will not install APK files.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, R.string.download_added, Toast.LENGTH_LONG).show()
             }
             .onFailure {
-                Toast.makeText(this, "Download failed to start: ${it.message.orEmpty()}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.download_start_failed, it.message.orEmpty()), Toast.LENGTH_LONG).show()
             }
     }
 
@@ -1063,16 +1067,16 @@ class MainActivity : Activity(), WebViewCallbacks {
 
         val destinationHost = Uri.parse(url).host ?: "another website"
         AlertDialog.Builder(this)
-            .setTitle("Leave this website?")
-            .setMessage("This page is trying to open $destinationHost without a direct user action. Do you want to continue?")
-            .setPositiveButton("Continue") { _, _ ->
+            .setTitle(R.string.navigation_leave_title)
+            .setMessage(getString(R.string.navigation_leave_message, destinationHost))
+            .setPositiveButton(R.string.navigation_continue) { _, _ ->
                 if (tabManager.findByWebView(view) != null &&
                     com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(url)
                 ) {
                     view.loadUrl(url)
                 }
             }
-            .setNegativeButton("Stay", null)
+            .setNegativeButton(R.string.navigation_stay, null)
             .setOnCancelListener { }
             .show()
     }
@@ -1086,15 +1090,15 @@ class MainActivity : Activity(), WebViewCallbacks {
         val scheme = uri.scheme.orEmpty().lowercase()
         val externalIntent = Intent(Intent.ACTION_VIEW, uri)
         AlertDialog.Builder(this)
-            .setTitle("Open external app?")
-            .setMessage("This link uses the $scheme scheme and will leave RAIN. Continue only if you trust the link.")
-            .setPositiveButton("Open") { _, _ ->
+            .setTitle(R.string.external_open_title)
+            .setMessage(getString(R.string.external_open_message, scheme))
+            .setPositiveButton(R.string.navigation_open) { _, _ ->
                 if (tabManager.findByWebView(view) != null) {
                     runCatching { startActivity(externalIntent) }
                         .onFailure {
                             Toast.makeText(
                                 this,
-                                "No compatible app is available for this link",
+                                getString(R.string.external_no_app),
                                 Toast.LENGTH_LONG
                             ).show()
                         }
