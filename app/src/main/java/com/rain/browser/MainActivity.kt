@@ -258,7 +258,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             return
         }
         val tab = tabManager.activeTab ?: return
-        applyDesktopSettings(tab.webView, desktopModeManager.isDesktopFor(resolvedUrl))
+        applyDesktopSettings(tab.webView, isDesktopForUrl(resolvedUrl))
         tab.url = resolvedUrl
         tab.webView.loadUrl(resolvedUrl)
         hideKeyboard()
@@ -274,7 +274,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             showWelcomePage(tab.webView)
             return
         }
-        applyDesktopSettings(tab.webView, desktopModeManager.isDesktopFor(url))
+        applyDesktopSettings(tab.webView, isDesktopForUrl(url))
         tab.webView.loadUrl(url)
     }
 
@@ -341,16 +341,20 @@ class MainActivity : Activity(), WebViewCallbacks {
     private fun toggleDesktopMode() {
         val tab = tabManager.activeTab ?: return
         val url = tab.webView.url.orEmpty().ifBlank { tab.url }
-        if (!desktopModeManager.setDesktopFor(url, !desktopModeManager.isDesktopFor(url))) {
+        if (!desktopModeManager.setDesktopFor(url, !isDesktopForUrl(url))) {
             Toast.makeText(this, "Open a website before changing display mode", Toast.LENGTH_SHORT).show()
             return
         }
-        val enabled = desktopModeManager.isDesktopFor(url)
+        val enabled = isDesktopForUrl(url)
         applyDesktopSettings(tab.webView, enabled)
         tab.isDesktopMode = enabled
         tab.webView.reload()
         updateBrowserControls()
     }
+
+    private fun isDesktopForUrl(url: String): Boolean =
+        if (desktopModeManager.hasPreferenceFor(url)) desktopModeManager.isDesktopFor(url)
+        else settingsRepository.defaultDisplayMode == SettingsRepository.DefaultDisplayMode.DESKTOP
 
     private fun applyDesktopSettings(webView: WebView, enabled: Boolean) {
         val defaultAgent = WebSettings.getDefaultUserAgent(this)
@@ -599,7 +603,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
         val tab = tabManager.activeTab ?: return
         tab.url = url
-        applyDesktopSettings(tab.webView, desktopModeManager.isDesktopFor(url))
+        applyDesktopSettings(tab.webView, isDesktopForUrl(url))
         tab.webView.loadUrl(url)
     }
 
@@ -742,7 +746,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             if (restored == null) {
                 if (tab.url.isBlank()) showWelcomePage(webView) else loadUrlInTab(tab, tab.url)
             } else if (tab.url.isNotBlank()) {
-                applyDesktopSettings(webView, desktopModeManager.isDesktopFor(tab.url))
+                applyDesktopSettings(webView, isDesktopForUrl(tab.url))
             }
         }
         if (tabManager.tabs.isEmpty()) {
@@ -1047,7 +1051,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onNavigationRequested(view: WebView, url: String) {
         val tab = tabManager.findByWebView(view) ?: return
-        val desktop = desktopModeManager.isDesktopFor(url)
+        val desktop = isDesktopForUrl(url)
         applyDesktopSettings(view, desktop)
         tab.isDesktopMode = desktop
     }
@@ -1106,7 +1110,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             tab.isLoading = true
             tab.progress = 0
             if (url.startsWith("http://") || url.startsWith("https://")) tab.url = url
-            tab.isDesktopMode = desktopModeManager.isDesktopFor(url)
+            tab.isDesktopMode = isDesktopForUrl(url)
             if (tab == tabManager.activeTab) updateBrowserControls()
         }
     }
@@ -1118,7 +1122,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             tab.progress = 100
             if (url.startsWith("http://") || url.startsWith("https://")) {
                 tab.url = url
-                tab.isDesktopMode = desktopModeManager.isDesktopFor(url)
+                tab.isDesktopMode = isDesktopForUrl(url)
                 historyRepository.record(url, tab.title)
             } else {
                 tab.url = ""
