@@ -1,7 +1,7 @@
 # RAIN Browser — Final Security Review (Day 58)
 
 **Date:** 2026-11-26  
-**Review basis:** Source and configuration review on main commit `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`, plus PR CI run `45771644136`  
+**Review basis:** Source and configuration review on main commit `7c33e4714c110c7af3bfe7ef0ff8e0aa2e22a69e`, plus PR CI run `45771644136`, main CI run `45772070087`, and Day 59 release run `45772070104`  
 **Result:** Static review completed; no confirmed critical source-level defect found in the reviewed Phase 1 paths. Device-dependent checks and documented limitations remain open.
 
 ## Areas reviewed
