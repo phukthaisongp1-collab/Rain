@@ -104,7 +104,7 @@ class WebViewProxyManagerTest {
             "go.th",
             "agency.go.th",
             "gmail.com",
-            "mail.google.com",
+            "mail.gmail.com",
             "outlook.com",
             "login.outlook.com"
         )
