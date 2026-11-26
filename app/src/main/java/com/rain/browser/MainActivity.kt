@@ -4,10 +4,12 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DownloadManager
+import android.app.LocaleManager
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.LocaleList
 import android.os.Environment
 import android.provider.Settings
 import android.view.KeyEvent
@@ -158,6 +160,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.bookmarks_button).setOnClickListener { showBookmarksDialog() }
         findViewById<Button>(R.id.history_button).setOnClickListener { showHistoryDialog() }
         findViewById<Button>(R.id.resume_button).setOnClickListener { showResumeDialog() }
+        findViewById<Button>(R.id.settings_button).setOnClickListener { showSettingsDialog() }
 
         addressInput.setOnEditorActionListener { _, actionId, event ->
             val isGo = actionId == EditorInfo.IME_ACTION_GO ||
@@ -323,6 +326,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         } else {
             SearchEngine.DUCKDUCKGO
         }
+        settingsRepository.searchEngine = searchEngine.name
         updateSearchEngineButton()
         Toast.makeText(this, "Search: ${searchEngineLabel()}", Toast.LENGTH_SHORT).show()
     }
@@ -422,6 +426,69 @@ class MainActivity : Activity(), WebViewCallbacks {
             .setNegativeButton("Close", null)
         if (entries.isEmpty()) builder.setMessage("No saved browsing sessions.")
         builder.show()
+    }
+
+
+    private fun showSettingsDialog() {
+        val options = arrayOf(
+            "Language: " + settingsRepository.language.name,
+            "Search engine: " + settingsRepository.searchEngine,
+            "Default display: " + settingsRepository.defaultDisplayMode.name,
+            "Auto-clear history: " + settingsRepository.autoClearHistoryDays + " days"
+        )
+        AlertDialog.Builder(this).setTitle("Settings").setItems(options) { _, which ->
+            when (which) {
+                0 -> chooseLanguage()
+                1 -> chooseSearchEngine()
+                2 -> chooseDefaultDisplayMode()
+                3 -> chooseHistoryRetention()
+            }
+        }.setNegativeButton("Close", null).show()
+    }
+
+    private fun chooseLanguage() {
+        val values = SettingsRepository.Language.values()
+        AlertDialog.Builder(this).setTitle("Language")
+            .setItems(arrayOf("System default", "ไทย", "English")) { _, which ->
+                val selected = values[which]
+                settingsRepository.language = selected
+                val tags = when (selected) {
+                    SettingsRepository.Language.SYSTEM -> ""
+                    SettingsRepository.Language.THAI -> "th"
+                    SettingsRepository.Language.ENGLISH -> "en"
+                }
+                getSystemService(LocaleManager::class.java).applicationLocales =
+                    if (tags.isBlank()) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(tags)
+                recreate()
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun chooseSearchEngine() {
+        AlertDialog.Builder(this).setTitle("Default search engine")
+            .setItems(arrayOf("DuckDuckGo", "Google")) { _, which ->
+                settingsRepository.searchEngine = if (which == 0) "DUCKDUCKGO" else "GOOGLE"
+                searchEngine = if (which == 0) SearchEngine.DUCKDUCKGO else SearchEngine.GOOGLE
+                updateSearchEngineButton()
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun chooseDefaultDisplayMode() {
+        AlertDialog.Builder(this).setTitle("Default display mode")
+            .setItems(arrayOf("Mobile", "Desktop")) { _, which ->
+                settingsRepository.defaultDisplayMode = if (which == 0) {
+                    SettingsRepository.DefaultDisplayMode.MOBILE
+                } else SettingsRepository.DefaultDisplayMode.DESKTOP
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun chooseHistoryRetention() {
+        val days = intArrayOf(0, 1, 7, 30, 90)
+        val labels = arrayOf("Never", "1 day", "7 days", "30 days", "90 days")
+        AlertDialog.Builder(this).setTitle("Automatically clear history")
+            .setItems(labels) { _, which ->
+                settingsRepository.autoClearHistoryDays = days[which]
+                applyAutomaticHistoryRetention()
+            }.setNegativeButton("Cancel", null).show()
     }
 
     private fun applyAutomaticHistoryRetention() {
