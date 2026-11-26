@@ -103,4 +103,8 @@
     <string name="download_reason_unknown">RAIN ไม่สามารถระบุชนิดไฟล์นี้ได้อย่างมั่นใจ โปรดตรวจสอบแหล่งที่มาและชื่อไฟล์ก่อนดาวน์โหลด</string>
     <string name="download_reason_review">โปรดตรวจสอบแหล่งที่มาและรายละเอียดไฟล์ก่อนยืนยันการดาวน์โหลด</string>
 
+
+    <string name="protection_open_site">เปิดเว็บไซต์เพื่อดูสถานะการป้องกัน</string>
+    <string name="protection_false_positive_note">การรายงานผลบวกลวงจะแชร์ผ่านเมนูแชร์ของ Android โดย RAIN จะไม่อัปโหลดรายงานโดยอัตโนมัติ</string>
+
 </resources>
