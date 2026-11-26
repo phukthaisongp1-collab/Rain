@@ -64,7 +64,7 @@ object NavigationGuardPolicy {
 
     fun isAllowedExternalUrl(rawUrl: String): Boolean {
         if (rawUrl.isBlank() || rawUrl.length > 2048 ||
-            rawUrl.any { it == '\\r' || it == '\\n' || it == '\\u0000' }
+            rawUrl.any { it == '\r' || it == '\n' || it == '\u0000' }
         ) return false
 
         val uri = runCatching { URI(rawUrl.trim()) }.getOrNull() ?: return false
@@ -76,13 +76,15 @@ object NavigationGuardPolicy {
             ?.substringBefore('?')
             ?.takeIf { it.isNotBlank() }
             ?: return false
+        val normalizedPart = schemeSpecificPart.lowercase(Locale.ROOT)
+        if ("%0d" in normalizedPart || "%0a" in normalizedPart) return false
 
         return when (scheme) {
             "mailto" -> schemeSpecificPart.contains('@') &&
-                !schemeSpecificPart.contains('\\\\')
+                !schemeSpecificPart.contains('\\')
             "tel", "sms" -> schemeSpecificPart.matches(Regex("^[+0-9().,;*# -]{3,40}$"))
             "geo" -> schemeSpecificPart.matches(
-                Regex("^-?\\\\d{1,2}(\\\\.\\\\d+)?,-?\\\\d{1,3}(\\\\.\\\\d+)?$")
+                Regex("^-?\\d{1,2}(\\.\\d+)?,-?\\d{1,3}(\\.\\d+)?$")
             )
             else -> false
         }
@@ -104,5 +106,5 @@ object NavigationGuardPolicy {
     }
 
     private fun isIpAddress(host: String): Boolean =
-        host.contains(':') || host.matches(Regex("^\\\\d{1,3}(\\\\.\\\\d{1,3}){3}$"))
+        host.contains(':') || host.matches(Regex("^\\d{1,3}(\\.\\d{1,3}){3}$"))
 }
