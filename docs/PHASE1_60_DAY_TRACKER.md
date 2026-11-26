@@ -33,7 +33,7 @@
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
 | Round C — Privacy controls and network (excluding Private Browsing) | 13 | 2 | In progress |
-| Phase 1 reserve / reallocation capacity | 5 | 1 | Day 31 completed; Days 32–35 remain reserved and non-blocking |
+| Phase 1 reserve / reallocation capacity | 5 | 1 | Day 31 completed; Days 32–35 allocated to approved non-Private Phase 1 features; completion tracked individually |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
 | **Total** | **60** | **31** | **51.67%** |
@@ -146,12 +146,15 @@
 
 - [x] **Day 29:** Inspect Android WebView storage behavior and document constraints relevant to privacy and session isolation. **Completed: 2026-11-25.** Documented process-scoped WebView data directories, cookie/WebStorage scope, Service Worker limitations, and cleanup API constraints in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`.
 - [x] **Day 30:** Define the approved Private Browsing implementation approach based on verified platform capabilities. **Completed: 2026-11-25.** Owner approved a dedicated `:private` Android process and unique `rain_private` WebView data-directory suffix. Architecture and limitations recorded in `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; any implementation and verification work is now tracked in Phase 2 under `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1.
-**Schedule adjustment (owner-approved 2026-11-26):** The former Private Browsing tasks for Days 31–35 were transferred to Phase 2 (see `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1). Day 31 has now been allocated to the already-approved Android 16+ platform baseline and is complete. Days 32–35 remain reserved for later approved, non-Private Phase 1 work; they are not completed days and do not block Day 36. The existing Private Browsing source work and Run #82 evidence are retained; no security acceptance is implied.
+**Schedule adjustment (owner-approved 2026-11-26):** The former Private Browsing tasks for Days 31–35 were transferred to Phase 2 (see `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1). Day 31 has now been allocated to the already-approved Android 16+ platform baseline and is complete. Days 32–35 are now allocated to approved non-Private Phase 1 features (Web Protection, Anti-Redirect/Tab Guard, Permission Manager, and safe Downloads); these tasks remain incomplete until individually verified and do not block Day 36. The existing Private Browsing source work and Run #82 evidence are retained; no security acceptance is implied.
 
 ### Phase 1 reserve / reallocation capacity
 
 - [x] **Day 31 (reallocated):** Enforce the approved Android 16+ baseline across the app and Phase 1 CI. **Completed: 2026-11-26.** Set `minSdk = 36`; changed the Phase 1 emulator to API 36; removed the forced TCG override; added a KVM acceleration gate and Android 16 install/launch smoke check. Excluded `PrivateBrowsingIsolationTest` from Phase 1 CI because it is deferred Phase 2 work; no Private Browsing acceptance is implied. Build, lint, unit tests, KVM check, Android 16 emulator boot, app install, and app process launch all passed. Evidence: PR #5; merge commit `18f94670b0f2f95a47a9f7bdb1b4dac51abc27f6`; Actions run `45728905806`; artifact `15076530135`; APK SHA-256 `b5e582f2347db11bb13b0914dac5aa3f19bba57e1df2f245155f404665cc546d`.
-- [ ] **Days 32–35:** Reserved for future allocation to already-approved non-Private Phase 1 work. Not completed; do not count toward progress until separately implemented and verified.
+- [ ] **Day 32:** Implement evidence-based Web Protection decisions for credible phishing/malware and evidenced scams. Use a warning when evidence is insufficient; do not block ordinary websites without evidence. Keep gambling as a separate configurable category. Record the reason and trustworthy source for each decision.
+- [ ] **Day 33:** Complete Web Protection user feedback and verification: clear warning/block presentation, source/reason visibility, false-positive reporting path, and unit tests for allow/warn/block decisions. Do not rely on AI classification alone.
+- [ ] **Day 34:** Implement Anti-Redirect and Tab Guard: ask before unexpected cross-origin redirects without user gesture; prevent unsolicited popups/new tabs before creation; preserve Back behavior; avoid prompts for ordinary same-site redirects. Add regression tests.
+- [ ] **Day 35:** Implement safe Downloads baseline: allow user-initiated downloads; require confirmation and validate source/type for APKs and other requested files; warn or block dangerous/disguised unknown files; never auto-install. Verify download metadata and error handling.
 - [ ] **Day 36:** Verify HTTPS and SSL error handling; never bypass certificate errors.
 - [ ] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing.
 - [ ] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise.
@@ -178,14 +181,14 @@
 
 - [ ] **Day 47:** Implement the agreed Data Layer structure and data access boundaries.
 - [ ] **Day 48:** Implement the required data operations: get, set, query, and delete.
-- [ ] **Day 49:** Implement browsing History persistence and retrieval.
-- [ ] **Day 50:** Enforce the History maximum of 5,000 entries and test cleanup behavior.
-- [ ] **Day 51:** Implement Resume persistence with a maximum of 10 entries.
-- [ ] **Day 52:** Implement cleanup of Resume entries older than 30 days. Private Browsing exclusion remains a Phase 2 integration requirement.
-- [ ] **Day 53:** Implement the New Tab page.
-- [ ] **Day 54:** Implement the Settings page and the settings defined in the approved plan.
-- [ ] **Day 55:** Implement Thai and English localization.
-- [ ] **Day 56:** Test the data layer and all Round D features, record evidence, and obtain Round D acceptance.
+- [ ] **Day 49:** Implement Bookmark persistence, organization, search, open, and delete operations.
+- [ ] **Day 50:** Implement normal browsing History persistence, retrieval, search, and individual/all-entry deletion. Keep Private Browsing data outside this store; Phase 2 integration remains separate.
+- [ ] **Day 51:** Enforce the History maximum of 5,000 entries and implement/test optional automatic History clearing according to user settings.
+- [ ] **Day 52:** Implement Resume persistence and restoration with a maximum of 10 entries; do not persist passwords or sensitive form data.
+- [ ] **Day 53:** Implement asynchronous cleanup of Resume entries older than 30 days and complete the RAIN New Tab page.
+- [ ] **Day 54:** Implement the Settings page for approved options: language, search engine, default Mobile/Desktop mode, and only verified privacy/network controls.
+- [ ] **Day 55:** Implement Thai and English localization, including Settings and user-facing security/download messages.
+- [ ] **Day 56:** Test Data Layer, Bookmarks, History, Resume, New Tab, Settings, and localization; record evidence, fix verified defects, and obtain Round D acceptance.
 
 **Round D review record**
 - Review status: Not reviewed
