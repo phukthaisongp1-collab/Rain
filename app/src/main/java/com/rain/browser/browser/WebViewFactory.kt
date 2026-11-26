@@ -73,6 +73,17 @@ class WebViewFactory(private val context: Context) {
                 ) {
                     handler.cancel()
                 }
+
+                override fun onSafeBrowsingHit(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    threatType: Int,
+                    callback: android.webkit.SafeBrowsingResponse
+                ) {
+                    // Keep the WebView provider's security interstitial in control.
+                    // Do not allow navigation through a detected Safe Browsing threat.
+                    callback.showInterstitial(true)
+                }
             }
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView, newProgress: Int) {
