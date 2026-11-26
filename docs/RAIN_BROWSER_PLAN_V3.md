@@ -423,7 +423,7 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 - สร้าง Dedicated Workflow, KVM Gate, Emulator Readiness, ADB/Shell Timeout, Diagnostics และ Artifact Upload
 - Build App/Test APK ใน Job เดียวกันและยืนยัน Signature Compatibility
 - Gate: Harness/CI ผ่าน 3 รอบติดต่อกันโดยไม่มี Signing, Quoting, Parser หรือ Timeout Failure ที่ยังอธิบายไม่ได้
-- Stop: KVM/Acceleration ไม่พร้อม หรือ Emulator/ system_server ล้มซ้ำโดยไม่มีแนวทางแก้ที่พิสูจน์ได้
+- Stop: KVM/Acceleration ไม่พร้อม หรือ Emulator หรือ system_server ล้มซ้ำโดยไม่มีแนวทางแก้ที่พิสูจน์ได้
 - หาก M0 ไม่ผ่าน ห้ามเริ่ม M1
 
 **M1 — IPC & Process Readiness**
