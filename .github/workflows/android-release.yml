@@ -83,6 +83,29 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK_PATH"
           sha256sum "$APK_PATH"
 
+      - name: Verify application identity and version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          BADGING="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK_PATH")"
+          PACKAGE_LINE="$(printf '%s\\n' "$BADGING" | grep -m1 "^package:")"
+          ACTUAL_APPLICATION_ID="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*name='\\([^']*\\)'.*/\\1/p")"
+          ACTUAL_VERSION_CODE="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*versionCode='\\([^']*\\)'.*/\\1/p")"
+          ACTUAL_VERSION_NAME="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*versionName='\\([^']*\\)'.*/\\1/p")"
+
+          EXPECTED_APPLICATION_ID="com.rain.browser"
+          EXPECTED_VERSION_CODE="1"
+          EXPECTED_VERSION_NAME="0.1.0"
+
+          test "$ACTUAL_APPLICATION_ID" = "$EXPECTED_APPLICATION_ID"
+          test "$ACTUAL_VERSION_CODE" = "$EXPECTED_VERSION_CODE"
+          test "$ACTUAL_VERSION_NAME" = "$EXPECTED_VERSION_NAME"
+
+          echo "Verified applicationId: $ACTUAL_APPLICATION_ID"
+          echo "Verified versionCode: $ACTUAL_VERSION_CODE"
+          echo "Verified versionName: $ACTUAL_VERSION_NAME"
+
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
