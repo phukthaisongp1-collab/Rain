@@ -40,7 +40,6 @@ import com.rain.browser.browser.WebViewCallbacks
 import com.rain.browser.browser.WebViewFactory
 import com.rain.browser.downloads.DownloadPolicy
 import com.rain.browser.network.WebProtectionManager
-import com.rain.browser.network.WebProtectionPresentation
 import com.rain.browser.permissions.PermissionManager
 import com.rain.browser.data.BookmarkRepository
 import com.rain.browser.data.HistoryRepository
@@ -340,7 +339,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         if (searchEngine == SearchEngine.DUCKDUCKGO) "DuckDuckGo" else "Google"
 
     private fun updateSearchEngineButton() {
-        searchEngineButton.text = "Search: ${searchEngineLabel()}"
+        searchEngineButton.text = getString(R.string.search_button, searchEngineLabel())
     }
 
     private fun toggleDesktopMode() {
@@ -388,8 +387,8 @@ class MainActivity : Activity(), WebViewCallbacks {
     private fun updateBrowserControls() {
         val tab = tabManager.activeTab
         if (tab == null) {
-            statusText.text = "No tab"
-            modeText.text = "Mobile"
+            statusText.text = getString(R.string.status_no_tab)
+            modeText.text = getString(R.string.mode_mobile)
             tabsButton.text = "Tabs (0)"
             progressBar.visibility = View.GONE
             return
@@ -397,10 +396,10 @@ class MainActivity : Activity(), WebViewCallbacks {
         if (!addressInput.hasFocus()) {
             addressInput.setText(tab.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }.orEmpty())
         }
-        statusText.text = tab.title.ifBlank { "RAIN Browser" }
-        modeText.text = if (tab.isDesktopMode) "Desktop" else "Mobile"
-        tabsButton.text = "Tabs (${tabManager.tabs.size})"
-        reloadButton.text = if (tab.isLoading) "Stop" else "Reload"
+        statusText.text = tab.title.ifBlank { getString(R.string.status_ready) }
+        modeText.text = if (tab.isDesktopMode) getString(R.string.mode_desktop) else getString(R.string.mode_mobile)
+        tabsButton.text = getString(R.string.tabs_count, tabManager.tabs.size)
+        reloadButton.text = if (tab.isLoading) getString(R.string.status_stop) else getString(R.string.action_reload)
         progressBar.progress = tab.progress
         progressBar.visibility = if (tab.isLoading) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.back_button).isEnabled = tab.webView.canGoBack()
@@ -643,7 +642,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             .setPositiveButton(R.string.protection_report) { _, _ ->
                 if (reportUrl.isNotBlank()) shareFalsePositiveReport(reportUrl, decision)
             }
-            .setNegativeButton("Close", null)
+            .setNegativeButton(R.string.dialog_close, null)
             .show()
     }
 
@@ -983,7 +982,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                 .setPositiveButton(R.string.download_action) { _, _ ->
                     enqueueDownload(decision, url, userAgent)
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.dialog_cancel, null)
                 .show()
         }
     }
