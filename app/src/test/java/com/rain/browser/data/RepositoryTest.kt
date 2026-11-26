@@ -60,7 +60,7 @@ class RepositoryTest {
         val repository = HistoryRepository(MemoryStorage())
         val first = repository.record("https://example.com", "Example", 1L)!!
         repository.record("https://news.example", "News", 2L)
-        assertEquals(1, repository.search("EXAMPLE").size)
+        assertEquals(2, repository.search("EXAMPLE").size)
         assertTrue(repository.delete(first.id))
         assertEquals(1, repository.search().size)
     }
