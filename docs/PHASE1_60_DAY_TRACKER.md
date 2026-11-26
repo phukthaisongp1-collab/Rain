@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 46/60 days (76.67%)
+> **Progress:** 48/60 days (80.00%)
 
 ## Approved platform baseline change (2026-11-25)
 
@@ -34,9 +34,9 @@
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
 | Round C — Privacy controls and network (excluding Private Browsing) | 13 | 13 | Accepted with documented platform limitations (Day 46 review) |
 | Phase 1 reserve / reallocation capacity | 5 | 5 | Days 31–32 completed; Days 44–45 reallocated to Round C network verification; Day 46 review checkpoint completed |
-| Round D — Data and settings | 10 | 0 | Not started |
+| Round D — Data and settings | 10 | 2 | In progress |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **46** | **76.67%** |
+| **Total** | **60** | **48** | **80.00%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -76,7 +76,7 @@
 - Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
 - Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
 - Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
-- Phase 2 progress is reported separately from Phase 1's 46/60 (76.67%) and never alters that figure.
+- Phase 2 progress is reported separately from Phase 1's 48/60 (80.00%) and never alters that figure.
 
 ### Current evidence / history
 - Run #80: App/Test APK debug signing mismatch across jobs.
@@ -179,8 +179,8 @@
 
 **Round acceptance:** Data operations, History, Resume, New Tab, Settings, and Thai/English localization work and are tested against the agreed limits.
 
-- [ ] **Day 47:** Implement the agreed Data Layer structure and data access boundaries.
-- [ ] **Day 48:** Implement the required data operations: get, set, query, and delete.
+- [x] **Day 47:** Implemented the approved Data Layer boundary with SQLite-backed local storage for bookmarks, normal history, resume metadata, and settings. Completed: 2026-11-26. Evidence: PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; CI run `45766742524` passed.
+- [x] **Day 48:** Implemented allow-listed storage get/set/query/delete operations and repository-level input validation, with regression tests. Completed: 2026-11-26. Evidence: PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; CI run `45765600074` passed and main run `45766742524` passed.
 - [ ] **Day 49:** Implement Bookmark persistence, organization, search, open, and delete operations.
 - [ ] **Day 50:** Implement normal browsing History persistence, retrieval, search, and individual/all-entry deletion. Keep Private Browsing data outside this store; Phase 2 integration remains separate.
 - [ ] **Day 51:** Enforce the History maximum of 5,000 entries and implement/test optional automatic History clearing according to user settings.
@@ -270,6 +270,8 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 44 | 2026-11-26 | Added root and subdomain direct-bypass patterns for SCB, KBank, .go.th, Gmail, and Outlook with policy unit tests; live proxy routing is not claimed. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
 | 45 | 2026-11-26 | Added 13 proxy policy tests; full PR CI passed Lint, Unit Tests, Debug APK, KVM, Android 16 Emulator install/launch, and artifact upload. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403; SHA-256 99354ce2abec5855e2cd3d6547e4e4424e75a60b61d973e1a444fbe288fcb940 |
 | 46 | 2026-11-26 | Completed Round C code/configuration audit; no reproducible source defect required a patch. Documented platform/provider limitations and accepted Round C excluding Phase 2 Private Browsing. | Review `docs/ROUND_C_REVIEW_DAY46.md`; PR #13 merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403 |
+| 47 | 2026-11-26 | Added SQLite-backed application Data Layer and repository boundaries for bookmarks, normal history, resume metadata, and settings. | PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; PR CI run `45765600074`; main CI run `45766742524` |
+| 48 | 2026-11-26 | Added allow-listed storage get/set/query/delete operations and validated CRUD/search/retention/default-setting behavior with unit tests. | PR #14 merge commit `c85f7ffac945c14d2110aba2cfc814aaad1c518c`; PR CI run `45765600074`; main CI run `45766742524` |
 
 ## Blockers and approved changes
 
