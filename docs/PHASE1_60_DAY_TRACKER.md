@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 35/60 days (58.33%)
+> **Progress:** 39/60 days (65.00%)
 
 ## Approved platform baseline change (2026-11-25)
 
@@ -32,11 +32,11 @@
 |---|---:|---:|---|
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
-| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 5 | In progress |
+| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 9 | In progress |
 | Phase 1 reserve / reallocation capacity | 5 | 2 | Days 31–32 completed; Days 33–35 allocated to approved non-Private Phase 1 features; completion tracked individually |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **32** | **53.33%** |
+| **Total** | **60** | **39** | **65.00%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -76,7 +76,7 @@
 - Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
 - Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
 - Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
-- Phase 2 progress is reported separately from Phase 1's 35/60 (58.33%) and never alters that figure.
+- Phase 2 progress is reported separately from Phase 1's 39/60 (65.00%) and never alters that figure.
 
 ### Current evidence / history
 - Run #80: App/Test APK debug signing mismatch across jobs.
@@ -155,10 +155,10 @@
 - [x] **Day 33:** Complete Web Protection user feedback and verification. **Completed: 2026-11-26.** Added a Protection panel showing the latest Safe Browsing decision, threat category where known, source, reason, and reference; retained the provider security interstitial; added a user-initiated false-positive share path that shares only the URL origin to avoid exposing path/query tokens; added presentation/report tests. No external threat-intelligence feed or automatic report-upload backend is connected.
 - [x] **Day 34:** Implement Permission Manager. **Completed: 2026-11-26.** Added origin-scoped explicit consent for WebView camera/microphone and geolocation requests, Android runtime permission handling, persisted site grants, review/revoke UI, and WebView recreation after revocation. Hardware requirements are optional. Platform limitation: current Android WebView does not expose per-origin website Notification.requestPermission; UI explains this and links to Android app-notification settings without claiming website-level notification control.
 - [x] **Day 35:** Implement safe Downloads baseline. **Completed: 2026-11-26.** WebView downloads require explicit confirmation before Android DownloadManager is used; source URL, filename, extension, and MIME type are validated; executable/script types and obvious extension/MIME mismatches are blocked; unknown types and HTTP sources require warning/confirmation; APKs require separate confirmation and are saved only, with no installation path. Confirmation is shown for every WebView download because DownloadListener does not reliably expose a user-gesture signal.
-- [ ] **Day 36:** Verify HTTPS and SSL error handling; never bypass certificate errors.
-- [ ] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing.
-- [ ] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise.
-- [ ] **Day 39:** Implement and validate Anti-Redirect/Tab Guard together with external-intent and URL-scheme controls: require confirmation for unexpected cross-origin redirects without user gesture, prevent unsolicited popups/new tabs before creation, preserve Back behavior, avoid prompts for ordinary same-site redirects, and restrict unsafe external launches. Add regression tests.
+- [x] **Day 36:** Verify HTTPS and SSL error handling; never bypass certificate errors. **Completed: 2026-11-26.** Centralized the SSL error action as CANCEL with no certificate proceed/exception path. Added regression coverage and blocked automatic HTTPS-to-HTTP downgrade navigation when no user gesture is present.
+- [x] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing. **Completed: 2026-11-26.** Set WebView mixed content mode to MIXED_CONTENT_NEVER_ALLOW and explicitly enabled Android Safe Browsing for API 36+; added security-default tests.
+- [x] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise. **Completed: 2026-11-26.** Explicitly disabled allowFileAccess, allowContentAccess, allowFileAccessFromFileURLs, and allowUniversalAccessFromFileURLs; added regression tests.
+- [x] **Day 39:** Implement and validate Anti-Redirect/Tab Guard with external-intent and URL-scheme controls. **Completed: 2026-11-26.** Added main-frame cross-site navigation confirmation without a user gesture; same-site navigation avoids prompts using conservative registrable-domain matching; blocked automatic HTTPS downgrades; allowlisted only mailto, tel, sms, and geo external schemes with a user gesture and explicit confirmation; blocked intent, file, content, data, javascript, and external subframe schemes; rejected popup/new-window creation; preserved existing Back controls; and added regression tests. Limitations: the suffix matcher is curated rather than a complete Public Suffix List, so uncommon same-site subdomains may receive an extra confirmation; WebView does not invoke shouldOverrideUrlLoading for every navigation type (notably POST), so this is not universal redirect interception; popup windows are blocked, including legitimate target-blank requests; Private Browsing Phase 2 currently blocks guarded cross-site navigations without the normal-mode confirmation UI.
 - [ ] **Day 40:** Research and test DoH feasibility on the supported Android/WebView stack; record findings.
 - [ ] **Day 41:** Implement DoH only if a supported, secure approach is verified and remains within the approved specification; otherwise document the limitation and request a decision.
 - [ ] **Day 42:** Research and test Proxy feasibility and limitations on the supported Android/WebView stack.
@@ -259,6 +259,10 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 33 | 2026-11-26 | Added Web Protection decision panel, source/reason/reference display, provider interstitial retention, origin-only false-positive sharing, and tests. | PR #11; merge commit `7cda83b997c641975535b7cb5c3eb105f6ee7858`; Actions run `45746859577`; artifact `15082704506` |
 | 34 | 2026-11-26 | Added origin-scoped camera/microphone/geolocation consent, Android runtime permissions, persisted grants, review/revoke, and WebView recreation. Per-origin website notifications remain unsupported by current WebView API. | PR #11; merge commit `7cda83b997c641975535b7cb5c3eb105f6ee7858`; Actions run `45746859577`; artifact `15082704506` |
 | 35 | 2026-11-26 | Added confirmed WebView downloads with URL/name/extension/MIME validation, dangerous-type blocking, warning for unknown/HTTP, separate APK confirmation, and no auto-install path. | PR #11; merge commit `7cda83b997c641975535b7cb5c3eb105f6ee7858`; Actions run `45746859577`; artifact `15082704506`; SHA-256 `fbff78054e8c9816de22f556c64eab27c50e2fa1a425da69369eec7bd29a5650` |
+| 36 | 2026-11-26 | SSL certificate errors are explicitly cancelled with no proceed path; automatic HTTPS-to-HTTP downgrades without a gesture are blocked. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016 |
+| 37 | 2026-11-26 | Mixed content is blocked and Android Safe Browsing is explicitly enabled for API 36+. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016 |
+| 38 | 2026-11-26 | File/content access and both file-URL cross-origin access settings are explicitly disabled and covered by regression tests. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016 |
+| 39 | 2026-11-26 | Added cross-site navigation confirmation, same-site no-prompt behavior with conservative suffix matching, HTTPS downgrade blocking, allowlisted confirmed external schemes, unsafe-scheme blocking, popup rejection, and regression tests. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016; SHA-256 f2961afd0360eb6f6db82ccf3ac8ce4cece6d0d97f270918a509fc387d7519a6 |
 
 ## Blockers and approved changes
 
@@ -272,6 +276,7 @@ Record blockers, platform limitations, and user-approved changes here. Do not si
 |---|---:|---|---|---|
 | 2026-11-25 | 8 | Initial CI attempts exposed an obsolete Android SDK setup action and a separate Kotlin plugin conflict with AGP 9. | Updated to setup-android v4 and AGP built-in Kotlin; final CI succeeded with build, lint, unit-test task, APK assembly, and artifact upload. | [Successful Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565610942) |
 | 2026-11-26 | 31–35 | Private Browsing Instrumentation Run #82 failed before completing the isolation assertions. Diagnostics showed a cross-process `BadParcelableException` / `ClassNotFoundException` involving a Test-APK callback class; this is a confirmed test-harness communication failure, not proof that product isolation passed or failed. Day 31 was reallocated to the Android 16+ baseline; Days 32–35 remain reserved. | Owner directed all Private Browsing implementation and verification to Phase 2, with a dedicated independent Workflow; exclude it from Phase 1 acceptance and keep Phase 1 moving. | [Run #82](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45723328182); artifact ID `15073318212`; Day 31 PR #5 / main run `45728905806`; see Phase 2 backlog in `docs/RAIN_BROWSER_PLAN_V3.md` Section 7.1. |
+| 2026-11-26 | 36–39 | Limitations: registrable-domain matching uses a curated suffix list, not a full Public Suffix List; uncommon same-site subdomains may receive extra prompts. WebView does not invoke shouldOverrideUrlLoading for every navigation type, including POST, so interception is not universal. Popup windows are blocked, including legitimate target-blank requests. Private Browsing Phase 2 currently blocks guarded cross-site navigations without the normal-mode confirmation UI. | Implemented conservative behavior within the approved Day 36–39 scope and documented limitations; Private Browsing UX integration remains Phase 2. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016; SHA-256 f2961afd0360eb6f6db82ccf3ac8ce4cece6d0d97f270918a509fc387d7519a6 |
 
 ## Progress update protocol
 
