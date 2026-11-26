@@ -58,6 +58,16 @@ class NavigationGuardPolicyTest {
     }
 
     @Test
+    fun treatsUnlistedCountrySecondLevelSuffixesConservatively() {
+        assertFalse(
+            NavigationGuardPolicy.isSameSite(
+                "https://a.example.co.fr",
+                "https://b.example.co.fr"
+            )
+        )
+    }
+
+    @Test
     fun requiresConfirmationForCrossSiteMainFrameNavigationWithoutGesture() {
         assertEquals(
             NavigationGuardPolicy.Decision.CONFIRM_CROSS_SITE,
