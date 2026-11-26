@@ -443,7 +443,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     private fun promptDataSearch(title: String, onSearch: (String) -> Unit) {
         val input = EditText(this).apply {
             hint = "Enter search text"
-            singleLine = true
+            setSingleLine(true)
         }
         AlertDialog.Builder(this)
             .setTitle(title)
