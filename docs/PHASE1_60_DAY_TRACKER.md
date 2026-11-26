@@ -33,7 +33,7 @@
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
 | Round C — Privacy controls and network (excluding Private Browsing) | 13 | 9 | In progress |
-| Phase 1 reserve / reallocation capacity | 5 | 2 | Days 31–32 completed; Days 33–35 allocated to approved non-Private Phase 1 features; completion tracked individually |
+| Phase 1 reserve / reallocation capacity | 5 | 2 | Days 31–32 completed; Days 33–35 were allocated to approved non-Private Round C features and are now complete |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
 | **Total** | **60** | **39** | **65.00%** |
