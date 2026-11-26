@@ -73,4 +73,35 @@
     <string name="mode_mobile">มือถือ</string>
     <string name="mode_desktop">เดสก์ท็อป</string>
 
+
+    <string name="mode_mobile">มือถือ</string>
+    <string name="mode_desktop">เดสก์ท็อป</string>
+    <string name="search_button">ค้นหา: %1$s</string>
+    <string name="tabs_count">แท็บ (%1$d)</string>
+    <string name="status_no_tab">ไม่มีแท็บ</string>
+    <string name="status_stop">หยุด</string>
+    <string name="new_tab_ready">พื้นที่ท่องเว็บของคุณพร้อมแล้ว</string>
+    <string name="new_tab_recent">หน้าที่เข้าชมล่าสุด</string>
+    <string name="new_tab_bookmarks">บุ๊กมาร์ก</string>
+    <string name="new_tab_no_recent">ยังไม่มีหน้าที่เข้าชมล่าสุด</string>
+    <string name="new_tab_no_bookmarks">ยังไม่มีบุ๊กมาร์ก</string>
+    <string name="protection_allow_title">การป้องกันเว็บไซต์</string>
+    <string name="protection_warn_title">เว็บไซต์น่าสงสัย</string>
+    <string name="protection_block_title">บล็อกเว็บไซต์อันตรายแล้ว</string>
+    <string name="protection_website">เว็บไซต์: %1$s</string>
+    <string name="protection_category">หมวดหมู่: %1$s</string>
+    <string name="protection_source">แหล่งข้อมูล: %1$s</string>
+    <string name="protection_reason">เหตุผล: %1$s</string>
+    <string name="protection_reference">ข้อมูลอ้างอิง: %1$s</string>
+    <string name="download_reason_invalid">URL ดาวน์โหลดไม่ถูกต้องหรือใช้แหล่งที่มาไม่รองรับ</string>
+    <string name="download_reason_filename">เซิร์ฟเวอร์ไม่ได้ระบุชื่อไฟล์ที่ปลอดภัย</string>
+    <string name="download_reason_executable">RAIN บล็อกไฟล์ปฏิบัติการหรือสคริปต์ชนิดนี้</string>
+    <string name="download_reason_html">นามสกุลไฟล์ไม่ตรงกับชนิดเนื้อหา HTML ที่เซิร์ฟเวอร์แจ้ง</string>
+    <string name="download_reason_apk">นามสกุล APK ไม่ตรงกับชนิดเนื้อหาที่รายงาน</string>
+    <string name="download_reason_mismatch">นามสกุลไฟล์และชนิดเนื้อหาที่รายงานไม่ตรงกัน</string>
+    <string name="download_reason_apk_confirm">ไฟล์ APK สามารถติดตั้งแอปได้ RAIN จะบันทึกไฟล์เท่านั้นและไม่ติดตั้งโดยอัตโนมัติ โปรดตรวจสอบผู้เผยแพร่ก่อนเปิดไฟล์</string>
+    <string name="download_reason_http">การดาวน์โหลดนี้ใช้การเชื่อมต่อ HTTP ที่ไม่เข้ารหัส ยืนยันเฉพาะเมื่อเชื่อถือแหล่งที่มา</string>
+    <string name="download_reason_unknown">RAIN ไม่สามารถระบุชนิดไฟล์นี้ได้อย่างมั่นใจ โปรดตรวจสอบแหล่งที่มาและชื่อไฟล์ก่อนดาวน์โหลด</string>
+    <string name="download_reason_review">โปรดตรวจสอบแหล่งที่มาและรายละเอียดไฟล์ก่อนยืนยันการดาวน์โหลด</string>
+
 </resources>
