@@ -413,14 +413,20 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun saveResumeSession() {
-        val snapshots = tabManager.tabs.mapNotNull { tab ->
+        val tabs = tabManager.tabs
+        val activeTab = tabManager.activeTab
+        val baseTimestamp = System.currentTimeMillis()
+        val snapshots = tabs.mapIndexedNotNull { index, tab ->
             val url = tab.webView.url.orEmpty().ifBlank { tab.url }
-            if (url.startsWith("https://") || url.startsWith("http://")) Triple(url, tab.title, 0L) else null
+            if (url.startsWith("https://") || url.startsWith("http://")) {
+                val priority = if (tab == activeTab) tabs.size + 1L else (tabs.size - index).toLong()
+                Triple(url, tab.title, baseTimestamp + priority)
+            } else null
         }
         if (snapshots.isNotEmpty()) {
             storageExecutor.execute {
-                snapshots.forEach { (url, title, position) ->
-                    runCatching { resumeRepository.save(url, title, position) }
+                snapshots.forEach { (url, title, updatedAt) ->
+                    runCatching { resumeRepository.save(url, title, 0L, updatedAt) }
                 }
             }
         }
