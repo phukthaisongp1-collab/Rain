@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 32/60 days (53.33%)
+> **Progress:** 35/60 days (58.33%)
 
 ## Approved platform baseline change (2026-11-25)
 
@@ -32,7 +32,7 @@
 |---|---:|---:|---|
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
-| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 2 | In progress |
+| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 5 | In progress |
 | Phase 1 reserve / reallocation capacity | 5 | 2 | Days 31–32 completed; Days 33–35 allocated to approved non-Private Phase 1 features; completion tracked individually |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
@@ -76,7 +76,7 @@
 - Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
 - Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
 - Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
-- Phase 2 progress is reported separately from Phase 1's 32/60 (53.33%) and never alters that figure.
+- Phase 2 progress is reported separately from Phase 1's 35/60 (58.33%) and never alters that figure.
 
 ### Current evidence / history
 - Run #80: App/Test APK debug signing mismatch across jobs.
@@ -152,9 +152,9 @@
 
 - [x] **Day 31 (reallocated):** Enforce the approved Android 16+ baseline across the app and Phase 1 CI. **Completed: 2026-11-26.** Set `minSdk = 36`; changed the Phase 1 emulator to API 36; removed the forced TCG override; added a KVM acceleration gate and Android 16 install/launch smoke check. Excluded `PrivateBrowsingIsolationTest` from Phase 1 CI because it is deferred Phase 2 work; no Private Browsing acceptance is implied. Build, lint, unit tests, KVM check, Android 16 emulator boot, app install, and app process launch all passed. Evidence: PR #5; merge commit `18f94670b0f2f95a47a9f7bdb1b4dac51abc27f6`; Actions run `45728905806`; artifact `15076530135`; APK SHA-256 `b5e582f2347db11bb13b0914dac5aa3f19bba57e1df2f245155f404665cc546d`.
 - [x] **Day 32:** Implement evidence-based Web Protection decisions for credible phishing/malware and evidenced scams. Use a warning when evidence is insufficient; do not block ordinary websites without evidence. Keep gambling as a separate configurable category. Record the reason and trustworthy source for each decision. **Completed: 2026-11-26.** Added deterministic ALLOW/WARN/BLOCK evidence policy with freshness, confidence, source-trust, corroboration, and separate opt-in gambling rules; retained Android WebView Safe Browsing interstitials. Policy unit-test task, lint, and debug assembly passed; Android 16 emulator install/launch smoke test and KVM gate passed. User-facing warning/block presentation, false-positive reporting, and external threat-intelligence feed are not included in this day and remain explicit limitations/follow-up scope. Evidence: `WebProtectionManager.kt`, `WebProtectionManagerTest.kt`, `WebViewFactory.kt`; PR #10; merge commit `0297145fe339b68c81bba166a0f462dcb97947e4`; Actions run `45744827602`; artifact `15082408766` (SHA-256 `493ce0dbaae7f14b2b3f8af2f1100c7b3713ddfc598f0626d9e9a00260fb816e`).
-- [ ] **Day 33:** Complete Web Protection user feedback and verification: clear warning/block presentation, source/reason visibility, false-positive reporting path, and unit tests for allow/warn/block decisions. Do not rely on AI classification alone.
-- [ ] **Day 34:** Implement Permission Manager for camera, microphone, location, and notifications: show the requesting origin, require explicit user consent, respect Android runtime permission boundaries, and support reviewing/revoking site permissions. Add permission-flow tests.
-- [ ] **Day 35:** Implement safe Downloads baseline: allow user-initiated downloads; require confirmation and validate source/type for APKs and other requested files; warn or block dangerous/disguised unknown files; never auto-install. Verify download metadata and error handling.
+- [x] **Day 33:** Complete Web Protection user feedback and verification. **Completed: 2026-11-26.** Added a Protection panel showing the latest Safe Browsing decision, threat category where known, source, reason, and reference; retained the provider security interstitial; added a user-initiated false-positive share path that shares only the URL origin to avoid exposing path/query tokens; added presentation/report tests. No external threat-intelligence feed or automatic report-upload backend is connected.
+- [x] **Day 34:** Implement Permission Manager. **Completed: 2026-11-26.** Added origin-scoped explicit consent for WebView camera/microphone and geolocation requests, Android runtime permission handling, persisted site grants, review/revoke UI, and WebView recreation after revocation. Hardware requirements are optional. Platform limitation: current Android WebView does not expose per-origin website Notification.requestPermission; UI explains this and links to Android app-notification settings without claiming website-level notification control.
+- [x] **Day 35:** Implement safe Downloads baseline. **Completed: 2026-11-26.** WebView downloads require explicit confirmation before Android DownloadManager is used; source URL, filename, extension, and MIME type are validated; executable/script types and obvious extension/MIME mismatches are blocked; unknown types and HTTP sources require warning/confirmation; APKs require separate confirmation and are saved only, with no installation path. Confirmation is shown for every WebView download because DownloadListener does not reliably expose a user-gesture signal.
 - [ ] **Day 36:** Verify HTTPS and SSL error handling; never bypass certificate errors.
 - [ ] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing.
 - [ ] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise.
@@ -256,8 +256,15 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 30 | 2026-11-25 | Defined and recorded the owner-approved separate-process Private Browsing architecture; implementation and verification were subsequently deferred to Phase 2 under `docs/RAIN_BROWSER_PLAN_V3.md`, Section 7.1. | Owner approval in conversation; `docs/ANDROID_WEBVIEW_PRIVACY_FINDINGS.md`; commit `3942596fe1706865de8d8141eb147f4493bd11aa` |
 | 31 | 2026-11-26 | Enforced Android 16+ platform baseline (`minSdk = 36`), aligned Phase 1 CI with API 36, verified KVM acceleration, and confirmed RAIN installs and launches on the Android 16 emulator. Private Browsing instrumentation was excluded from Phase 1 CI because it is deferred to Phase 2. | PR #5; merge commit `18f94670b0f2f95a47a9f7bdb1b4dac51abc27f6`; Actions run `45728905806`; artifact `15076530135`; APK SHA-256 `b5e582f2347db11bb13b0914dac5aa3f19bba57e1df2f245155f404665cc546d` |
 | 32 | 2026-11-26 | Added evidence-based threat decision policy and Safe Browsing interstitial handling. `lint`, `testDebugUnitTest`, `assembleDebug`, KVM acceleration, Android 16 emulator install/launch, and artifact upload all succeeded. Warnings/UI and external threat feed remain follow-up scope; no physical-device test claimed. | PR #10; merge commit `0297145fe339b68c81bba166a0f462dcb97947e4`; Actions run `45744827602`; artifact `15082408766`; SHA-256 `493ce0dbaae7f14b2b3f8af2f1100c7b3713ddfc598f0626d9e9a00260fb816e` |
+| 33 | 2026-11-26 | Added Web Protection decision panel, source/reason/reference display, provider interstitial retention, origin-only false-positive sharing, and tests. | PR #11; merge commit `7cda83b997c641975535b7cb5c3eb105f6ee7858`; Actions run `45746859577`; artifact `15082704506` |
+| 34 | 2026-11-26 | Added origin-scoped camera/microphone/geolocation consent, Android runtime permissions, persisted grants, review/revoke, and WebView recreation. Per-origin website notifications remain unsupported by current WebView API. | PR #11; merge commit `7cda83b997c641975535b7cb5c3eb105f6ee7858`; Actions run `45746859577`; artifact `15082704506` |
+| 35 | 2026-11-26 | Added confirmed WebView downloads with URL/name/extension/MIME validation, dangerous-type blocking, warning for unknown/HTTP, separate APK confirmation, and no auto-install path. | PR #11; merge commit `7cda83b997c641975535b7cb5c3eb105f6ee7858`; Actions run `45746859577`; artifact `15082704506`; SHA-256 `fbff78054e8c9816de22f556c64eab27c50e2fa1a425da69369eec7bd29a5650` |
 
 ## Blockers and approved changes
+
+| 33–35 | 2026-11-26 | Implemented Web Protection presentation and user-initiated false-positive sharing; origin-scoped camera/microphone/location permission management with review/revoke; and confirmed safe Downloads with type/source validation. Per-origin website notifications are not exposed by the current Android WebView API; no external threat feed/report backend or physical-device test is claimed. | PR #11 merged after all CI checks passed. | Merge commit `7cda83b997c641975535b7cb5c3eb105f6ee7858`; Actions run `45746859577`; artifact `15082704506`; SHA-256 `fbff78054e8c9816de22f556c64eab27c50e2fa1a425da69369eec7bd29a5650` |
+
+
 
 Record blockers, platform limitations, and user-approved changes here. Do not silently change the scope or mark blocked work as complete.
 
