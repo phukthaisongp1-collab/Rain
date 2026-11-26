@@ -40,6 +40,10 @@ import com.rain.browser.downloads.DownloadPolicy
 import com.rain.browser.network.WebProtectionManager
 import com.rain.browser.network.WebProtectionPresentation
 import com.rain.browser.permissions.PermissionManager
+import com.rain.browser.data.BookmarkRepository
+import com.rain.browser.data.HistoryRepository
+import com.rain.browser.data.SettingsRepository
+import com.rain.browser.data.SqliteStorage
 
 class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var tabManager: TabManager
@@ -54,6 +58,9 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var reloadButton: Button
     private lateinit var searchEngineButton: Button
     private lateinit var permissionManager: PermissionManager
+    private lateinit var bookmarkRepository: BookmarkRepository
+    private lateinit var historyRepository: HistoryRepository
+    private lateinit var settingsRepository: SettingsRepository
 
     private data class PendingWebPermission(
         val request: PermissionRequest,
@@ -86,6 +93,11 @@ class MainActivity : Activity(), WebViewCallbacks {
         desktopModeManager = DesktopModeManager(this)
         webViewFactory = WebViewFactory(this)
         permissionManager = PermissionManager(this)
+        val storage = SqliteStorage(this)
+        bookmarkRepository = BookmarkRepository(storage)
+        historyRepository = HistoryRepository(storage)
+        settingsRepository = SettingsRepository(storage)
+        applyAutomaticHistoryRetention()
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
@@ -136,6 +148,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
         findViewById<Button>(R.id.protection_button).setOnClickListener { showProtectionDialog() }
         findViewById<Button>(R.id.permissions_button).setOnClickListener { showSitePermissionManager() }
+        findViewById<Button>(R.id.bookmarks_button).setOnClickListener { showBookmarksDialog() }
+        findViewById<Button>(R.id.history_button).setOnClickListener { showHistoryDialog() }
 
         addressInput.setOnEditorActionListener { _, actionId, event ->
             val isGo = actionId == EditorInfo.IME_ACTION_GO ||
@@ -337,6 +351,118 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.forward_button).isEnabled = tab.webView.canGoForward()
     }
 
+
+    private fun applyAutomaticHistoryRetention() {
+        val days = settingsRepository.autoClearHistoryDays
+        if (days > 0) {
+            val cutoff = System.currentTimeMillis() - days.toLong() * HISTORY_DAY_MILLIS
+            historyRepository.clearOlderThan(cutoff)
+        }
+    }
+
+    private fun showBookmarksDialog(query: String = "") {
+        val bookmarks = bookmarkRepository.search(query)
+        val labels = bookmarks.map { "${it.title}\n${it.url}" }.toTypedArray()
+        val builder = AlertDialog.Builder(this)
+            .setTitle(if (query.isBlank()) "Bookmarks" else "Bookmarks: $query")
+            .setItems(labels) { _, which ->
+                bookmarks.getOrNull(which)?.let { bookmark ->
+                    AlertDialog.Builder(this)
+                        .setTitle(bookmark.title)
+                        .setItems(arrayOf("Open", "Delete")) { _, action ->
+                            when (action) {
+                                0 -> openSavedUrl(bookmark.url)
+                                1 -> {
+                                    bookmarkRepository.delete(bookmark.id)
+                                    showBookmarksDialog(query)
+                                }
+                            }
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            }
+            .setPositiveButton("Add current page") { _, _ -> addCurrentBookmark() }
+            .setNeutralButton("Search") { _, _ -> promptDataSearch("Search bookmarks") { showBookmarksDialog(it) } }
+            .setNegativeButton("Close", null)
+        if (bookmarks.isEmpty()) builder.setMessage("No bookmarks found.")
+        builder.show()
+    }
+
+    private fun addCurrentBookmark() {
+        val tab = tabManager.activeTab ?: return
+        val url = tab.webView.url.orEmpty().ifBlank { tab.url }
+        if (url.isBlank()) {
+            Toast.makeText(this, "Open a website before bookmarking", Toast.LENGTH_SHORT).show()
+            return
+        }
+        runCatching { bookmarkRepository.add(url, tab.title) }
+            .onSuccess { Toast.makeText(this, "Bookmark saved", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(this, "This page cannot be bookmarked", Toast.LENGTH_LONG).show() }
+    }
+
+    private fun showHistoryDialog(query: String = "") {
+        val entries = historyRepository.search(query)
+        val labels = entries.map { "${it.title.ifBlank { it.url }}\n${it.url}" }.toTypedArray()
+        val builder = AlertDialog.Builder(this)
+            .setTitle(if (query.isBlank()) "History" else "History: $query")
+            .setItems(labels) { _, which ->
+                entries.getOrNull(which)?.let { entry ->
+                    AlertDialog.Builder(this)
+                        .setTitle(entry.title.ifBlank { entry.url })
+                        .setItems(arrayOf("Open", "Delete")) { _, action ->
+                            when (action) {
+                                0 -> openSavedUrl(entry.url)
+                                1 -> {
+                                    historyRepository.delete(entry.id)
+                                    showHistoryDialog(query)
+                                }
+                            }
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            }
+            .setPositiveButton("Clear all") { _, _ ->
+                AlertDialog.Builder(this)
+                    .setTitle("Clear browsing history?")
+                    .setMessage("This removes normal browsing history from this device. Private Browsing data is stored separately.")
+                    .setPositiveButton("Clear") { _, _ ->
+                        historyRepository.clear()
+                        Toast.makeText(this, "Browsing history cleared", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            .setNeutralButton("Search") { _, _ -> promptDataSearch("Search history") { showHistoryDialog(it) } }
+            .setNegativeButton("Close", null)
+        if (entries.isEmpty()) builder.setMessage("No browsing history found.")
+        builder.show()
+    }
+
+    private fun promptDataSearch(title: String, onSearch: (String) -> Unit) {
+        val input = EditText(this).apply {
+            hint = "Enter search text"
+            singleLine = true
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(input)
+            .setPositiveButton("Search") { _, _ -> onSearch(input.text.toString().trim()) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun openSavedUrl(url: String) {
+        if (!com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(url)) {
+            Toast.makeText(this, "This saved address is not allowed", Toast.LENGTH_LONG).show()
+            return
+        }
+        val tab = tabManager.activeTab ?: return
+        tab.url = url
+        applyDesktopSettings(tab.webView, desktopModeManager.isDesktopFor(url))
+        tab.webView.loadUrl(url)
+    }
 
     private fun showProtectionDialog() {
         val activeWebView = tabManager.activeTab?.webView
@@ -854,6 +980,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             if (url.startsWith("http://") || url.startsWith("https://")) {
                 tab.url = url
                 tab.isDesktopMode = desktopModeManager.isDesktopFor(url)
+                historyRepository.record(url, tab.title)
             } else {
                 tab.url = ""
             }
@@ -935,6 +1062,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val STATE_DESKTOP = "rain_state_desktop"
         const val REQUEST_SITE_PERMISSION = 4101
         const val REQUEST_GEOLOCATION = 4102
+        const val HISTORY_DAY_MILLIS = 24L * 60 * 60 * 1000
 
         const val WELCOME_PAGE = """
             <!doctype html>
