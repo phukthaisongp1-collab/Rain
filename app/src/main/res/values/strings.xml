@@ -95,7 +95,7 @@
     <string name="download_reason_invalid">The download URL is invalid or uses an unsupported source.</string>
     <string name="download_reason_filename">The server did not provide a safe file name.</string>
     <string name="download_reason_executable">This executable or script file type is blocked by RAIN.</string>
-    <string name="download_reason_html">The file extension does not match the server's HTML content type.</string>
+    <string name="download_reason_html">The file extension does not match the server\'s HTML content type.</string>
     <string name="download_reason_apk">The APK extension conflicts with the reported content type.</string>
     <string name="download_reason_mismatch">The file extension and reported content type do not match.</string>
     <string name="download_reason_apk_confirm">APK files can install applications. RAIN will only save this file and will never install it automatically. Verify the publisher before opening it.</string>
@@ -105,7 +105,7 @@
 
 
     <string name="protection_open_site">Open a website to view its protection status.</string>
-    <string name="protection_false_positive_note">False-positive reports are shared through Android's share sheet. RAIN does not upload reports automatically.</string>
+    <string name="protection_false_positive_note">False-positive reports are shared through Android\'s share sheet. RAIN does not upload reports automatically.</string>
 
     <string name="protection_default_reason">Android WebView Safe Browsing is enabled. No external threat-intelligence feed is currently connected.</string>
 </resources>
