@@ -89,10 +89,10 @@ jobs:
           set -euo pipefail
           APK_PATH="app/build/outputs/apk/release/app-release.apk"
           BADGING="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK_PATH")"
-          PACKAGE_LINE="$(printf '%s\\n' "$BADGING" | grep -m1 "^package:")"
-          ACTUAL_APPLICATION_ID="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*name='\\([^']*\\)'.*/\\1/p")"
-          ACTUAL_VERSION_CODE="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*versionCode='\\([^']*\\)'.*/\\1/p")"
-          ACTUAL_VERSION_NAME="$(printf '%s\\n' "$PACKAGE_LINE" | sed -n "s/.*versionName='\\([^']*\\)'.*/\\1/p")"
+          PACKAGE_LINE="$(printf '%s\n' "$BADGING" | grep -m1 "^package:")"
+          read -r ACTUAL_APPLICATION_ID ACTUAL_VERSION_CODE ACTUAL_VERSION_NAME < <(
+            printf '%s\n' "$PACKAGE_LINE" | awk -F"'" '{print $2, $4, $6}'
+          )
 
           EXPECTED_APPLICATION_ID="com.rain.browser"
           EXPECTED_VERSION_CODE="1"
