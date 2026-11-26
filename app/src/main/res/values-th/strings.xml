@@ -69,4 +69,8 @@
     <string name="navigation_open">เปิด</string>
     <string name="protection_report">รายงานการบล็อกผิดพลาด</string>
 
+
+    <string name="mode_mobile">มือถือ</string>
+    <string name="mode_desktop">เดสก์ท็อป</string>
+
 </resources>
