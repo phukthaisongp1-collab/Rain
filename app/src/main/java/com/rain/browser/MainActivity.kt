@@ -558,7 +558,6 @@ class MainActivity : Activity(), WebViewCallbacks {
             return
         }
 
-        pendingWebPermission?.request?.let { runCatching { it.deny() } }
         val labels = mapped.map { it.label }.distinct().joinToString(" and ")
         AlertDialog.Builder(this)
             .setTitle("Website permission")
