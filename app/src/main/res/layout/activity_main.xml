@@ -110,6 +110,7 @@
             <Button android:id="@+id/history_button" style="@style/RainButton" android:text="@string/action_history" />
             <Button android:id="@+id/resume_button" style="@style/RainButton" android:text="@string/action_resume" />
             <Button android:id="@+id/settings_button" style="@style/RainButton" android:text="@string/action_settings" />
+            <Button android:id="@+id/settings_button" style="@style/RainButton" android:text="@string/action_settings" />
         </LinearLayout>
     </HorizontalScrollView>
 
