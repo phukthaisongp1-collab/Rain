@@ -5,7 +5,7 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Schedule:** 60 calendar days from the formally approved start date  
 > **Current status:** In progress  
-> **Progress:** 39/60 days (65.00%)
+> **Progress:** 45/60 days (75.00%)
 
 ## Approved platform baseline change (2026-11-25)
 
@@ -32,11 +32,11 @@
 |---|---:|---:|---|
 | Round A — Android foundation and build | 10 | 10 | Accepted |
 | Round B — Browser features | 18 | 18 | Accepted (cloud verification) |
-| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 9 | In progress |
-| Phase 1 reserve / reallocation capacity | 5 | 2 | Days 31–32 completed; Days 33–35 were allocated to approved non-Private Round C features and are now complete |
+| Round C — Privacy controls and network (excluding Private Browsing) | 13 | 13 | In progress; Day 46 review pending |
+| Phase 1 reserve / reallocation capacity | 5 | 4 | Days 31–32 completed; Days 44–45 reallocated to Round C network verification and completed; one reserve day remains |
 | Round D — Data and settings | 10 | 0 | Not started |
 | Final verification and release | 4 | 0 | Not started |
-| **Total** | **60** | **39** | **65.00%** |
+| **Total** | **60** | **45** | **75.00%** |
 
 > Progress calculation: completed days ÷ 60 × 100. Update the summary whenever a daily checkbox changes. A round is not accepted until its review checkpoint is explicitly recorded.
 
@@ -76,7 +76,7 @@
 - Planning estimate: 7–11 weeks after authorization; refine after M0 based on measured CI stability and actual defects.
 - Real-device validation remains scheduled for Day 57–60; no device pass may be claimed before evidence exists.
 - Report every milestone with commit, workflow/run, test reports, logs and artifacts. Keep secrets and private browsing data out of artifacts.
-- Phase 2 progress is reported separately from Phase 1's 39/60 (65.00%) and never alters that figure.
+- Phase 2 progress is reported separately from Phase 1's 45/60 (75.00%) and never alters that figure.
 
 ### Current evidence / history
 - Run #80: App/Test APK debug signing mismatch across jobs.
@@ -159,12 +159,12 @@
 - [x] **Day 37:** Configure and verify Mixed Content handling and Safe Browsing. **Completed: 2026-11-26.** Set WebView mixed content mode to MIXED_CONTENT_NEVER_ALLOW and explicitly enabled Android Safe Browsing for API 36+; added security-default tests.
 - [x] **Day 38:** Verify file access and content access are disabled unless a documented requirement justifies otherwise. **Completed: 2026-11-26.** Explicitly disabled allowFileAccess, allowContentAccess, allowFileAccessFromFileURLs, and allowUniversalAccessFromFileURLs; added regression tests.
 - [x] **Day 39:** Implement and validate Anti-Redirect/Tab Guard with external-intent and URL-scheme controls. **Completed: 2026-11-26.** Added main-frame cross-site navigation confirmation without a user gesture; same-site navigation avoids prompts using conservative registrable-domain matching; blocked automatic HTTPS downgrades; allowlisted only mailto, tel, sms, and geo external schemes with a user gesture and explicit confirmation; blocked intent, file, content, data, javascript, and external subframe schemes; rejected popup/new-window creation; preserved existing Back controls; and added regression tests. Limitations: the suffix matcher is curated rather than a complete Public Suffix List, so uncommon same-site subdomains may receive an extra confirmation; WebView does not invoke shouldOverrideUrlLoading for every navigation type (notably POST), so this is not universal redirect interception; popup windows are blocked, including legitimate target-blank requests; Private Browsing Phase 2 currently blocks guarded cross-site navigations without the normal-mode confirmation UI.
-- [ ] **Day 40:** Research and test DoH feasibility on the supported Android/WebView stack; record findings.
-- [ ] **Day 41:** Implement DoH only if a supported, secure approach is verified and remains within the approved specification; otherwise document the limitation and request a decision.
-- [ ] **Day 42:** Research and test Proxy feasibility and limitations on the supported Android/WebView stack.
-- [ ] **Day 43:** Implement Proxy only to the extent supported by a verified, approved approach; otherwise document the limitation and request a decision.
-- [ ] **Day 44:** Verify the planned network whitelist candidates: `*.scb.co.th`, `*.kbank.com`, `*.go.th`, `*.gmail.com`, and `*.outlook.com`. Record actual behavior and limitations.
-- [ ] **Day 45:** Run combined privacy and network tests; record reproducible results.
+- [x] **Day 40:** Research and test DoH feasibility on the supported Android/WebView stack; record findings. **Completed: 2026-11-26.** Confirmed Android manages DNS resolution and the project must retain the system resolver by default; no app-level DoH implementation is added because it cannot guarantee coverage of all WebView requests without replacing the approved network architecture. See docs/NETWORK_POLICY_DAY40_45.md.
+- [x] **Day 41:** Implement DoH only if a supported, secure approach is verified and remains within the approved specification; otherwise document the limitation and request a decision. **Completed: 2026-11-26.** No supported end-to-end app-controlled DoH path was verified. Retained the existing owner-approved Android system DNS policy; no forced Cloudflare, Google, or NextDNS resolver, no DNS fallback, and no system Private DNS setting changes. The limitation and decision basis are recorded in docs/NETWORK_POLICY_DAY40_45.md.
+- [x] **Day 42:** Research and test Proxy feasibility and limitations on the supported Android/WebView stack. **Completed: 2026-11-26.** Verified AndroidX WebKit 1.13.0 ProxyController and runtime PROXY_OVERRIDE feature detection; confirmed the override is process-scoped, affects WebView requests, and temporarily supersedes the system proxy in that process. Provider support is runtime-dependent.
+- [x] **Day 43:** Implement Proxy only to the extent supported by a verified, approved approach; otherwise document the limitation and request a decision. **Completed: 2026-11-26.** Added WebViewProxyManager with runtime feature detection, explicit user-supplied HTTP/HTTPS/SOCKS endpoint validation, asynchronous apply/clear callbacks, and no default proxy, hard-coded endpoint, credentials, public/free proxy, secondary proxy, or direct fallback. No Settings UI or persistent proxy profile was added; no proxy is active unless an authorized caller explicitly applies one.
+- [x] **Day 44:** Verify the planned network whitelist candidates: `*.scb.co.th`, `*.kbank.com`, `*.go.th`, `*.gmail.com`, and `*.outlook.com`. Record actual behavior and limitations. **Completed: 2026-11-26.** Added root and subdomain bypass rules for SCB, KBank, .go.th, Gmail, and Outlook. These are direct-connection bypasses when a user proxy is configured, not proxy destinations. Unit tests cover root/nested subdomains and lookalike/suffix-attack hosts. Actual network routing through a live proxy is not claimed.
+- [x] **Day 45:** Run combined privacy and network tests; record reproducible results. **Completed: 2026-11-26.** Added 13 unit tests for proxy endpoint validation and bypass rules. PR CI passed Lint, Unit Tests, Debug APK Build, KVM acceleration, Android 16 Emulator install/launch smoke test, and artifact upload. No physical-device or live proxy traffic test is claimed. Evidence: PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403; SHA-256 99354ce2abec5855e2cd3d6547e4e4424e75a60b61d973e1a444fbe288fcb940.
 - [ ] **Day 46:** Resolve verified defects, document remaining platform limitations, record evidence, and obtain Round C acceptance.
 
 **Round C review record**
@@ -263,6 +263,12 @@ Add one entry for each completed day. Keep the evidence precise enough that a fu
 | 37 | 2026-11-26 | Mixed content is blocked and Android Safe Browsing is explicitly enabled for API 36+. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016 |
 | 38 | 2026-11-26 | File/content access and both file-URL cross-origin access settings are explicitly disabled and covered by regression tests. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016 |
 | 39 | 2026-11-26 | Added cross-site navigation confirmation, same-site no-prompt behavior with conservative suffix matching, HTTPS downgrade blocking, allowlisted confirmed external schemes, unsafe-scheme blocking, popup rejection, and regression tests. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016; SHA-256 f2961afd0360eb6f6db82ccf3ac8ce4cece6d0d97f270918a509fc387d7519a6 |
+| 40 | 2026-11-26 | Researched DoH feasibility; retained Android system DNS and documented why an app-owned DoH resolver would not cover all WebView traffic. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
+| 41 | 2026-11-26 | Confirmed no supported end-to-end DoH implementation for the approved WebView stack; no third-party resolver or system Private DNS change is made. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
+| 42 | 2026-11-26 | Verified AndroidX WebKit ProxyController process scope and runtime feature detection. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
+| 43 | 2026-11-26 | Added optional user-configured WebView proxy manager with endpoint validation, feature detection, async apply/clear, and no default proxy. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
+| 44 | 2026-11-26 | Added root and subdomain direct-bypass patterns for SCB, KBank, .go.th, Gmail, and Outlook with policy unit tests; live proxy routing is not claimed. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129 |
+| 45 | 2026-11-26 | Added 13 proxy policy tests; full PR CI passed Lint, Unit Tests, Debug APK, KVM, Android 16 Emulator install/launch, and artifact upload. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403; SHA-256 99354ce2abec5855e2cd3d6547e4e4424e75a60b61d973e1a444fbe288fcb940 |
 
 ## Blockers and approved changes
 
@@ -276,6 +282,7 @@ Record blockers, platform limitations, and user-approved changes here. Do not si
 |---|---:|---|---|---|
 | 2026-11-25 | 8 | Initial CI attempts exposed an obsolete Android SDK setup action and a separate Kotlin plugin conflict with AGP 9. | Updated to setup-android v4 and AGP built-in Kotlin; final CI succeeded with build, lint, unit-test task, APK assembly, and artifact upload. | [Successful Actions run](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45565610942) |
 | 2026-11-26 | 31–35 | Private Browsing Instrumentation Run #82 failed before completing the isolation assertions. Diagnostics showed a cross-process `BadParcelableException` / `ClassNotFoundException` involving a Test-APK callback class; this is a confirmed test-harness communication failure, not proof that product isolation passed or failed. Day 31 was reallocated to the Android 16+ baseline; Days 32–35 remain reserved. | Owner directed all Private Browsing implementation and verification to Phase 2, with a dedicated independent Workflow; exclude it from Phase 1 acceptance and keep Phase 1 moving. | [Run #82](https://github.com/phukthaisongp1-collab/Rain/actions/runs/45723328182); artifact ID `15073318212`; Day 31 PR #5 / main run `45728905806`; see Phase 2 backlog in `docs/RAIN_BROWSER_PLAN_V3.md` Section 7.1. |
+| 2026-11-26 | 40–45 | No supported app-controlled DoH path was found that can guarantee full WebView DNS coverage within the approved architecture. ProxyController is provider-dependent and process-scoped; its override supersedes system proxy settings while active. No proxy Settings UI, persistent profile, or live proxy-routing proof is included. | Retained Android system DNS; added only an optional explicit user-configured proxy integration with runtime feature detection and approved direct-bypass domains. No default proxy or third-party DNS was enabled. | PR #13; merge commit 7707492e679df68234129431412d47ff64e9231e; Actions run 45761567129; artifact 15089598403; see docs/NETWORK_POLICY_DAY40_45.md. |
 | 2026-11-26 | 36–39 | Limitations: registrable-domain matching uses a curated suffix list, not a full Public Suffix List; uncommon same-site subdomains may receive extra prompts. WebView does not invoke shouldOverrideUrlLoading for every navigation type, including POST, so interception is not universal. Popup windows are blocked, including legitimate target-blank requests. Private Browsing Phase 2 currently blocks guarded cross-site navigations without the normal-mode confirmation UI. | Implemented conservative behavior within the approved Day 36–39 scope and documented limitations; Private Browsing UX integration remains Phase 2. | PR #12; merge commit b7a862b36d6c2732b5c7d628a2bc1127d74f389d; Actions run 45749144377; artifact 15085340016; SHA-256 f2961afd0360eb6f6db82ccf3ac8ce4cece6d0d97f270918a509fc387d7519a6 |
 
 ## Progress update protocol
