@@ -96,4 +96,34 @@ class BrowserUrlResolverTest {
             BrowserUrlResolver.resolve("ftp://example.com", SearchEngine.GOOGLE)
         )
     }
+    @Test
+    fun resolvesWebsiteShortcutWithoutScheme() {
+        assertEquals("https://example.com/path?q=rain", BrowserUrlResolver.resolveWebsiteShortcut("example.com/path?q=rain"))
+    }
+
+    @Test
+    fun preservesHttpWebsiteShortcut() {
+        assertEquals("http://example.com/path", BrowserUrlResolver.resolveWebsiteShortcut("http://example.com/path"))
+    }
+
+    @Test
+    fun rejectsSearchTextAsWebsiteShortcut() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("rain browser"))
+    }
+
+    @Test
+    fun rejectsUnsafeWebsiteShortcutSchemes() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("javascript:alert(1)"))
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("ftp://example.com"))
+    }
+
+    @Test
+    fun rejectsWebsiteShortcutWithCredentials() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("https://user:pass@example.com"))
+    }
+
+    @Test
+    fun rejectsBlankWebsiteShortcut() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("   "))
+    }
 }
