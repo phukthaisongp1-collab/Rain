@@ -2,6 +2,7 @@ package com.rain.browser.browser
 
 import android.content.Context
 import android.net.http.SslError
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.SslErrorHandler
 import android.webkit.GeolocationPermissions
@@ -19,6 +20,12 @@ interface WebViewCallbacks {
     fun onPageStarted(view: WebView, url: String)
     fun onPageFinished(view: WebView, url: String)
     fun onProgressChanged(view: WebView, progress: Int)
+    fun onShowCustomView(
+        view: WebView,
+        customView: View,
+        callback: WebChromeClient.CustomViewCallback
+    )
+    fun onHideCustomView(view: WebView)
     fun onTitleChanged(view: WebView, title: String)
     fun onWebPermissionRequested(view: WebView, request: PermissionRequest)
     fun onWebPermissionRequestCanceled(request: PermissionRequest)
@@ -125,6 +132,17 @@ class WebViewFactory(private val context: Context) {
                 }
             }
             webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(
+                    view: View,
+                    callback: CustomViewCallback
+                ) {
+                    callbacks.onShowCustomView(this@apply, view, callback)
+                }
+
+                override fun onHideCustomView() {
+                    callbacks.onHideCustomView(this@apply)
+                }
+
                 override fun onCreateWindow(
                     view: WebView,
                     isDialog: Boolean,
