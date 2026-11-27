@@ -36,32 +36,11 @@ class VideoRetentionWorker(
             "RAIN"
         )
         val repository = VideoRepository(SqliteStorage(applicationContext), managedDirectory)
-        val expiredRecords = repository.findExpired(System.currentTimeMillis())
-        var deletedCount = 0
-
-        expiredRecords.forEach { record ->
-            runCatching {
-                val path = record.filePath
-                if (path.isBlank()) {
-                    if (repository.removeMetadata(record.id)) deletedCount++
-                    return@runCatching
-                }
-
-                val file = File(path)
-                if (!file.exists()) {
-                    if (repository.removeMetadata(record.id)) deletedCount++
-                    return@runCatching
-                }
-
-                if (!ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
-                    return@runCatching
-                }
-
-                if (file.delete() && repository.removeMetadata(record.id)) {
-                    deletedCount++
-                }
-            }
-        }
+        val deletedCount = VideoRetentionCleanup.removeExpired(
+            repository,
+            managedDirectory,
+            System.currentTimeMillis()
+        )
 
         postStorageWarningIfNeeded()
         Result.success(workDataOf("expired_videos_removed" to deletedCount))
