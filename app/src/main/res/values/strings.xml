@@ -144,4 +144,7 @@
     <string name="video_cancel_failed">Could not safely cancel this download.</string>
     <string name="video_retry">Retry download</string>
     <string name="video_retry_failed">Could not restart this download.</string>
+    <string name="video_storage_channel">RAIN storage</string>
+    <string name="video_storage_warning_title">Device storage is nearly full</string>
+    <string name="video_storage_warning_message">Review your offline videos and other files to free up space.</string>
 </resources>
