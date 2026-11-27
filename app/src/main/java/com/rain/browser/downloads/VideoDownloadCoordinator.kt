@@ -154,13 +154,21 @@ class VideoDownloadCoordinator(
                     id = recordId,
                     file = File(record.filePath)
                 )
-                if (ready == null || ready.status != VideoStatus.READY) {
-                    repository.markFailed(recordId, "Downloaded file failed RAIN verification.")
+                if (ready == null) {
+                    repository.markFailed(recordId, "Unable to finalize the downloaded video record.")
+                    return TransferSnapshot(
+                        VideoStatus.FAILED,
+                        snapshot.bytesDownloaded,
+                        snapshot.totalBytes,
+                        "Unable to finalize the downloaded video record."
+                    )
+                }
+                if (ready.status != VideoStatus.READY) {
                     return TransferSnapshot(
                         VideoStatus.FAILED_CORRUPTED,
                         snapshot.bytesDownloaded,
                         snapshot.totalBytes,
-                        "Downloaded file failed RAIN verification."
+                        ready.lastError
                     )
                 }
                 return TransferSnapshot(
