@@ -39,8 +39,10 @@ class VideoDownloadCoordinator(
     @Synchronized
     fun enqueue(record: VideoRecord, userAgent: String = ""): Long {
         require(record.status == VideoStatus.QUEUED) { "Only queued video records can be started." }
-        val source = validateSource(record.url)
-        val mime = normalizeVideoMime(record.mimeType)
+        val validatedSource = if (allowLoopbackForTests) null
+        else VideoSourceValidator.validate(record.url)
+        val source = validateSource(validatedSource?.finalUrl ?: record.url)
+        val mime = validatedSource?.mimeType ?: normalizeVideoMime(record.mimeType)
         val extension = if (mime == "video/webm") "webm" else "mp4"
         val fileName = "rain-video-${record.id}.$extension"
 
