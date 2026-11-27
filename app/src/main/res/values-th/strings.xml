@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">RAIN</string>
     <string name="address_hint">ค้นหาหรือป้อนเว็บไซต์</string>
+    <string name="browser_menu">เครื่องมือเบราว์เซอร์</string>
     <string name="action_go">ไป</string>
     <string name="action_back">ย้อนกลับ</string>
     <string name="action_forward">ถัดไป</string>

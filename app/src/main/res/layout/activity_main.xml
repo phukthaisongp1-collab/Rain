@@ -6,123 +6,103 @@
     android:orientation="vertical">
 
     <LinearLayout
-        android:layout_width="match_parent"
         android:id="@+id/top_toolbar"
-        android:layout_height="52dp"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
         android:background="#0869C8"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="10dp"
-        android:paddingEnd="8dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:text="🌧  RAIN Browser"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/mode_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingEnd="10dp"
-            android:text="@string/mode_mobile"
-            android:textColor="#EAF6FF"
-            android:textSize="11sp" />
-
-        <Button
-            android:id="@+id/tabs_button"
-            style="@style/RainButton"
-            android:layout_width="48dp"
-            android:layout_height="40dp"
-            android:backgroundTint="#E7F3FF"
-            android:textColor="#064B91"
-            android:text="1" />
-
-        <Button
-            android:id="@+id/new_tab_button"
-            style="@style/RainButton"
-            android:layout_width="42dp"
-            android:layout_height="40dp"
-            android:backgroundTint="#E7F3FF"
-            android:textColor="#064B91"
-            android:text="+" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:id="@+id/address_toolbar"
-        android:layout_height="58dp"
-        android:background="#E8F3FF"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="6dp"
+        android:paddingStart="8dp"
         android:paddingEnd="6dp">
 
-        <Button android:id="@+id/back_button" style="@style/RainButton" android:layout_width="38dp" android:text="‹" />
-        <Button android:id="@+id/forward_button" style="@style/RainButton" android:layout_width="38dp" android:text="›" />
-        <Button android:id="@+id/reload_button" style="@style/RainButton" android:layout_width="38dp" android:text="↻" />
-
-        <EditText
-            android:id="@+id/address_input"
+        <FrameLayout
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@drawable/rain_address_background"
-            android:hint="@string/address_hint"
-            android:imeOptions="actionGo"
-            android:inputType="textUri"
-            android:maxLines="1"
-            android:paddingStart="14dp"
-            android:paddingEnd="8dp"
-            android:selectAllOnFocus="true"
-            android:textColor="#173A60"
-            android:textColorHint="#6E849C"
-            android:textSize="14sp" />
+            android:foregroundGravity="center">
 
-        <Button
-            android:id="@+id/go_button"
-            style="@style/RainButton"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:text="↵" />
-    </LinearLayout>
+            <ImageView
+                android:id="@+id/rain_logo"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/app_name"
+                android:scaleType="fitCenter"
+                android:src="@mipmap/ic_launcher" />
+        </FrameLayout>
 
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:id="@+id/actions_toolbar"
-        android:layout_height="42dp"
-        android:background="#DCEEFF"
-        android:fillViewport="false"
-        android:scrollbars="none">
+        <View
+            android:id="@+id/camera_safe_space"
+            android:layout_width="44dp"
+            android:layout_height="match_parent" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="match_parent"
+            android:layout_weight="1"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp">
-            <Button android:id="@+id/home_button" style="@style/RainButton" android:text="@string/action_home" />
-            <Button android:id="@+id/search_engine_button" style="@style/RainButton" android:text="@string/action_search_engine" />
-            <Button android:id="@+id/bookmarks_button" style="@style/RainButton" android:text="@string/action_bookmarks" />
-            <Button android:id="@+id/history_button" style="@style/RainButton" android:text="@string/action_history" />
-            <Button android:id="@+id/private_button" style="@style/RainButton" android:text="@string/action_private" />
-            <Button android:id="@+id/protection_button" style="@style/RainButton" android:text="@string/action_protection" />
-            <Button android:id="@+id/permissions_button" style="@style/RainButton" android:text="@string/action_permissions" />
-            <Button android:id="@+id/resume_button" style="@style/RainButton" android:text="@string/action_resume" />
-            <Button android:id="@+id/settings_button" style="@style/RainButton" android:text="@string/action_settings" />
-            <Button android:id="@+id/desktop_button" style="@style/RainButton" android:text="@string/action_display_mode" />
-            <Button android:id="@+id/zoom_out_button" style="@style/RainButton" android:text="@string/action_zoom_out" />
-            <Button android:id="@+id/zoom_in_button" style="@style/RainButton" android:text="@string/action_zoom_in" />
-            <Button android:id="@+id/text_out_button" style="@style/RainButton" android:text="@string/action_text_out" />
-            <Button android:id="@+id/text_in_button" style="@style/RainButton" android:text="@string/action_text_in" />
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/address_input"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="@drawable/rain_address_background"
+                android:hint="@string/address_hint"
+                android:imeOptions="actionGo"
+                android:inputType="textUri"
+                android:maxLines="1"
+                android:paddingStart="12dp"
+                android:paddingEnd="8dp"
+                android:selectAllOnFocus="true"
+                android:textColor="#173A60"
+                android:textColorHint="#6E849C"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/menu_button"
+                android:layout_width="44dp"
+                android:layout_height="match_parent"
+                android:clickable="true"
+                android:contentDescription="@string/browser_menu"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="☰"
+                android:textColor="#FFFFFF"
+                android:textSize="25sp" />
         </LinearLayout>
-    </HorizontalScrollView>
+    </LinearLayout>
+
+        <TextView android:id="@+id/mode_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/actions_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <Button android:id="@+id/back_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_back" />
+        <Button android:id="@+id/forward_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_forward" />
+        <Button android:id="@+id/reload_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_reload" />
+        <Button android:id="@+id/home_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_home" />
+        <Button android:id="@+id/new_tab_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_new_tab" />
+        <Button android:id="@+id/tabs_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_tabs" />
+        <Button android:id="@+id/search_engine_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_search_engine" />
+        <Button android:id="@+id/desktop_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_display_mode" />
+        <Button android:id="@+id/zoom_out_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_zoom_out" />
+        <Button android:id="@+id/zoom_in_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_zoom_in" />
+        <Button android:id="@+id/text_out_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_text_out" />
+        <Button android:id="@+id/text_in_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_text_in" />
+        <Button android:id="@+id/private_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_private" />
+        <Button android:id="@+id/protection_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_protection" />
+        <Button android:id="@+id/permissions_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_permissions" />
+        <Button android:id="@+id/bookmarks_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_bookmarks" />
+        <Button android:id="@+id/history_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_history" />
+        <Button android:id="@+id/resume_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_resume" />
+        <Button android:id="@+id/settings_button" style="@style/RainButton" android:layout_width="wrap_content" android:text="@string/action_settings" />
+    </LinearLayout>
 
     <ProgressBar
         android:id="@+id/page_progress"
