@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">RAIN</string>
     <string name="address_hint">Search or enter website</string>
+    <string name="browser_menu">Browser tools</string>
     <string name="action_go">Go</string>
     <string name="action_back">Back</string>
     <string name="action_forward">Forward</string>
