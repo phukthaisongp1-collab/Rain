@@ -108,7 +108,6 @@ class Html5VideoDetectionProbeTest {
                 webViewRef.getAndSet(null)?.apply {
                     stopLoading()
                     webChromeClient = null
-                    webViewClient = null
                     destroy()
                 }
             }
