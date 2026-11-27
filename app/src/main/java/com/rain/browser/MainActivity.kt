@@ -17,6 +17,11 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
+import android.content.ClipData
+import android.speech.RecognizerIntent
+import android.widget.LinearLayout
+import org.json.JSONArray
+import org.json.JSONObject
 import android.content.Intent
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
@@ -88,6 +93,9 @@ class MainActivity : Activity(), WebViewCallbacks {
     private var lastWebProtectionView: WebView? = null
     private var lastWebProtectionDecision: WebProtectionManager.Decision? = null
     private var searchEngine = SearchEngine.DUCKDUCKGO
+
+    private data class HomeShortcut(val name: String, val url: String)
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -230,6 +238,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
                 escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
         }.ifBlank { "<li>" + getString(R.string.new_tab_no_bookmarks) + "</li>" }
+        val customShortcuts = buildHomeShortcutMarkup()
         val page = WELCOME_PAGE
             .replace("{{READY}}", escapeHtml(getString(R.string.new_tab_ready)))
             .replace("{{RECENT_TITLE}}", getString(R.string.new_tab_recent))
@@ -238,10 +247,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             .replace("{{NO_BOOKMARKS}}", getString(R.string.new_tab_no_bookmarks))
             .replace("{{RECENT}}", recentItems)
             .replace("{{BOOKMARKS}}", bookmarkItems)
-            .replace(
-                "{{SEARCH_ACTION}}",
-                if (searchEngine == SearchEngine.GOOGLE) "https://www.google.com/search" else "https://duckduckgo.com/"
-            )
+            .replace("{{CUSTOM_SHORTCUTS}}", customShortcuts)
         webView.loadDataWithBaseURL(null, page, "text/html", "UTF-8", null)
     }
 
@@ -326,6 +332,148 @@ class MainActivity : Activity(), WebViewCallbacks {
             createTab()
         } else {
             showActiveTab()
+        }
+    }
+
+    private fun openHomeSearch(query: String) {
+        if (query.isBlank()) {
+            Toast.makeText(this, "Enter a search or website address", Toast.LENGTH_SHORT).show()
+            return
+        }
+        addressInput.setText(query)
+        openAddress()
+    }
+
+    private fun launchVoiceSearch() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        try {
+            startActivityForResult(intent, REQUEST_VOICE_SEARCH)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "No speech recognition service is available on this device", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun launchVisualSearch() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        try {
+            startActivityForResult(Intent.createChooser(intent, "Choose an image"), REQUEST_IMAGE_PICKER)
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "No image picker is available on this device", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun shareImageForVisualSearch(imageUri: Uri) {
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "image/*"
+            putExtra(Intent.EXTRA_STREAM, imageUri)
+            clipData = ClipData.newUri(contentResolver, "Selected image", imageUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(Intent.createChooser(shareIntent, "Search image with Google Lens or another app"))
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "No app can receive the selected image", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showAddShortcutDialog() {
+        val nameInput = EditText(this).apply {
+            hint = "Website name"
+            setSingleLine(true)
+        }
+        val urlInput = EditText(this).apply {
+            hint = "https://example.com"
+            setSingleLine(true)
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val horizontalPadding = (20 * resources.displayMetrics.density).toInt()
+            setPadding(horizontalPadding, 8, horizontalPadding, 0)
+            addView(nameInput)
+            addView(urlInput)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Add website shortcut")
+            .setView(content)
+            .setPositiveButton("Save") { _, _ ->
+                val name = nameInput.text.toString().trim()
+                val rawUrl = urlInput.text.toString().trim()
+                val resolvedUrl = BrowserUrlResolver.resolve(rawUrl, searchEngine)
+                val parsed = Uri.parse(resolvedUrl)
+                if (name.isBlank() || !com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(resolvedUrl) ||
+                    parsed.host.isNullOrBlank() || resolvedUrl.contains("?q=")
+                ) {
+                    Toast.makeText(this, "Enter a name and a valid website address", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                val shortcuts = readHomeShortcuts().toMutableList()
+                if (shortcuts.any { it.url.equals(resolvedUrl, ignoreCase = true) }) {
+                    Toast.makeText(this, "This website is already a shortcut", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                shortcuts.add(HomeShortcut(name, resolvedUrl))
+                saveHomeShortcuts(shortcuts)
+                tabManager.activeTab?.webView?.let(::showWelcomePage)
+                Toast.makeText(this, "Shortcut added", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun readHomeShortcuts(): List<HomeShortcut> {
+        val raw = getSharedPreferences(HOME_SHORTCUTS_PREFS, MODE_PRIVATE)
+            .getString(HOME_SHORTCUTS_KEY, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val name = item.optString("name").trim()
+                    val url = item.optString("url").trim()
+                    if (name.isNotBlank() && com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(url)) {
+                        add(HomeShortcut(name, url))
+                    }
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun saveHomeShortcuts(shortcuts: List<HomeShortcut>) {
+        val array = JSONArray()
+        shortcuts.forEach { shortcut ->
+            array.put(JSONObject().put("name", shortcut.name).put("url", shortcut.url))
+        }
+        getSharedPreferences(HOME_SHORTCUTS_PREFS, MODE_PRIVATE)
+            .edit()
+            .putString(HOME_SHORTCUTS_KEY, array.toString())
+            .apply()
+    }
+
+    private fun buildHomeShortcutMarkup(): String =
+        readHomeShortcuts().joinToString("") { shortcut ->
+            "<a class=\"shortcut custom-shortcut\" href=\"" + escapeHtml(shortcut.url) + "\">" +
+                "<span class=\"shortcut-icon\">↗</span><span>" +
+                escapeHtml(shortcut.name) + "</span></a>"
+        }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK || data == null) return
+        when (requestCode) {
+            REQUEST_VOICE_SEARCH -> {
+                val spokenText = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                    ?.firstOrNull().orEmpty()
+                if (spokenText.isNotBlank()) openHomeSearch(spokenText)
+            }
+            REQUEST_IMAGE_PICKER -> data.data?.let(::shareImageForVisualSearch)
         }
     }
 
@@ -1097,6 +1245,16 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     override fun onNavigationRequested(view: WebView, url: String) {
+        if (url.startsWith("rain://", ignoreCase = true)) {
+            val uri = Uri.parse(url)
+            when (uri.host) {
+                "search" -> openHomeSearch(uri.getQueryParameter("q").orEmpty())
+                "voice" -> launchVoiceSearch()
+                "visual-search" -> launchVisualSearch()
+                "add-shortcut" -> showAddShortcutDialog()
+            }
+            return
+        }
         val tab = tabManager.findByWebView(view) ?: return
         val desktop = isDesktopForUrl(url)
         applyDesktopSettings(view, desktop)
@@ -1254,7 +1412,11 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val STATE_DESKTOP = "rain_state_desktop"
         const val REQUEST_SITE_PERMISSION = 4101
         const val REQUEST_GEOLOCATION = 4102
+        const val REQUEST_VOICE_SEARCH = 4103
+        const val REQUEST_IMAGE_PICKER = 4104
         const val HISTORY_DAY_MILLIS = 24L * 60 * 60 * 1000
+        const val HOME_SHORTCUTS_PREFS = "rain_home_shortcuts"
+        const val HOME_SHORTCUTS_KEY = "items"
 
         const val WELCOME_PAGE = """
             <!doctype html>
@@ -1405,10 +1567,11 @@ class MainActivity : Activity(), WebViewCallbacks {
                                 <path d="M 583,890 L 605,962 L 618,960 L 635,910 L 653,961 L 666,960 L 687,895 L 686,889 L 675,891 L 661,944 L 657,942 L 640,889 L 629,890 L 611,943 L 595,891 Z M 1072,888 L 1052,895 L 1047,889 L 1036,890 L 1038,962 L 1046,962 L 1048,958 L 1048,914 L 1057,904 L 1073,900 Z M 906,890 L 893,903 L 889,913 L 888,931 L 892,945 L 902,957 L 916,963 L 933,963 L 945,958 L 955,947 L 955,940 L 946,940 L 935,950 L 921,952 L 904,943 L 902,932 L 958,930 L 959,916 L 954,903 L 945,893 L 933,888 Z M 902,913 L 913,901 L 930,899 L 943,910 L 945,917 L 906,919 Z M 769,890 L 759,901 L 761,919 L 770,927 L 798,935 L 802,945 L 793,952 L 781,952 L 766,942 L 758,942 L 758,948 L 767,959 L 777,963 L 802,961 L 815,948 L 814,933 L 802,924 L 776,916 L 770,906 L 779,899 L 793,899 L 802,909 L 811,910 L 813,903 L 807,894 L 795,888 Z M 465,889 L 449,901 L 443,914 L 442,932 L 447,945 L 460,960 L 486,963 L 500,957 L 511,945 L 515,933 L 513,911 L 508,901 L 492,889 Z M 472,899 L 490,901 L 501,916 L 499,940 L 485,951 L 472,951 L 458,942 L 457,912 Z M 373,888 L 359,890 L 353,895 L 347,889 L 336,891 L 338,962 L 349,960 L 349,914 L 358,903 L 373,900 Z M 249,870 L 237,866 L 190,866 L 192,962 L 239,962 L 250,958 L 257,949 L 260,931 L 249,911 L 258,898 L 259,887 Z M 202,922 L 209,917 L 236,918 L 246,926 L 248,942 L 233,951 L 206,951 L 202,947 Z M 203,879 L 240,879 L 247,887 L 247,894 L 238,906 L 207,908 L 202,904 Z M 3,503 L 2,830 L 79,831 L 93,825 L 112,809 L 119,786 L 119,503 Z" fill="#123f72" fill-rule="evenodd"/>
                             </svg>
                         </div>
-                        <form class="search" action="{{SEARCH_ACTION}}" method="get" role="search">
+                        <form class="search" action="rain://search" method="get" role="search">
                             <span class="search-icon" aria-hidden="true">⌕</span>
                             <input name="q" type="search" autocomplete="off" placeholder="Search the web..." aria-label="Search the web">
-                            <button class="mic" type="button" aria-label="Voice search">🎙</button>
+                            <a class="mic" href="rain://voice" aria-label="Voice search">🎙</a>
+                            <a class="mic" href="rain://visual-search" aria-label="Search by image">▧</a>
                             <button class="search-submit" type="submit" aria-label="Search">⌕</button>
                         </form>
                         <nav class="shortcuts" aria-label="Favorite websites">
@@ -1417,7 +1580,8 @@ class MainActivity : Activity(), WebViewCallbacks {
                             <a class="shortcut" href="https://www.facebook.com/"><span class="shortcut-icon facebook">f</span><span>Facebook</span></a>
                             <a class="shortcut" href="https://x.com/"><span class="shortcut-icon xbrand">𝕏</span><span>X</span></a>
                             <a class="shortcut" href="https://www.instagram.com/"><span class="shortcut-icon instagram">◎</span><span>Instagram</span></a>
-                            <span class="shortcut" aria-label="Add shortcut"><span class="shortcut-icon add">+</span><span>Add</span></span>
+                            {{CUSTOM_SHORTCUTS}}
+                            <a class="shortcut" href="rain://add-shortcut" aria-label="Add shortcut"><span class="shortcut-icon add">+</span><span>Add</span></a>
                         </nav>
                         <section class="features" aria-label="RAIN Browser features">
                             <div class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0756a8" d="M13.4 1.5 4.8 13h5.8l-.8 9.5L19.2 9h-6.1z"/></svg></span><span>Fast<br>Browsing</span></div>
