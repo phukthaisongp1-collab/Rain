@@ -23,15 +23,22 @@ The Day 17 target is implementation completion plus automated validation where t
 | Platform probe | `VideoDownloadManagerInstrumentedTest.kt` | Synthetic loopback direct HTTP tests for completion/progress/cancel only |
 | CI | `.github/workflows/android-build.yml` | Lint/unit/build, Android 16 emulator probes and app smoke |
 
-## Required code still missing
+## Implementation added on the Day 17 branch
 
-1. Native video transfer orchestration around Android `DownloadManager`: enqueue, persist request ID/destination, query status/progress, cancel, retry, reconcile after process restart, and safely promote a completed file to READY.
-2. Production transfer tests: persistence/reconciliation, failed/canceled requests, unsafe URLs, content/container mismatch, duplicate request handling, and recovery after Activity/process recreation where Android permits.
-3. Video Library integration: live progress/status, cancel/retry actions, refresh/reconcile, thumbnails and metadata where safely extractable, and robust manual deletion ordering.
-4. Scheduled retention cleanup using the approved persistent background-work mechanism; delete only expired, unliked files inside the managed directory, then remove metadata. Liked and unrelated files must never be deleted.
-5. Nearly-full-storage warning based on Android storage statistics, without introducing a hard quota or automatic deletion outside the retention rule.
-6. WebView media observation and native final decision. JS-provided fields remain untrusted; only a main-frame, user-initiated direct HTTP(S) media source can be considered. Reject Blob/MSE opaque sources, DRM, inaccessible content, authentication/token/paywall restrictions, and uncertain/ad-classification states.
-7. Integration and regression tests proving normal file/APK downloads and existing browsing behavior remain unchanged.
+- Added `VideoDownloadCoordinator` to enqueue direct MP4/WebM transfers with Android DownloadManager, persist the managed destination/request ID, query progress, reconcile requests, cancel, retry, and verify the completed container before READY.
+- Connected the RAIN Video Library to periodic status refresh, progress display, cancel, and retry controls.
+- Added repository state transitions and unit tests for managed destinations, cancel/retry, and preservation of unrelated files during retention cleanup.
+- Added `VideoRetentionCleanup` and a persistent daily WorkManager worker. It only removes expired, unliked records whose files are inside the managed directory; missing-file metadata can be cleaned, while outside-path files are left untouched.
+- Added a low-storage notification with a 500 MiB / 10% free-space threshold and a 24-hour notification cooldown. It is skipped if Android notification permission is not granted.
+- Added a native fail-closed `VideoDetectionPolicy` and unit tests. It requires a user gesture, main-frame signal, stable direct source, explicit non-ad state, MP4/WebM MIME, and corroborating metadata; duration alone is insufficient.
+
+## Required code/evidence still missing
+
+1. A production WebView video-signal bridge and user-facing Download/Close popup are not yet connected. This remains gated by the A1 real-site feasibility evidence; the current policy is isolated and is not yet a production capture path.
+2. Native source preflight must validate DNS/IPs, redirect chain, response status, content type, range behavior, and MP4/WebM signature without forwarding cookies or credentials. The coordinator currently performs basic URL and IP-literal checks; it does not yet prove redirect/DNS safety.
+3. Full file integrity and media metadata extraction (duration, thumbnail) are not yet complete; signature recognition is only an initial format gate.
+4. Additional Android 16 instrumentation must cover the production coordinator, retry, process restart/recovery, retention worker behavior, and generic download/APK regression.
+5. Integration and regression evidence must confirm existing browsing behavior and normal file/APK downloads remain unchanged.
 
 ## A1 gate — still blocking real-site production detection claims
 
