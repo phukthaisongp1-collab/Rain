@@ -3,6 +3,8 @@ package com.rain.browser.downloads
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 /**
@@ -40,7 +42,11 @@ object VideoSourceValidator {
                     require(redirectCount < MAX_REDIRECTS) { "Video source exceeded the redirect limit." }
                     val location = connection.getHeaderField("Location")
                         ?: throw IllegalArgumentException("Video source redirect has no destination.")
-                    current = validatePublicUrl(current.resolve(location).toString(), allowLoopbackForTests)
+                    val redirected = validatePublicUrl(current.resolve(location).toString(), allowLoopbackForTests)
+                    require(!current.scheme.equals("https", true) || redirected.scheme.equals("https", true)) {
+                        "Video source redirects cannot downgrade HTTPS to HTTP."
+                    }
+                    current = redirected
                     return@repeat
                 }
 
@@ -133,7 +139,11 @@ object VideoSourceValidator {
             "signature", "sig", "policy", "credential", "session", "cookie"
         )
         return uri.rawQuery.orEmpty().split('&').any { component ->
-            component.substringBefore('=').lowercase(Locale.ROOT) in blocked
+            val rawName = component.substringBefore('=')
+            val decodedName = runCatching {
+                URLDecoder.decode(rawName, StandardCharsets.UTF_8.name())
+            }.getOrDefault(rawName)
+            decodedName.lowercase(Locale.ROOT) in blocked
         }
     }
 
