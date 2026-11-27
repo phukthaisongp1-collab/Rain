@@ -56,8 +56,16 @@ object VideoSourceValidator {
 
                 if (responseCode == HttpURLConnection.HTTP_PARTIAL) {
                     val contentRange = connection.getHeaderField("Content-Range").orEmpty()
-                    require(CONTENT_RANGE.matches(contentRange)) {
-                        "Video source returned an invalid byte range."
+                    val match = CONTENT_RANGE.matchEntire(contentRange)
+                        ?: throw IllegalArgumentException("Video source returned an invalid byte range.")
+                    val endOffset = match.groupValues[1].toLong()
+                    val totalValue = match.groupValues[2]
+                    require(totalValue == "*" || endOffset < totalValue.toLong()) {
+                        "Video source returned an inconsistent byte range."
+                    }
+                    val responseLength = connection.contentLengthLong
+                    require(responseLength < 0L || responseLength == endOffset + 1L) {
+                        "Video source byte range length does not match its response body."
                     }
                 }
 
@@ -154,5 +162,5 @@ object VideoSourceValidator {
     private const val MIN_CONTAINER_BYTES = 8L
     private const val MAX_HEADER_LENGTH = 1_024
     private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
-    private val CONTENT_RANGE = Regex("bytes 0-[0-9]+/(?:[0-9]+|\\*)", RegexOption.IGNORE_CASE)
+    private val CONTENT_RANGE = Regex("bytes 0-([0-9]+)/([0-9]+|\\*)", RegexOption.IGNORE_CASE)
 }
