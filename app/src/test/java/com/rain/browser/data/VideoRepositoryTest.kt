@@ -65,6 +65,46 @@ class VideoRepositoryTest {
     }
 
     @Test
+    fun persistsManagedDestinationAndSupportsCancelThenRetry() {
+        val storage = FakeStorage()
+        val directory = Files.createTempDirectory("rain-video-retry").toFile()
+        try {
+            val repository = VideoRepository(storage, directory)
+            val queued = repository.enqueue("https://media.example.test/video.mp4", "Retry video", now = 1L)
+            val destination = File(directory, "retry.mp4")
+            assertEquals(destination.canonicalPath, repository.setDestination(queued.id, destination, 2L)?.filePath)
+
+            val downloading = repository.updateTransfer(queued.id, 99L, 12L, 100L, now = 3L)
+            assertEquals(VideoStatus.DOWNLOADING, downloading?.status)
+            val canceled = repository.markCanceled(queued.id, 4L)
+            assertEquals(VideoStatus.CANCELED, canceled?.status)
+            assertNull(canceled?.downloadId)
+
+            val retried = repository.resetForRetry(queued.id, 5L)
+            assertEquals(VideoStatus.QUEUED, retried?.status)
+            assertEquals(0L, retried?.bytesDownloaded)
+            assertTrue(retried?.filePath.isNullOrEmpty())
+            assertNull(retried?.downloadId)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun refusesDestinationOutsideManagedDirectory() {
+        val directory = Files.createTempDirectory("rain-video-root").toFile()
+        val outside = Files.createTempDirectory("rain-video-outside-destination").toFile()
+        try {
+            val repository = VideoRepository(FakeStorage(), directory)
+            val queued = repository.enqueue("https://media.example.test/video.mp4", "Video", now = 1L)
+            assertNull(repository.setDestination(queued.id, File(outside, "outside.mp4"), 2L))
+        } finally {
+            directory.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsUnsafeSourceUrls() {
         val repository = VideoRepository(FakeStorage(), Files.createTempDirectory("rain-video-url").toFile())
         val error = runCatching {
