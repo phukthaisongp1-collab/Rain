@@ -290,6 +290,121 @@ class Html5VideoDetectionProbeTest {
         }
     }
 
+    @Test
+    fun observesPreRollAdToMainVideoTransitionWithoutClassifyingMainContent() {
+        val snapshots = loadSignalSnapshots(
+            """
+            <!doctype html>
+            <html><body>
+              <div id="player">
+                <div id="ad-marker" role="status" aria-label="Advertisement">Advertisement</div>
+                <video id="video" controls src="https://media.example.invalid/preroll.mp4"></video>
+              </div>
+            </body></html>
+            """.trimIndent(),
+            """
+            document.getElementById('ad-marker').remove();
+            document.getElementById('video').src =
+                'https://media.example.invalid/main-content.mp4';
+            """
+        )
+
+        val before = snapshots.first.getJSONObject(0)
+        val after = snapshots.second.getJSONObject(0)
+        assertTrue(before.getJSONArray("adIndicators").length() > 0)
+        assertEquals("https://media.example.invalid/preroll.mp4", before.getString("src"))
+        assertEquals(0, after.getJSONArray("adIndicators").length())
+        assertEquals("https://media.example.invalid/main-content.mp4", after.getString("src"))
+        // Losing an ad marker is not proof that the new source is permitted or is main content.
+        assertFalse(after.has("isAd"))
+        assertFalse(after.has("isMainContent"))
+        assertFalse(after.has("downloadAllowed"))
+    }
+
+    @Test
+    fun observesMidRollAdMarkerAppearingWithoutChangingDownloadDecision() {
+        val snapshots = loadSignalSnapshots(
+            """
+            <!doctype html>
+            <html><body>
+              <div id="player">
+                <video id="video" controls
+                  src="https://media.example.invalid/main-content.mp4"></video>
+              </div>
+            </body></html>
+            """.trimIndent(),
+            """
+            var marker = document.createElement('div');
+            marker.setAttribute('role', 'status');
+            marker.setAttribute('aria-label', 'Advertisement');
+            marker.textContent = 'Advertisement';
+            document.getElementById('player').appendChild(marker);
+            """
+        )
+
+        val before = snapshots.first.getJSONObject(0)
+        val during = snapshots.second.getJSONObject(0)
+        assertEquals(0, before.getJSONArray("adIndicators").length())
+        assertTrue(during.getJSONArray("adIndicators").length() > 0)
+        assertEquals(before.getString("src"), during.getString("src"))
+        assertFalse(during.has("isAd"))
+        assertFalse(during.has("isMainContent"))
+        assertFalse(during.has("downloadAllowed"))
+    }
+
+    private fun loadSignalSnapshots(html: String, mutationScript: String): Pair<JSONArray, JSONArray> {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val snapshots = AtomicReference<Pair<String, String>>()
+        val completed = CountDownLatch(1)
+        val webViewRef = AtomicReference<WebView>()
+
+        instrumentation.runOnMainSync {
+            val webView = WebView(instrumentation.targetContext)
+            webView.settings.javaScriptEnabled = true
+            webView.webChromeClient = WebChromeClient()
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(VIDEO_SIGNAL_SCRIPT) { beforeValue ->
+                        view.evaluateJavascript(mutationScript) {
+                            view.evaluateJavascript(VIDEO_SIGNAL_SCRIPT) { afterValue ->
+                                if (snapshots.compareAndSet(null, beforeValue to afterValue)) {
+                                    completed.countDown()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            webViewRef.set(webView)
+            webView.loadDataWithBaseURL(
+                "https://fixture.example.invalid/",
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
+
+        try {
+            assertTrue("WebView signal snapshots did not complete", completed.await(10, TimeUnit.SECONDS))
+            val values = snapshots.get() ?: error("WebView returned no signal snapshots")
+            fun decode(value: String): JSONArray {
+                val decoded = JSONTokener(value).nextValue() as? String
+                    ?: error("WebView returned an invalid JSON string")
+                return JSONArray(decoded)
+            }
+            return decode(values.first) to decode(values.second)
+        } finally {
+            instrumentation.runOnMainSync {
+                webViewRef.getAndSet(null)?.apply {
+                    stopLoading()
+                    webChromeClient = null
+                    destroy()
+                }
+            }
+        }
+    }
+
     private fun loadSignals(html: String): JSONArray {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val result = AtomicReference<String>()
