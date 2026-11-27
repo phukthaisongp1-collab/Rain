@@ -320,7 +320,7 @@ class VideoDownloadCoordinator(
 
     private companion object {
         const val MAX_USER_AGENT_LENGTH = 512
-        val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING)
+        val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
         val IPV4_LITERAL = Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$")
     }
 }
