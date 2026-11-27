@@ -50,6 +50,13 @@ class VideoDownloadCoordinator(
         }
         check(managedDirectory.isDirectory) { "RAIN video storage is not a directory." }
 
+        val externalMoviesDirectory = appContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+            ?: throw IllegalStateException("Android DownloadManager requires app-specific external Movies storage.")
+        val expectedManagedDirectory = File(externalMoviesDirectory, "RAIN").canonicalFile
+        check(managedDirectory.canonicalFile == expectedManagedDirectory) {
+            "Video storage does not match the Android DownloadManager destination."
+        }
+
         val destination = File(managedDirectory, fileName)
         check(ManagedVideoPathPolicy.isManagedFile(managedDirectory, destination)) {
             "Video destination is outside RAIN-managed storage."
