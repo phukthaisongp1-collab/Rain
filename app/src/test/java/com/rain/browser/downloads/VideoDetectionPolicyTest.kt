@@ -55,6 +55,14 @@ class VideoDetectionPolicyTest {
     }
 
     @Test
+    fun requiresExplicitNonAdStateAndFailsClosedWhenUnknown() {
+        assertEquals(
+            VideoDetectionPolicy.Decision.NEED_MORE_EVIDENCE,
+            VideoDetectionPolicy.evaluate(validSignals().copy(adStatus = null))
+        )
+    }
+
+    @Test
     fun durationAloneCannotEstablishMainContent() {
         assertEquals(
             VideoDetectionPolicy.Decision.NEED_MORE_EVIDENCE,
