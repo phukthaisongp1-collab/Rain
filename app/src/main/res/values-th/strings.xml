@@ -115,4 +115,28 @@
     <string name="protection_false_positive_note">การรายงานผลบวกลวงจะแชร์ผ่านเมนูแชร์ของ Android โดย RAIN จะไม่อัปโหลดรายงานโดยอัตโนมัติ</string>
 
     <string name="protection_default_reason">เปิดใช้ Android WebView Safe Browsing แล้ว แต่ยังไม่ได้เชื่อมต่อแหล่งข้อมูลภัยคุกคามภายนอก</string>
+
+    <string name="action_videos">วิดีโอออฟไลน์</string>
+    <string name="video_library_title">คลังวิดีโอ RAIN</string>
+    <string name="video_library_empty">ยังไม่มีวิดีโอออฟไลน์</string>
+    <string name="video_library_description">วิดีโอที่บันทึกใน RAIN จะจัดเก็บไว้ในอุปกรณ์นี้</string>
+    <string name="video_status_ready">พร้อมเล่นแบบออฟไลน์</string>
+    <string name="video_status_downloading">กำลังดาวน์โหลด</string>
+    <string name="video_status_queued">อยู่ในคิว</string>
+    <string name="video_status_failed">ดาวน์โหลดไม่สำเร็จ</string>
+    <string name="video_status_corrupted">ตรวจสอบไฟล์ไม่ผ่าน</string>
+    <string name="video_status_canceled">ยกเลิกแล้ว</string>
+    <string name="video_status_verifying">กำลังตรวจสอบไฟล์</string>
+    <string name="video_play">เล่นแบบออฟไลน์</string>
+    <string name="video_like">ถูกใจ</string>
+    <string name="video_unlike">เลิกถูกใจ</string>
+    <string name="video_delete">ลบ</string>
+    <string name="video_delete_confirm">ต้องการลบวิดีโอออฟไลน์นี้ออกจากอุปกรณ์หรือไม่</string>
+    <string name="video_delete_failed">ไม่สามารถลบไฟล์วิดีโอนี้ได้อย่างปลอดภัย</string>
+    <string name="video_play_failed">ไม่สามารถเล่นวิดีโอนี้ได้</string>
+    <string name="video_refresh">รีเฟรช</string>
+    <string name="video_downloaded_at">บันทึกเมื่อ: %1$s</string>
+    <string name="video_expires_at">ครบกำหนดเก็บรักษา: %1$s</string>
+    <string name="video_liked_keep">วิดีโอที่กดถูกใจจะถูกเก็บไว้จนกว่าคุณจะนำเครื่องหมายถูกใจออก</string>
+    <string name="video_file_missing">ไม่พบไฟล์วิดีโอ ต้องการนำรายการนี้ออกจากคลังหรือไม่</string>
 </resources>
