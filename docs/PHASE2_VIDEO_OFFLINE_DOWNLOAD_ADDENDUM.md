@@ -1,177 +1,174 @@
 # RAIN Browser — Phase 2 Addendum
 ## Video Offline Download System
 
-> สถานะ: ข้อกำหนดเพิ่มเติมของ Phase 2 ตามความต้องการเจ้าของโครงการ วันที่ 2026-11-27
-> Platform: Android
+> สถานะ: ข้อกำหนดและแนวทางหลักที่เจ้าของโครงการยืนยัน วันที่ 2026-11-27
+> Platform: Android 16 / API 36+
 > Engine: Android WebView เดิม
-> หลักการ: ต่อยอดระบบ Download และ WebView เดิม ไม่สร้าง Browser Engine หรือ Download Manager ซ้ำ
-> หมายเหตุ: เอกสารนี้เป็นการเพิ่มรายละเอียดแผน ยังไม่ใช่คำสั่งเริ่ม implementation โดยอัตโนมัติ
+> Priority: Workstream ลำดับแรกของ Phase 2 ก่อน Private Browsing
+> หลักการ: ต่อยอดระบบ Download และ Storage เดิม ไม่สร้าง Browser Engine หรือ Download Manager ซ้ำ
+> หมายเหตุ: เอกสารนี้เป็นแผนและข้อกำหนด ไม่ใช่คำสั่งให้เริ่ม implementation เต็มรูปแบบ; ต้องผ่าน Source Audit และ Feasibility Gates ก่อน
 
 ---
 
-## 1. เป้าหมาย
+## 1. เป้าหมายผลิตภัณฑ์
 
-เพิ่มความสามารถให้ผู้ใช้ดาวน์โหลดวิดีโอจากหน้าเว็บไซต์ที่กำลังเปิดใน RAIN เก็บไว้ในอุปกรณ์ และกลับมาเปิดดูได้โดยไม่ต้องเชื่อมต่ออินเทอร์เน็ต โดยมีประสบการณ์ใช้งานคล้ายคลังวิดีโอ Downloads ของ YouTube
+ให้ผู้ใช้ดาวน์โหลดวิดีโอจากหน้าเว็บไซต์ที่กำลังเปิดใน RAIN เก็บไว้ในอุปกรณ์ และกลับมาเปิดดูได้โดยไม่ต้องเชื่อมต่ออินเทอร์เน็ต โดยมีประสบการณ์คลังวิดีโอใกล้เคียง YouTube Downloads แต่ใช้ RAIN branding
 
-หลักการผลิตภัณฑ์ที่เจ้าของโครงการกำหนด:
+หลักการที่เจ้าของโครงการกำหนด: **วิดีโอใดที่ RAIN เล่นได้และแหล่งเว็บไซต์อนุญาตให้บันทึกได้ ให้ผู้ใช้มีทางเลือกดาวน์โหลดเพื่อดูแบบออฟไลน์** ทั้งนี้ การเล่นและการเข้าถึงไฟล์สำหรับดาวน์โหลดเป็นคนละความสามารถ จึงไม่รับประกันว่าวิดีโอทุกชนิดที่เล่นได้จะดาวน์โหลดได้
 
-**วิดีโอใดที่ RAIN เล่นได้และแหล่งเว็บไซต์อนุญาตให้บันทึกได้ ให้ผู้ใช้มีทางเลือกดาวน์โหลดเพื่อดูแบบออฟไลน์**
+## 2. ข้อกำหนดฟังก์ชัน
 
-ข้อความนี้ไม่ใช่การรับประกันว่าวิดีโอทุกชนิดที่เล่นได้จะต้องสามารถดาวน์โหลดเป็นไฟล์ได้ เพราะการเล่นและสิทธิ์/วิธีการส่งมอบไฟล์เป็นคนละความสามารถกัน
+### 2.1 Video Detection และ Popup
 
-## 2. ขอบเขตความสามารถ
+- ตรวจจับวิดีโอจากหน้าเว็บปัจจุบันเมื่อผู้ใช้เริ่มเล่น โดยใช้ Hybrid Detection: HTML5/player context ร่วมกับ network/resource signals ที่ WebView เปิดเผยได้
+- JavaScript ส่งเฉพาะสัญญาณขั้นต่ำ เช่น playback state, duration, dimensions, visibility และ metadata ประกอบที่ไม่อ่อนไหว; Native เป็นผู้ประเมินและตัดสินใจขั้นสุดท้าย
+- ห้ามสมมติว่า `shouldInterceptRequest` เห็น media requests ทุกชนิด และห้ามเชื่อถือ URL ที่มาจาก JavaScript โดยตรง
+- แยกโฆษณาด้วยหลายสัญญาณ เช่น player ad state, Advertisement/Skip Ad indicators, source/title/poster changes และ page context; ห้ามใช้ duration เป็นเกณฑ์ตัดสินเดี่ยว
+- ใช้ stability check หลังพบ candidate; ช่วง 3–5 วินาทีเป็นค่าเริ่มต้นสำหรับ PoC ที่ต้องปรับตามผลทดสอบ ไม่ใช่กฎตายตัว
+- ถ้าเป็นโฆษณา, ข้อมูลขัดแย้ง, ไม่แน่ใจ หรือไม่มีแหล่งดาวน์โหลดที่อนุญาต ให้ fail closed และไม่แสดง Popup
+- เมื่อยืนยันได้ ให้แสดง Popup ขนาดเล็ก มี thumbnail/title เมื่อหาได้ พร้อม Download และ Close; Close ปิดเฉพาะ Popup และไม่หยุด playback
+- ไม่แสดง Popup ซ้ำสำหรับวิดีโอเดิมหลังผู้ใช้ปิดหรือเริ่มดาวน์โหลด; แสดงใหม่เมื่อพบวิดีโอใหม่ที่ยืนยันได้เท่านั้น
 
-### 2.1 ตรวจจับและเสนอการดาวน์โหลด
-- ตรวจสอบแหล่งวิดีโอจากหน้าเว็บที่ผู้ใช้เปิดอยู่ โดยใช้กลไกที่ WebView และเว็บไซต์อนุญาต
-- แสดงคำสั่งดาวน์โหลดเมื่อพบแหล่งวิดีโอที่รองรับจริง
-- รองรับลิงก์ไฟล์วิดีโอโดยตรง เช่น MP4 และ WebM
-- ประเมินการรองรับสตรีมมิง เช่น HLS/DASH เป็นรายรูปแบบและรายเว็บไซต์ เฉพาะกรณีที่สามารถบันทึกได้อย่างถูกต้องและได้รับอนุญาต
-- ไม่แสดงปุ่มดาวน์โหลดที่กดได้ หากยังไม่มีวิธีดาวน์โหลดจริงสำหรับ resource นั้น
-- ไม่ดึง URL หรือข้อมูลลับออกจากระบบป้องกันของเว็บไซต์ และไม่ทำให้การเข้าถึงที่เว็บไซต์จำกัดกลายเป็นการดาวน์โหลดที่ไม่ได้รับอนุญาต
+### 2.2 Supported Media / Quality
 
-### 2.2 ตัวเลือกก่อนดาวน์โหลด
-- แสดงชื่อวิดีโอหรือชื่อไฟล์ที่ตรวจสอบได้
-- แสดงตัวเลือกความละเอียด/คุณภาพเมื่อแหล่งข้อมูลมีตัวเลือกจริง
-- แสดงขนาดโดยประมาณเมื่อสามารถอ่านได้; หากไม่ทราบต้องระบุว่าไม่ทราบ ไม่สร้างค่าประมาณเทียม
-- ให้ผู้ใช้ยืนยันก่อนเริ่มดาวน์โหลดตามนโยบาย Download ของ RAIN
-- ใช้การเชื่อมต่อและข้อกำหนดการยืนยันที่เหมาะสมกับ resource นั้น
+- Initial supported target: direct single-file MP4/WebM
+- เลือกคุณภาพเฉพาะเมื่อ source มีตัวเลือกจริง; ไม่สร้าง quality หรือ file size เทียม
+- Initial scope ตรวจพบ/จัดประเภท HLS/DASH ได้เมื่อข้อมูลเปิดเผย แต่ยังไม่ดาวน์โหลด; การเพิ่ม clear HLS/DASH เป็นงานย่อยที่ต้องประเมินและอนุมัติแยก
+- ไม่ bypass/decrypt DRM, Widevine/PlayReady, encryption, paywall, authentication/token restrictions หรือข้อจำกัดเว็บไซต์
+- MSE/Blob, cross-origin iframe หรือ Player ที่ไม่เปิดเผย source อาจตรวจพบ/ดาวน์โหลดไม่ได้ ต้องรายงานข้อจำกัดตามหลักฐาน
+- ไม่รับประกัน universal website support
 
-### 2.3 การจัดการงานดาวน์โหลด
-- ต่อยอด Download Manager, DownloadListener, repository และ storage เดิมหลังจากตรวจ Source Code
-- แสดงสถานะ queued / downloading / completed / failed ตามสถานะจริง
-- แสดงความคืบหน้าและขนาดเมื่อแหล่งข้อมูลรายงานได้
-- รองรับ pause/resume เฉพาะเมื่อกลไกต้นทางและระบบดาวน์โหลดรองรับจริง
-- รองรับ cancel, retry เมื่อเหมาะสม และลบรายการ
-- จัดการกรณีพื้นที่ไม่พอ, network หลุด, URL หมดอายุ, HTTP error, permission ถูกปฏิเสธ และไฟล์ไม่สมบูรณ์
-- ไม่รายงานว่าสำเร็จจนกว่าไฟล์จะถูกบันทึกและตรวจสอบการจบงานได้
+### 2.3 Download Manager และ Reliability
 
-### 2.4 คลังวิดีโอออฟไลน์
-- มีหน้า/หมวดวิดีโอที่ดาวน์โหลดไว้ให้เข้าถึงได้ง่าย คล้ายหน้า Downloads ของ YouTube
-- แสดงชื่อวิดีโอ, thumbnail เมื่อมี, ระยะเวลา/ขนาดเมื่ออ่านได้ และสถานะไฟล์
-- เปิดเล่นจากไฟล์ในเครื่องได้โดยไม่ต้องเรียก URL ต้นทางหรือใช้อินเทอร์เน็ต
-- รองรับการเล่นต่อ/seek ตามความสามารถของ media player ที่ใช้อยู่
-- ให้ลบวิดีโอและจัดการพื้นที่จัดเก็บได้
-- แยกรายการวิดีโอออกจากไฟล์ดาวน์โหลดประเภทอื่นใน UI ได้ โดยไม่สร้างระบบจัดเก็บไฟล์ซ้ำ
-- การลบรายการต้องจัดการไฟล์จริงตามสิทธิ์และแสดงผลตรงกับสถานะจริง
+- ทำ Source Audit ของ DownloadListener, Android DownloadManager, DownloadPolicy, Storage/Repository และ UI ก่อน
+- ใช้ DownloadManager เดิมสำหรับ direct file เมื่อ audit ยืนยันว่าเหมาะสม
+- ใช้ WorkManager สำหรับ recovery/reconciliation, retention cleanup และงานเบื้องหลังที่เหมาะสม ไม่แทน DownloadManager โดยอัตโนมัติ
+- Foreground Service ใช้เมื่อ Android/platform requirement และความจำเป็นพิสูจน์ได้เท่านั้น
+- ไม่เพิ่ม OkHttp, Media3/ExoPlayer หรือ dependency/SDK ภายนอกจนกว่าจะพบ gap ชัดเจนและได้รับอนุมัติ
+- รองรับ queue, status, progress, cancel, retry และ pause/resume ตามความสามารถจริงของ backend/source
+- Resume ต้องตรวจ HTTP Range/206/Content-Range และ ETag/Last-Modified เมื่อมี; ห้าม append partial file หาก validator เปลี่ยนหรือ server ไม่ยืนยัน Range
+- แยก TRANSFER_COMPLETED จาก VIDEO_READY; ตรวจไฟล์ก่อนเปิดให้เล่น
+- ตรวจพื้นที่, network loss, HTTP errors, expired URL/token, permissions และ incomplete/corrupt files; corrupted file ใช้ FAILED_CORRUPTED เพื่อให้ retry/delete ได้
+- ทำ duplicate detection ด้วย identity/fingerprint ที่เชื่อถือได้ ไม่ใช้ URL เพียงอย่างเดียว
+- Recovery ตรวจ DownloadManager ID, metadata, file state และ orphan partial files ให้สอดคล้องกัน; การลบไฟล์/metadata ต้อง recoverable และ idempotent
 
-### 2.5 นโยบายไฟล์ดาวน์โหลดอื่น
-- ความสามารถนี้ไม่ทำให้ RAIN จำกัดการดาวน์โหลดไว้เฉพาะวิดีโอ
-- APK จาก GitHub/แหล่งที่ผู้ใช้เลือกต้องยังดาวน์โหลดได้ตาม flow ยืนยันที่กำหนดไว้
-- ไฟล์ประเภทอื่นยังใช้ Download policy และการยืนยันตามข้อกำหนดเดิม
-- ห้ามเปลี่ยน policy ประเภทไฟล์โดยพลการในงาน Video Offline Download
+### 2.4 Background Behavior
 
-## 3. ข้อจำกัดและความปลอดภัย
+หลังเริ่มดาวน์โหลด งานต้องไม่ผูกกับ WebView, หน้าเว็บ, Tab หรือ Activity lifecycle และต้องพยายามทำงานต่อเมื่อ:
+- ผู้ใช้ออกจากหน้า playback หรือเปลี่ยน Tab
+- ปิด Tab ต้นทาง
+- ออกจาก RAIN ตามปกติหรือปัดแอปออกจาก Recent Apps
+- ปิดหน้าจอ
+- เครือข่ายขาดและกลับมา (เมื่อ source/backend รองรับ)
+- อุปกรณ์ reboot (reconcile/resume/restart ตามความสามารถ Android และ source)
 
-- ไม่ข้าม DRM, encryption, paywall, authentication, token protection หรือข้อจำกัดการดาวน์โหลดของเว็บไซต์
-- ไม่แกะ/ถอดรหัสหรือประกอบสตรีมที่ถูกป้องกันเพื่อหลีกเลี่ยงสิทธิ์การเข้าถึง
-- ไม่รับรองการดาวน์โหลดจากทุกเว็บไซต์ แม้ WebView จะเล่นวิดีโอนั้นได้
-- เว็บไซต์อาจอนุญาตให้ดูผ่าน player แต่ไม่อนุญาตให้บันทึกไฟล์; กรณีนี้ต้องแสดงข้อความอธิบายอย่างชัดเจน
-- ต้องเคารพเงื่อนไขเว็บไซต์ ลิขสิทธิ์ และสิทธิ์ของเจ้าของเนื้อหา
-- ห้ามส่ง URL, cookies, credentials หรือข้อมูล browsing ไปยัง third-party provider โดยไม่มีการตรวจสอบ privacy/security และการอนุมัติที่จำเป็น
-- ไม่เพิ่ม SDK/service ภายนอกหรือค่าใช้จ่ายโดยไม่มีการประเมินและอนุมัติ
-- ป้องกันการเปิดไฟล์ที่ไม่สมบูรณ์หรือไฟล์ที่มี MIME/type ไม่ตรงกับเนื้อหาจริงเท่าที่ตรวจสอบได้
+ข้อจำกัดที่ต้องแจ้งชัดเจน: Android Force Stop, battery/background restrictions, OEM task management, URL/token expiry และ session requirements อาจทำให้งานหยุดหรือ resume ไม่ได้ ห้ามรับประกันการทำงานทุกกรณี
 
-## 4. การต่อยอดสถาปัตยกรรมเดิม
+### 2.5 Offline Video Library
 
-ก่อน implementation ต้องทำ Source Inventory:
-- DownloadListener และการรับ event จาก WebView
-- DownloadManager integration หรือกลไกดาวน์โหลดที่มีอยู่
-- Download repository/database และ file storage
-- หน้ารายการ Downloads และการเปิด/ลบไฟล์
-- WebViewClient / WebChromeClient และ lifecycle ของ media
-- กลไก fullscreen video และ media playback
-- permission / MediaStore / scoped storage ตาม Android API ที่รองรับ
-- tests และ GitHub Actions ที่เกี่ยวข้อง
+- แสดงคลังวิดีโอแยกมุมมองจาก Downloads ทั่วไป ใช้ RAIN logo/branding และ UX ใกล้ YouTube Downloads โดยไม่คัดลอก YouTube branding
+- แสดง thumbnail, title, duration, file size, download date, status และ expiry เมื่อข้อมูลมีจริง
+- รองรับค้นหา, Like ❤️, Unlike, เล่นจาก local file, ลบรายรายการ และจัดการสถานะ
+- Playback ต้องไม่เรียก URL ต้นทาง; ทดสอบ airplane mode, seek, portrait/landscape และ fullscreen ตาม player เดิม
+- ไม่กระทบ normal downloads, APK download, Tabs, History, Bookmarks หรือ WebView
 
-การตัดสินใจ:
-- มีระบบแล้วและใช้ได้: นำกลับมาใช้
-- มีระบบแต่ยังไม่ครบ: ขยายของเดิม
-- ยังไม่มี: เพิ่มส่วนประกอบที่จำเป็นและเชื่อมกับโครงสร้างเดิม
-- ไม่สามารถทำได้ด้วย WebView/platform/provider: บันทึกข้อจำกัดและเสนอทางเลือกก่อนเปลี่ยน architecture หรือเพิ่ม dependency
+## 3. Retention Policy — ข้อกำหนดที่เจ้าของโครงการยืนยัน
 
-ข้อห้าม:
-- ห้ามเปลี่ยน Android WebView เป็น Engine อื่น
-- ห้ามสร้าง Download Manager, file repository หรือ storage ซ้ำ
-- ห้ามกระทบ applicationId, signing identity, user data หรือระบบแท็บเดิม
-- ไม่มี RAIN Account และ Cloud Sync
-- ห้ามนำ Private Browsing มาใช้เป็นข้ออ้างให้รวมข้อมูลส่วนตัวเข้ากับคลังดาวน์โหลดปกติ; ต้องเคารพข้อกำหนด isolation ของ Private Browsing ใน Phase 2
+1. วิดีโอเริ่มนับ 30 วันเมื่อดาวน์โหลดเสร็จและตรวจสอบว่าเป็นไฟล์พร้อมเล่นแล้ว
+2. กด Like ❤️: เก็บไม่จำกัดเวลาและยกเว้น auto-delete
+3. กด Unlike: เริ่มนับ 30 วันใหม่จากเวลาที่กด Unlike
+4. ครบ 30 วัน: ลบเฉพาะวิดีโอที่ยังไม่ได้ Like
+5. ผู้ใช้ลบเองได้ทุกเวลา
+6. Favorite state, retention start และ expiry ต้องคงอยู่หลังปิดแอป/รีบูต
+7. Cleanup ห้ามลบ liked videos หรือไฟล์ Downloads ประเภทอื่น; หากลบไฟล์/metadata ไม่สำเร็จให้เก็บสถานะ retry ได้
+8. ยังไม่กำหนด hard storage quota จนกว่าจะมีข้อมูลพื้นที่จริงและอนุมัติตัวเลข
 
-## 5. แผนดำเนินงานย่อย
+ตัวอย่าง: ดาวน์โหลดวันที่ 1, Like วันที่ 5, Unlike วันที่ 20 → เริ่มนับ 30 วันใหม่จากวันที่ 20 และลบได้เมื่อครบ 30 วัน หากยังไม่ได้ Like อีก
 
-### Workstream A — Audit และ Technical Feasibility
-- ตรวจระบบ Download และ media ของเดิม
-- ทำตารางชนิด resource / วิธีตรวจจับ / วิธีดาวน์โหลด / ข้อจำกัด
-- ระบุ website test matrix ที่ครอบคลุม direct file และ streaming ที่อนุญาต
-- สรุปสิ่งที่ทำได้, ทำได้บางกรณี, และไม่รองรับ พร้อมเหตุผล
-- Gate: เจ้าของโครงการ/PM เห็นชอบ feasibility และ scope ก่อน implementation
+## 4. Storage, Privacy และ Security
 
-### Workstream B — Video Detection และ Download Flow
-- ตรวจจับเฉพาะ resource ที่รองรับจริง
-- เพิ่ม entry point สำหรับเริ่มดาวน์โหลดจากหน้าเว็บ
-- เพิ่มตัวเลือกคุณภาพเมื่อมีจริง
-- เชื่อม Download Manager เดิมและจัดการ error/retry/cancel
-- Gate: ทดสอบการดาวน์โหลดไฟล์ที่ได้รับอนุญาตและยืนยันไฟล์สมบูรณ์ได้
+- ตรวจ Storage/Repository/Database เดิมก่อนเลือก schema หรือเพิ่ม Room/SQLite; ห้ามสร้างระบบจัดเก็บซ้ำ
+- ใช้ app-specific storage หรือแนวทางเดิมตามผล audit และ scoped-storage; ต้องระบุผล uninstall/clear data
+- หากเพิ่ม schema ต้องมี migration; ห้าม destructive migration ที่ทำข้อมูลผู้ใช้สูญหาย
+- แยก Video Library metadata จาก History และ Private Browsing data; ห้ามบันทึก Private URL/title/media metadata ลง normal store
+- JS bridge ห้ามสั่ง download/delete/read file หรือเข้าถึง database/cookies โดยตรง
+- Native ตรวจ scheme, host, redirects, resolved IP/private network access, content type และ page/resource context เพื่อป้องกัน unsafe URL/SSRF
+- หลีกเลี่ยงส่ง cookies/credentials ข้าม origin โดยไม่จำเป็น; ห้ามบันทึก URL/token/cookie ที่อ่อนไหวลง log หรือส่ง browsing data ไป third party
+- เคารพลิขสิทธิ์ DRM และข้อจำกัดการเข้าถึงทุกกรณี
 
-### Workstream C — Offline Video Library และ Playback
-- เพิ่มมุมมองวิดีโอใน Downloads เดิมหรือหน้าแยกที่ใช้ data/storage เดิม
-- เปิดเล่นไฟล์ในเครื่องได้โดยไม่ต้องใช้อินเทอร์เน็ต
-- จัดการ metadata, thumbnail, delete และ storage errors
-- Gate: ดาวน์โหลดเสร็จ ปิดอินเทอร์เน็ต/เปิดโหมดเครื่องบิน แล้วเปิดดูและ seek ได้ตาม format ที่รองรับ
+## 5. Architecture Decision — แนวทางที่เลือกหลังเปรียบเทียบคำปรึกษา
 
-### Workstream D — Integration, Regression และ Device Acceptance
-- ทดสอบ portrait/landscape และ fullscreen
-- ทดสอบ network interruption, insufficient storage, expired source URL และ corrupted/incomplete file
-- Regression test Download ปกติ, APK download, History, Tabs และ WebView
-- ทดสอบบนอุปกรณ์ Android จริงและบันทึก OS/WebView provider
-- Gate: ไม่มี Critical/High bug; แนบ CI/test evidence และรายการข้อจำกัดที่ตรวจสอบแล้ว
+| ประเด็น | แนวทางหลัก |
+|---|---|
+| Detection | Hybrid: HTML5/player context + network signals; Native final decision |
+| Ad classification | Multi-signal + stability check + fail closed; no duration-only rule |
+| Direct download | Existing Android DownloadManager when audit confirms fit |
+| Recovery/cleanup | WorkManager for reconciliation, retention and cleanup |
+| Foreground Service | Only when required and justified by Android behavior |
+| New downloader/OkHttp | Not in initial design; propose only if measured gap remains |
+| Database | Reuse existing Storage first; choose Room/SQLite only after audit |
+| MP4/WebM | Initial download target |
+| HLS/DASH | Detect/classify only initially; full download requires separate approval |
+| DRM | No bypass/decryption |
+| JS bridge | Minimal untrusted signals only; native validates every resource |
+| Corrupt files | FAILED_CORRUPTED; retry/delete; never mark ready |
+| Storage quota | No fixed quota until approved |
 
-## 6. Acceptance Criteria
+## 6. Workstreams และ Gates
 
-ถือว่างาน Video Offline Download ผ่านได้เมื่อ:
-1. RAIN ตรวจจับและเสนอดาวน์โหลดเฉพาะวิดีโอ/resource ที่มีวิธีดาวน์โหลดรองรับจริง
-2. ผู้ใช้เริ่มดาวน์โหลดจากหน้าเว็บที่กำลังเปิดได้ในกรณีที่เว็บไซต์อนุญาต
-3. ตัวเลือกคุณภาพแสดงเฉพาะตัวเลือกที่ต้นทางมีจริง
-4. สถานะและ progress ตรงกับงานจริง; error แสดงสาเหตุที่เข้าใจได้
-5. ไฟล์ที่ดาวน์โหลดเสร็จเปิดจากอุปกรณ์ได้โดยไม่ต้องใช้อินเทอร์เน็ต
-6. มีคลัง/หมวดวิดีโอที่ดาวน์โหลดไว้ และผู้ใช้เปิด/ลบได้
-7. การเล่นออฟไลน์ไม่เรียก resource จากเว็บไซต์ต้นทาง
-8. Download ปกติและ APK download ตาม policy เดิมยังทำงานได้
-9. ไม่มีการข้าม DRM หรือข้อจำกัดของเว็บไซต์
-10. ทดสอบกรณีเครือข่ายหลุด พื้นที่ไม่พอ ดาวน์โหลดล้มเหลว และไฟล์ไม่สมบูรณ์
-11. Build, lint, unit/instrumentation/UI tests ที่เกี่ยวข้องผ่าน
-12. ทดสอบบนอุปกรณ์ Android จริง พร้อมหลักฐานและรายการ format/site ที่รองรับจริง
+| ลำดับ | งาน | Deliverable / Gate |
+|---|---|---|
+| A0 | Source Audit | Inventory WebView, DownloadListener/DownloadManager, DownloadPolicy, Storage, Manifest, UI, tests, CI; reuse/gap matrix |
+| A1 | Detection Feasibility PoC | Test direct HTML5, pre-roll, mid-roll, multiple videos/iframe/MSE where feasible; fail closed when uncertain |
+| B | Download Core | MP4/WebM direct download, queue/status/progress/error/retry/cancel, file validation, metadata/retention |
+| C | Offline Library & Playback | RAIN library, search, Like/Unlike, 30-day expiry, local playback |
+| D | Background/Recovery/Security | network/reboot recovery, URL/bridge security, cleanup consistency |
+| E | Integration & Acceptance | regression, CI, test matrix and real-device acceptance |
 
-## 7. ลำดับความสำคัญและความสัมพันธ์กับ Phase 2 เดิม
+**Implementation Gate:** ห้ามเริ่ม implementation ของระบบเต็มรูปแบบจน A0/A1 แสดงหลักฐานว่าแหล่งสื่อที่ต้องการรองรับตรวจพบและดาวน์โหลดได้อย่างถูกต้องภายใน WebView/Android เดิม หากจำเป็นต้องเปลี่ยน architecture หรือเพิ่ม dependency ให้เสนอผลกระทบและขออนุมัติก่อน
 
-- **Video Offline Download เป็นงานลำดับแรกของ Phase 2** ให้เริ่ม Audit/Technical Feasibility และพัฒนาตาม Gate ในเอกสารนี้ก่อนงาน Private Browsing
-- Private Browsing ยังคงอยู่ใน Phase 2 และต้องทำต่อหลังจาก Video Offline Download ผ่าน Gate/การตรวจรับตามแผน ไม่ได้ถูกยกเลิกหรือลดขอบเขต
-- Private Browsing ยังคงมี process/storage isolation, cookie/cache/Web Storage separation, Service Worker isolation, cleanup และ dedicated instrumentation verification ตามข้อกำหนดเดิม
-- ห้ามนับ Video Offline Download ว่าทำให้ Private Browsing ผ่าน หรือกลับกัน
-- PM ต้องปรับ master schedule ให้ Video Offline Download เป็น workstream แรกของ Phase 2 และจัดลำดับ Private Browsing ถัดไป โดยประเมิน effort/dependency ก่อนกำหนดวันส่งมอบ
-- Phase 1.6 ยังคงขอบเขตเดิม; เอกสารนี้ไม่อนุมัติให้เริ่ม implementation ใน Phase 1.6
+## 7. Acceptance Criteria
 
-## 8. Definition of Done และการรายงาน
+1. Popup แสดงเฉพาะเมื่อยืนยัน main video และมี resource ที่ดาวน์โหลดได้โดยชอบ; ad/uncertain cases ไม่แสดง
+2. Popup ขนาดเล็กมี Download/Close; Close ไม่หยุด playback และไม่แสดงซ้ำสำหรับวิดีโอเดิม
+3. ดาวน์โหลด direct MP4/WebM ที่อนุญาตได้; quality options มีเฉพาะที่ source เสนอจริง
+4. HLS/DASH ถูกจัดประเภทตามข้อมูลที่เปิดเผย แต่ initial scope ไม่ bypass DRM หรือดาวน์โหลด stream ที่ไม่รองรับ
+5. Transfer complete ต้องผ่าน validation ก่อนเป็น VIDEO_READY
+6. เปิดเล่น local file ใน airplane mode ได้โดยไม่เรียกเว็บไซต์ต้นทาง
+7. Like/Unlike/30-day expiry ตรงกฎและคงอยู่หลัง force close/reboot; auto-delete ไม่ลบ liked videos หรือไฟล์อื่น
+8. Normal download และ APK download ตาม policy เดิมยังทำงาน
+9. Network interruption, insufficient storage, expired URL, cancel/retry, corrupted file, reboot และ cleanup recovery ผ่าน test cases
+10. ไม่มี Critical/High security issue ใน bridge, URL validation, file access และ data handling
+11. Build/lint/unit/instrumentation/UI tests ผ่าน พร้อม CI evidence
+12. ทดสอบอุปกรณ์จริง Android 16/API 36; บันทึก device, OS, WebView provider, website/format matrix และข้อจำกัดจริง
 
-รายงานผลแยก:
-- Supported — ดาวน์โหลดและเล่นออฟไลน์ผ่านการทดสอบจริง
-- Partially supported — รองรับเฉพาะบาง format/site หรือมีข้อจำกัดที่ระบุชัด
-- Not supported — มี DRM/ข้อจำกัด/ข้อจำกัด platform หรือไม่มีวิธีดาวน์โหลดที่อนุญาต
-- Blocked — ต้องรอการตัดสินใจหรือ dependency ที่ได้รับอนุมัติ
+## 8. ขอบเขตที่ไม่รวม / ต้องอนุมัติแยก
 
-แนบ commit, PR, CI run, test report, อุปกรณ์/OS/WebView provider และ test matrix ทุกครั้ง ห้ามอ้างว่ารองรับทุกเว็บไซต์จากการทดสอบเพียงเว็บเดียว
+- Full HLS/DASH download
+- DRM bypass/decryption หรือการดาวน์โหลดที่เว็บไซต์ไม่อนุญาต
+- เปลี่ยน WebView Engine หรือ Playback Layer
+- เพิ่ม OkHttp, Media3/ExoPlayer หรือ third-party SDK/service
+- กำหนด hard storage quota
+- แทน DownloadManager เดิมด้วย downloader ใหม่โดยไม่มีหลักฐานจาก audit
+
+## 9. Reporting / Definition of Done
+
+รายงานแยก Supported / Partially supported / Not supported / Blocked พร้อมหลักฐาน commit, PR, CI, test report, device/OS/WebView provider และ site/format matrix ห้ามอ้าง universal support จากการทดสอบไม่กี่เว็บไซต์
+
+Phase 2 ลำดับรวม:
+1. Video Offline Download (เริ่ม A0/A1 และผ่าน Gate ก่อน)
+2. Private Browsing (คง workstream และเกณฑ์ isolation เดิม)
+3. Reference Home Experience และงาน Phase 2 อื่นตาม dependency/แผน PM
+
+Phase 1.6 ไม่เปลี่ยนแปลง และการเพิ่มเอกสารนี้ไม่ใช่คำสั่งเริ่ม implementation
 
 ---
 
 ## Change Log
 
-### 2026-11-27 — จัดลำดับ Video Offline Download เป็นงานแรกของ Phase 2
-- กำหนดให้ Video Offline Download เริ่มก่อน Private Browsing โดยคง Private Browsing ไว้ใน Phase 2 ตามขอบเขตเดิม
-
-### 2026-11-27 — เพิ่มข้อกำหนด Video Offline Download
-- เพิ่มเป้าหมายดาวน์โหลดวิดีโอจากหน้าเว็บเพื่อดูแบบออฟไลน์ ตามความต้องการเจ้าของโครงการ
-- เพิ่ม video detection, download flow, quality selection เมื่อมีจริง, offline library และ offline playback
-- กำหนดให้ต่อยอด Download Manager/storage เดิม ไม่สร้างระบบซ้ำ
-- ยืนยันว่า APK download และ Download ปกติยังต้องทำงานตาม policy เดิม
-- กำหนดข้อจำกัด DRM, website permissions, privacy และ copyright
-- เพิ่ม acceptance criteria และ device test requirements
-- กำหนดให้เป็น workstream เพิ่มเติมใน Phase 2 โดยไม่แทนที่ Private Browsing
+### 2026-11-27 — Architecture decision and Phase 2 priority
+- เลือก Hybrid Detection, multi-signal ad classification, fail-closed behavior
+- เลือก existing DownloadManager เมื่อ audit ยืนยันว่าเหมาะสม และ WorkManager สำหรับ recovery/cleanup
+- กำหนด MP4/WebM เป็น initial download target; HLS/DASH detect-only ใน initial scope
+- เพิ่ม retention 30 วัน, Like/Unlike reset, offline library, background caveats, secure bridge และ acceptance gates
+- กำหนด Video Offline Download เป็นงานแรกของ Phase 2 ก่อน Private Browsing โดยคง Phase 1.6 และ Private Browsing scope เดิม
