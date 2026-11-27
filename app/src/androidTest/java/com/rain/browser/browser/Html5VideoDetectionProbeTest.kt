@@ -211,6 +211,70 @@ class Html5VideoDetectionProbeTest {
         }
     }
 
+
+    @Test
+    fun observesSourceChangesWithoutTreatingTheNewSourceAsDownloadable() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <video id="changing" src="https://media.example.invalid/first.mp4"></video>
+              <script>
+                document.getElementById('changing').setAttribute(
+                  'src', 'https://cdn.example.invalid/second.webm'
+                );
+              </script>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val signal = signals.getJSONObject(0)
+        assertEquals("https://cdn.example.invalid/second.webm", signal.getString("src"))
+        assertTrue(signal.getBoolean("hasExposedSource"))
+        // A visible URL is only a DOM signal, not proof of permission or successful download.
+    }
+
+    @Test
+    fun identifiesBlobUrlAsOpaqueSourceRatherThanDirectFileUrl() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <video id="opaque" controls></video>
+              <script>
+                var bytes = new Uint8Array([0, 0, 0, 0]);
+                var blob = new Blob([bytes], { type: 'video/mp4' });
+                document.getElementById('opaque').src = URL.createObjectURL(blob);
+              </script>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val source = signals.getJSONObject(0).getString("src")
+        assertTrue(source.startsWith("blob:"))
+        // Blob URLs are not accepted as ordinary network download URLs.
+    }
+
+    @Test
+    fun doesNotMistakeAnIframeVideoForATopLevelVideoElement() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <iframe title="embedded player"
+                srcdoc="<video controls src='https://media.example.invalid/frame.mp4'></video>">
+              </iframe>
+            </body></html>
+            """.trimIndent()
+        )
+
+        // The current probe reads only the current document. Cross-origin iframe inspection
+        // is intentionally not attempted and requires a separate, permission-safe design.
+        assertEquals(0, signals.length())
+    }
+
     private companion object {
         const val SAMPLE_MP4_URL = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
         val VIDEO_SIGNAL_SCRIPT = """
