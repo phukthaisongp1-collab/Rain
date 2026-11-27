@@ -406,10 +406,9 @@ class MainActivity : Activity(), WebViewCallbacks {
             .setPositiveButton("Save") { _, _ ->
                 val name = nameInput.text.toString().trim()
                 val rawUrl = urlInput.text.toString().trim()
-                val resolvedUrl = BrowserUrlResolver.resolve(rawUrl, searchEngine)
-                val parsed = Uri.parse(resolvedUrl)
-                if (name.isBlank() || !com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(resolvedUrl) ||
-                    parsed.host.isNullOrBlank() || resolvedUrl.contains("?q=")
+                val resolvedUrl = BrowserUrlResolver.resolveWebsiteShortcut(rawUrl)
+                if (name.isBlank() || resolvedUrl == null ||
+                    !com.rain.browser.network.NetworkPolicyManager.isAllowedWebUrl(resolvedUrl)
                 ) {
                     Toast.makeText(this, "Enter a name and a valid website address", Toast.LENGTH_LONG).show()
                     return@setPositiveButton
