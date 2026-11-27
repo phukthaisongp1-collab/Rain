@@ -209,12 +209,18 @@ class MainActivity : Activity(), WebViewCallbacks {
         val cameraGapPadding = (16 * density).toInt()
         toolbar.setOnApplyWindowInsetsListener { view, insets ->
             val cutout = insets.displayCutout
+            val safeTopInset = cutout?.safeInsetTop ?: 0
             view.setPadding(
                 startPadding + (cutout?.safeInsetLeft ?: 0),
-                cutout?.safeInsetTop ?: 0,
+                safeTopInset,
                 endPadding + (cutout?.safeInsetRight ?: 0),
                 0
             )
+
+            val requiredHeight = minimumHeight + safeTopInset
+            if (view.layoutParams.height < requiredHeight) {
+                view.layoutParams = view.layoutParams.apply { height = requiredHeight }
+            }
 
             val detectedCutoutWidth = cutout?.boundingRects?.maxOfOrNull { it.width() } ?: 0
             val cameraGap = maxOf(minimumCameraGap, detectedCutoutWidth + cameraGapPadding)
