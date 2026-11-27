@@ -68,7 +68,7 @@ class TabOverviewDialog(
             useDefaultMargins = false
             alignmentMode = GridLayout.ALIGN_BOUNDS
         }
-        scroll.addView(grid, FrameLayout.LayoutParams(
+        scroll.addView(grid, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ))
