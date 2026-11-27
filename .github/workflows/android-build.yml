@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, phase2/video-offline-day17]
   pull_request:
     branches: [main, phase2/video-foundation-clean, phase2/download-manager-emulator-probe-final, phase2/video-library-persistence, phase2/video-library-ui]
   workflow_dispatch:
