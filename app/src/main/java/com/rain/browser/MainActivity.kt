@@ -120,7 +120,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(15, 23, 42)
+        window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.rgb(15, 23, 42)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
