@@ -236,11 +236,11 @@ class VideoLibraryActivity : Activity() {
             .create()
         dialog.setOnDismissListener { videoView.stopPlayback() }
         dialog.setOnShowListener {
-            videoView.setVideoURI(Uri.fromFile(file))
             videoView.setOnPreparedListener { player ->
                 player.isLooping = false
                 videoView.start()
             }
+            videoView.setVideoURI(Uri.fromFile(file))
         }
         dialog.show()
         dialog.window?.setLayout(
