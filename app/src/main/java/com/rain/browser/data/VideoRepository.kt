@@ -168,6 +168,19 @@ class VideoRepository(
         return updated
     }
 
+    fun markCorrupted(
+        id: String,
+        file: File,
+        reason: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status !in setOf(VideoStatus.DOWNLOADING, VideoStatus.VERIFYING) || now < 0L) {
+            return null
+        }
+        return failCorrupted(current, reason.trim().take(MAX_ERROR_LENGTH), now, file)
+    }
+
     fun markFailed(id: String, reason: String, now: Long = System.currentTimeMillis()): VideoRecord? {
         val current = get(id) ?: return null
         if (current.status == VideoStatus.READY || now < 0L) return null
