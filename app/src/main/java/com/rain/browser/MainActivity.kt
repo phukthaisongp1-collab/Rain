@@ -1442,30 +1442,36 @@ class MainActivity : Activity(), WebViewCallbacks {
                     }
                     .scene { position: relative; min-height: 100vh; padding: 22px 5vw 28px; isolation: isolate; }
                     .scene:before, .scene:after {
-                        content: ""; position: absolute; z-index: -1; left: -8%; right: -8%; bottom: 15%;
-                        height: 38%; pointer-events: none;
+                        content: ""; position: absolute; z-index: -1; left: -8%; right: -8%;
+                        pointer-events: none;
                     }
                     .scene:before {
-                        background: linear-gradient(155deg, transparent 0 18%, #3f91d1 18.2% 32%, #1765b3 32.2% 48%, transparent 48.2%),
-                                    linear-gradient(25deg, transparent 0 48%, #2c83c8 48.2% 62%, #155ca9 62.2% 76%, transparent 76.2%);
-                        opacity: .88;
-                        clip-path: polygon(0 72%, 12% 38%, 20% 57%, 32% 14%, 43% 62%, 54% 24%, 67% 61%, 78% 18%, 90% 57%, 100% 36%, 100% 100%, 0 100%);
+                        bottom: 19%; height: 43%;
+                        background:
+                            linear-gradient(165deg, transparent 0 40%, rgba(15,91,171,.82) 40.2% 100%),
+                            linear-gradient(18deg, transparent 0 38%, rgba(48,139,207,.9) 38.2% 100%);
+                        clip-path: polygon(0 62%, 8% 49%, 15% 60%, 25% 25%, 34% 56%, 43% 43%, 52% 65%, 63% 29%, 72% 57%, 82% 17%, 91% 53%, 100% 36%, 100% 100%, 0 100%);
+                        filter: drop-shadow(0 12px 16px rgba(20,100,170,.16));
                     }
                     .scene:after {
-                        bottom: 10%; height: 26%;
-                        background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(206,239,255,.8));
-                        clip-path: ellipse(70% 32% at 50% 100%);
-                        filter: blur(5px);
+                        bottom: 0; height: 31%;
+                        background:
+                            linear-gradient(174deg, transparent 0 25%, rgba(255,255,255,.76) 25.5% 31%, transparent 32%),
+                            linear-gradient(180deg, rgba(72,169,226,.88), rgba(202,239,255,.95) 62%, rgba(255,255,255,.92));
+                        clip-path: polygon(0 24%, 14% 15%, 27% 26%, 41% 12%, 54% 25%, 68% 10%, 82% 22%, 100% 7%, 100% 100%, 0 100%);
+                        filter: blur(1px);
                     }
                     .clouds {
                         position: absolute; z-index: -1; inset: 13% -5% 18%;
-                        opacity: .82; pointer-events: none;
+                        opacity: .88; pointer-events: none;
                         background:
-                            radial-gradient(ellipse at 9% 35%, #fff 0 5%, transparent 15%),
-                            radial-gradient(ellipse at 18% 42%, #fff 0 6%, transparent 17%),
-                            radial-gradient(ellipse at 83% 34%, #fff 0 6%, transparent 17%),
-                            radial-gradient(ellipse at 94% 44%, #fff 0 5%, transparent 16%),
-                            radial-gradient(ellipse at 50% 8%, rgba(255,255,255,.8) 0 8%, transparent 25%);
+                            radial-gradient(ellipse at 5% 48%, rgba(255,255,255,.98) 0 4%, transparent 13%),
+                            radial-gradient(ellipse at 13% 43%, rgba(255,255,255,.96) 0 6%, transparent 16%),
+                            radial-gradient(ellipse at 20% 53%, rgba(255,255,255,.88) 0 5%, transparent 15%),
+                            radial-gradient(ellipse at 78% 48%, rgba(255,255,255,.94) 0 5%, transparent 15%),
+                            radial-gradient(ellipse at 88% 42%, rgba(255,255,255,.98) 0 7%, transparent 17%),
+                            radial-gradient(ellipse at 96% 53%, rgba(255,255,255,.88) 0 5%, transparent 15%),
+                            radial-gradient(ellipse at 50% 13%, rgba(255,255,255,.8) 0 7%, transparent 24%);
                     }
                     .weather {
                         position: absolute; top: 22px; right: 5vw; display: flex; align-items: center; gap: 10px;
