@@ -52,12 +52,12 @@ class VideoSourceValidatorTest {
                     readHeaders(input)
                     val output = BufferedOutputStream(socket.getOutputStream())
                     val headers = (
-                        "HTTP/1.1 206 Partial Content\\r\\n" +
-                            "Content-Type: video/mp4\\r\\n" +
-                            "Content-Range: bytes 0-11/12\\r\\n" +
-                            "Content-Length: 12\\r\\n" +
-                            "ETag: \\\"v1\\\"\\r\\n" +
-                            "Connection: close\\r\\n\\r\\n"
+                        "HTTP/1.1 206 Partial Content\r\n" +
+                            "Content-Type: video/mp4\r\n" +
+                            "Content-Range: bytes 0-11/12\r\n" +
+                            "Content-Length: 12\r\n" +
+                            "ETag: \"v1\"\r\n" +
+                            "Connection: close\r\n\r\n"
                         ).toByteArray(Charsets.US_ASCII)
                     output.write(headers)
                     output.write(payload)
