@@ -137,9 +137,10 @@ class VideoRepository(
     ): VideoRecord? {
         val current = get(id) ?: return null
         if (current.status !in setOf(VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)) return null
-        if (durationMs < 0L || now < 0L || !file.isFile ||
-            !ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)
-        ) return failCorrupted(current, "Video file is missing or outside RAIN storage.", now)
+        if (durationMs < 0L || now < 0L) return null
+        if (!file.isFile || !ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
+            return failCorrupted(current, "Video file is missing or outside RAIN storage.", now)
+        }
 
         val prefix = runCatching { file.inputStream().use { it.readNBytes(CONTAINER_PREFIX_BYTES) } }
             .getOrElse { return failCorrupted(current, "Unable to read video container.", now) }
