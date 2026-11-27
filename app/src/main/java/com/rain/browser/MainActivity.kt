@@ -14,6 +14,8 @@ import android.os.Environment
 import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
@@ -102,6 +104,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         window.statusBarColor = Color.rgb(15, 23, 42)
         window.navigationBarColor = Color.rgb(15, 23, 42)
         setContentView(R.layout.activity_main)
+        applyImmersiveFullscreen()
 
         tabManager = TabManager()
         desktopModeManager = DesktopModeManager(this)
@@ -1388,7 +1391,21 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onResume() {
         super.onResume()
+        applyImmersiveFullscreen()
         tabManager.tabs.forEach { it.webView.onResume() }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applyImmersiveFullscreen()
+    }
+
+    private fun applyImmersiveFullscreen() {
+        window.insetsController?.let { controller ->
+            controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+            controller.systemBarsBehavior =
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
     }
 
     override fun onDestroy() {
