@@ -23,6 +23,9 @@
             android:process=":private"
             android:launchMode="singleTask" />
         <activity
+            android:name=".VideoLibraryActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
             android:exported="true">
