@@ -9,72 +9,83 @@
         android:id="@+id/top_toolbar"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:background="#0869C8"
+        android:background="#000000"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="8dp"
         android:paddingEnd="6dp">
 
-        <FrameLayout
+        <ImageView
+            android:id="@+id/rain_logo"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:clickable="true"
+            android:contentDescription="@string/action_home"
+            android:focusable="true"
+            android:scaleType="fitCenter"
+            android:src="@mipmap/ic_launcher" />
+
+        <EditText
+            android:id="@+id/address_input"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:foregroundGravity="center">
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="2dp"
+            android:background="@drawable/rain_address_background"
+            android:hint="@string/address_hint"
+            android:imeOptions="actionGo"
+            android:inputType="textUri"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:selectAllOnFocus="true"
+            android:textColor="#173A60"
+            android:textColorHint="#6E849C"
+            android:textSize="14sp" />
 
-            <ImageView
-                android:id="@+id/rain_logo"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
-                android:layout_gravity="center"
-                android:contentDescription="@string/app_name"
-                android:scaleType="fitCenter"
-                android:src="@mipmap/ic_launcher" />
-        </FrameLayout>
+        <TextView
+            android:id="@+id/top_new_tab_button"
+            android:layout_width="36dp"
+            android:layout_height="match_parent"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/action_new_tab"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="+"
+            android:textColor="#FFFFFF"
+            android:textSize="25sp" />
 
-        <View
-            android:id="@+id/camera_safe_space"
+        <TextView
+            android:id="@+id/top_tabs_button"
+            android:layout_width="40dp"
+            android:layout_height="match_parent"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/action_tabs"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="1"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/menu_button"
             android:layout_width="44dp"
-            android:layout_height="match_parent" />
-
-        <LinearLayout
-            android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <EditText
-                android:id="@+id/address_input"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_weight="1"
-                android:background="@drawable/rain_address_background"
-                android:hint="@string/address_hint"
-                android:imeOptions="actionGo"
-                android:inputType="textUri"
-                android:maxLines="1"
-                android:paddingStart="12dp"
-                android:paddingEnd="8dp"
-                android:selectAllOnFocus="true"
-                android:textColor="#173A60"
-                android:textColorHint="#6E849C"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/menu_button"
-                android:layout_width="44dp"
-                android:layout_height="match_parent"
-                android:clickable="true"
-                android:contentDescription="@string/browser_menu"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="☰"
-                android:textColor="#FFFFFF"
-                android:textSize="25sp" />
-        </LinearLayout>
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/browser_menu"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="☰"
+            android:textColor="#FFFFFF"
+            android:textSize="25sp" />
     </LinearLayout>
 
-        <TextView android:id="@+id/mode_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone" />
+        <TextView android:id="@+id/mode_text"        <TextView android:id="@+id/mode_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone" />
 
     <LinearLayout
         android:id="@+id/actions_toolbar"
