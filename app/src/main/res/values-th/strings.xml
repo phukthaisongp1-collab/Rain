@@ -25,6 +25,12 @@
     <string name="action_settings">ตั้งค่า</string>
     <string name="status_ready">เบราว์เซอร์ RAIN</string>
 
+    <string name="settings_video_display">การแสดงวิดีโอ: %1$s</string>
+    <string name="settings_video_display_title">รูปแบบวิดีโอเต็มหน้าจอ</string>
+    <string name="video_fit">Fit</string>
+    <string name="video_crop">Crop</string>
+    <string name="video_fit_description">Fit — แสดงภาพครบ รักษาสัดส่วน อาจมีขอบดำ</string>
+    <string name="video_crop_description">Crop — ขยายเต็มจอ รักษาสัดส่วน แต่อาจตัดขอบภาพ</string>
     <string name="settings_title">การตั้งค่า</string>
     <string name="settings_language">ภาษา: %1$s</string>
     <string name="settings_search_engine">เครื่องมือค้นหา: %1$s</string>

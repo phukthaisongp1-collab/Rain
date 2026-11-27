@@ -62,6 +62,8 @@ import com.rain.browser.data.ResumeRepository
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
 import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var tabManager: TabManager
@@ -111,12 +113,17 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     private data class HomeShortcut(val name: String, val url: String)
 
+    private enum class VideoFitMode { FIT, CROP }
+
+    private var videoFitMode = VideoFitMode.FIT
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(15, 23, 42)
         window.navigationBarColor = Color.rgb(15, 23, 42)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         setContentView(R.layout.activity_main)
         applyImmersiveFullscreen()
         configureTopToolbar()
@@ -130,6 +137,13 @@ class MainActivity : Activity(), WebViewCallbacks {
         historyRepository = HistoryRepository(storage)
         settingsRepository = SettingsRepository(storage)
         resumeRepository = ResumeRepository(storage)
+        videoFitMode = runCatching {
+            VideoFitMode.valueOf(
+                getSharedPreferences(VIDEO_DISPLAY_PREFS, MODE_PRIVATE)
+                    .getString(VIDEO_DISPLAY_KEY, VideoFitMode.FIT.name)
+                    .orEmpty()
+            )
+        }.getOrDefault(VideoFitMode.FIT)
         searchEngine = runCatching { SearchEngine.valueOf(settingsRepository.searchEngine) }.getOrDefault(SearchEngine.DUCKDUCKGO)
         applyAutomaticHistoryRetention()
         cleanupExpiredResumeEntries()
@@ -209,6 +223,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun configureTopToolbar() {
+        val root = findViewById<View>(R.id.root_container)
         val toolbar = findViewById<View>(R.id.top_toolbar)
         val density = resources.displayMetrics.density
         val minimumHeight = (48 * density).toInt()
@@ -219,17 +234,18 @@ class MainActivity : Activity(), WebViewCallbacks {
 
         val startPadding = (8 * density).toInt()
         val endPadding = (6 * density).toInt()
-        toolbar.setOnApplyWindowInsetsListener { view, insets ->
-            val cutout = insets.displayCutout
-            view.setPadding(
-                startPadding + (cutout?.safeInsetLeft ?: 0),
-                0,
-                endPadding + (cutout?.safeInsetRight ?: 0),
-                0
-            )
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
+            view.setPadding(view.paddingLeft, maxOf(statusTop, cutoutTop), view.paddingRight, view.paddingBottom)
             insets
         }
-        toolbar.requestApplyInsets()
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { view, insets ->
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            view.setPadding(startPadding + cutout.left, 0, endPadding + cutout.right, 0)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 
     private fun showBrowserMenu() {
@@ -386,21 +402,29 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun showTabsDialog() {
-        val tabs = tabManager.tabs
-        if (tabs.isEmpty()) return
-        val labels = tabs.mapIndexed { index, tab ->
-            val title = tab.title.ifBlank { "New Tab" }
-            "${index + 1}. $title"
-        }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Open tabs (${tabs.size})")
-            .setItems(labels) { _, which ->
-                tabs.getOrNull(which)?.let { tabManager.select(it.id) }
+        if (tabManager.tabs.isEmpty()) return
+        TabOverviewDialog(
+            context = this,
+            tabsProvider = { tabManager.tabs },
+            activeTabIdProvider = { tabManager.activeTab?.id },
+            onSelectTab = { tab ->
+                tabManager.select(tab.id)
                 showActiveTab()
-            }
-            .setPositiveButton("New tab") { _, _ -> createTab() }
-            .setNegativeButton("Close current") { _, _ -> closeCurrentTab() }
-            .show()
+            },
+            onCloseTab = { tab -> closeTabById(tab.id) },
+            onNewTab = { createTab() }
+        ).show()
+    }
+
+    private fun closeTabById(tabId: Long) {
+        val wasActive = tabManager.activeTab?.id == tabId
+        val removed = tabManager.close(tabId) ?: return
+        destroyWebView(removed.webView)
+        if (wasActive) {
+            if (tabManager.activeTab == null) createTab() else showActiveTab()
+        } else {
+            updateBrowserControls()
+        }
     }
 
     private fun closeCurrentTab() {
@@ -695,7 +719,8 @@ class MainActivity : Activity(), WebViewCallbacks {
             getString(R.string.settings_language, settingsRepository.language.name),
             getString(R.string.settings_search_engine, settingsRepository.searchEngine),
             getString(R.string.settings_default_display, settingsRepository.defaultDisplayMode.name),
-            getString(R.string.settings_history_retention, settingsRepository.autoClearHistoryDays)
+            getString(R.string.settings_history_retention, settingsRepository.autoClearHistoryDays),
+            getString(R.string.settings_video_display, getString(if (videoFitMode == VideoFitMode.FIT) R.string.video_fit else R.string.video_crop))
         )
         AlertDialog.Builder(this).setTitle(R.string.settings_title).setItems(options) { _, which ->
             when (which) {
@@ -703,8 +728,48 @@ class MainActivity : Activity(), WebViewCallbacks {
                 1 -> chooseSearchEngine()
                 2 -> chooseDefaultDisplayMode()
                 3 -> chooseHistoryRetention()
+                4 -> chooseVideoFitMode()
             }
         }.setNegativeButton(R.string.dialog_close, null).show()
+    }
+
+    private fun chooseVideoFitMode() {
+        val options = arrayOf(
+            getString(R.string.video_fit_description),
+            getString(R.string.video_crop_description)
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_video_display_title)
+            .setSingleChoiceItems(options, videoFitMode.ordinal) { dialog, which ->
+                videoFitMode = if (which == 0) VideoFitMode.FIT else VideoFitMode.CROP
+                getSharedPreferences(VIDEO_DISPLAY_PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putString(VIDEO_DISPLAY_KEY, videoFitMode.name)
+                    .apply()
+                tabManager.tabs.forEach { applyVideoFitMode(it.webView) }
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun applyVideoFitMode(webView: WebView) {
+        val objectFit = if (videoFitMode == VideoFitMode.FIT) "contain" else "cover"
+        val script = """
+            (function() {
+                var style = document.getElementById('rain-video-fit-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'rain-video-fit-style';
+                    (document.head || document.documentElement).appendChild(style);
+                }
+                style.textContent = 'video:fullscreen, video:-webkit-full-screen {' +
+                    'object-fit: ${objectFit} !important;' +
+                    'width: 100vw !important; height: 100vh !important;' +
+                    'object-position: center center !important; }';
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
     }
 
     private fun chooseLanguage() {
@@ -1418,6 +1483,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onPageFinished(view: WebView, url: String) {
         runOnUiThread {
+            applyVideoFitMode(view)
             val tab = tabManager.findByWebView(view) ?: return@runOnUiThread
             tab.isLoading = false
             tab.progress = 100
@@ -1513,6 +1579,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             return
         }
 
+        applyVideoFitMode(view)
         fullscreenCustomView = customView
         fullscreenCustomViewCallback = callback
         fullscreenOwner = view
@@ -1603,6 +1670,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val HISTORY_DAY_MILLIS = 24L * 60 * 60 * 1000
         const val GOOGLE_HOME_URL = "https://www.google.com/"
         const val HOME_SHORTCUTS_PREFS = "rain_home_shortcuts"
+        const val VIDEO_DISPLAY_PREFS = "rain_video_display_preferences"
+        const val VIDEO_DISPLAY_KEY = "video_fit_mode"
         const val HOME_SHORTCUTS_KEY = "items"
 
         const val WELCOME_PAGE = """
