@@ -5,6 +5,9 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.os.SystemClock
+import com.rain.browser.data.SqliteStorage
+import com.rain.browser.data.VideoRepository
+import com.rain.browser.data.VideoStatus
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertArrayEquals
@@ -121,6 +124,116 @@ class VideoDownloadManagerInstrumentedTest {
         } finally {
             server.releaseRemainingBody()
             if (requestId >= 0L) manager.remove(requestId)
+            server.close()
+        }
+    }
+
+    @Test
+    fun coordinatorPersistsCompletedTransferAsReady() {
+        val context = targetContext()
+        val managedDirectory = File(
+            requireNotNull(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)),
+            "RAIN"
+        )
+        val repository = VideoRepository(SqliteStorage(context), managedDirectory)
+        val coordinator = VideoDownloadCoordinator(
+            context,
+            repository,
+            managedDirectory,
+            allowLoopbackForTests = true
+        )
+        val server = LocalHttpServer(syntheticMp4Payload())
+        var recordId = ""
+        try {
+            server.start()
+            val record = repository.enqueue(
+                url = server.url,
+                title = "Coordinator integration probe",
+                mimeType = "video/mp4"
+            )
+            recordId = record.id
+            coordinator.enqueue(record)
+
+            val deadline = SystemClock.elapsedRealtime() + 30_000L
+            var finalStatus: VideoStatus? = null
+            while (SystemClock.elapsedRealtime() < deadline) {
+                finalStatus = coordinator.refresh(record.id)?.status
+                if (finalStatus == VideoStatus.READY || finalStatus == VideoStatus.FAILED ||
+                    finalStatus == VideoStatus.FAILED_CORRUPTED
+                ) break
+                SystemClock.sleep(100L)
+            }
+
+            assertEquals(VideoStatus.READY, finalStatus)
+            val saved = requireNotNull(repository.get(record.id))
+            assertEquals(VideoStatus.READY, saved.status)
+            assertTrue(File(saved.filePath).isFile)
+            assertTrue(ManagedVideoPathPolicy.isManagedFile(managedDirectory, File(saved.filePath)))
+            assertEquals(syntheticMp4Payload().size.toLong(), saved.bytesDownloaded)
+        } finally {
+            if (recordId.isNotBlank()) {
+                repository.get(recordId)?.let { saved ->
+                    if (saved.status == VideoStatus.QUEUED || saved.status == VideoStatus.DOWNLOADING) {
+                        coordinator.cancel(recordId)
+                    }
+                    if (saved.filePath.isNotBlank()) {
+                        val file = File(saved.filePath)
+                        if (file.exists() && ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
+                            file.delete()
+                        }
+                    }
+                    repository.removeMetadata(recordId)
+                }
+            }
+            server.close()
+        }
+    }
+
+    @Test
+    fun coordinatorCancelsAndPersistsCanceledState() {
+        val context = targetContext()
+        val managedDirectory = File(
+            requireNotNull(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)),
+            "RAIN"
+        )
+        val repository = VideoRepository(SqliteStorage(context), managedDirectory)
+        val coordinator = VideoDownloadCoordinator(
+            context,
+            repository,
+            managedDirectory,
+            allowLoopbackForTests = true
+        )
+        val server = LocalHttpServer(syntheticMp4Payload(), holdBeforeBody = true)
+        var recordId = ""
+        try {
+            server.start()
+            val record = repository.enqueue(
+                url = server.url,
+                title = "Coordinator cancel probe",
+                mimeType = "video/mp4"
+            )
+            recordId = record.id
+            coordinator.enqueue(record)
+            assertTrue(
+                "DownloadManager did not connect to the controlled local server",
+                server.headersSent.await(20, TimeUnit.SECONDS)
+            )
+
+            assertTrue(coordinator.cancel(record.id))
+            assertEquals(VideoStatus.CANCELED, repository.get(record.id)?.status)
+        } finally {
+            if (recordId.isNotBlank()) {
+                repository.get(recordId)?.let { saved ->
+                    if (saved.filePath.isNotBlank()) {
+                        val file = File(saved.filePath)
+                        if (file.exists() && ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
+                            file.delete()
+                        }
+                    }
+                    repository.removeMetadata(recordId)
+                }
+            }
+            server.releaseRemainingBody()
             server.close()
         }
     }
