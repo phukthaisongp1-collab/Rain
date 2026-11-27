@@ -208,6 +208,9 @@ class MainActivity : Activity(), WebViewCallbacks {
         findViewById<Button>(R.id.bookmarks_button).setOnClickListener { showBookmarksDialog() }
         findViewById<Button>(R.id.history_button).setOnClickListener { showHistoryDialog() }
         findViewById<Button>(R.id.resume_button).setOnClickListener { showResumeDialog() }
+        findViewById<Button>(R.id.videos_button).setOnClickListener {
+            startActivity(Intent(this, VideoLibraryActivity::class.java))
+        }
         findViewById<Button>(R.id.settings_button).setOnClickListener { showSettingsDialog() }
 
         addressInput.setOnEditorActionListener { _, actionId, event ->
@@ -265,6 +268,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             R.id.bookmarks_button to getString(R.string.action_bookmarks),
             R.id.history_button to getString(R.string.action_history),
             R.id.resume_button to getString(R.string.action_resume),
+            R.id.videos_button to getString(R.string.action_videos),
             R.id.search_engine_button to getString(R.string.search_button, searchEngineLabel()),
             R.id.private_button to getString(R.string.action_private),
             R.id.protection_button to getString(R.string.action_protection),
