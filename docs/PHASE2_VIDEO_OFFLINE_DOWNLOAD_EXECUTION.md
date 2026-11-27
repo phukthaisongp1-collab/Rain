@@ -53,7 +53,7 @@ If Video Library metadata is added later, migration must preserve every existing
 | 5 | Multiple video and no-source cases | Done — multiple elements are reported; missing source remains empty rather than being invented |
 | 6 | Explicit ad UI signal probe | Done for exposed DOM markers only; not a universal ad classifier |
 | 7 | Direct MP4 resource visibility | Done for one public MP4 sample on Android 16 emulator; WebViewClient observed the resource request |
-| 8 | Detection feasibility acceptance gate | Partial / blocked — source-change, Blob and iframe-boundary probes exist; synthetic WebM request-visibility probe added; CI pending; real-site ad/pre-roll/mid-roll and source-permission evidence remain |
+| 8 | Detection feasibility acceptance gate | Partial / blocked — Run #240 passed 12 Android 16 emulator instrumentation tests and 96 unit tests; source-change, Blob, iframe-boundary, synthetic WebM, fail-closed, pre-roll/mid-roll signal-transition probes passed. Real-site ad classification and source-permission evidence remain unproven |
 | 9 | Download core foundation | Blocked by Day 8 gate |
 | 10 | Direct MP4 download integration | Blocked by Day 8 gate |
 | 11 | Direct WebM download integration | Blocked by Day 8 gate |
@@ -99,10 +99,12 @@ If Video Library metadata is added later, migration must preserve every existing
 
 The Android 16 emulator CI run:
 
-- Workflow run: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46002589494
-- Test artifact: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46002589494/artifacts/15199207117
+- Latest workflow run: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46012304095 (Run #240, head `a331fea24d9c6ca731088a343e19a3a83ee62a3e`).
+- Test artifact: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46012304095/artifacts/15204458462
 - Result: lint, unit tests, Android 16 emulator instrumentation and install/launch smoke test passed.
-- Instrumentation report: 4 tests, 0 failures, 0 errors.
+- Parsed artifact reports: 96 unit tests across 10 test classes and 12 Android 16 emulator instrumentation tests; 0 failures, 0 errors and 0 skipped tests.
+- Instrumentation cases cover exposed HTML5 metadata, missing sources, explicit ad markers, fail-closed payload semantics, one public direct MP4 request, synthetic WebM request visibility, dynamic source changes, Blob URL opacity, iframe document boundary, and synthetic pre-roll/mid-roll marker transitions.
+- Artifact contents were inspected directly. This is emulator CI evidence only, not a physical-device result or proof of real-site ad classification/download permission.
 
 The four PoC cases are:
 
@@ -119,7 +121,7 @@ The approved addendum requires A1 detection feasibility evidence before full pro
 
 - Reliable ad/main-content distinction on real websites, including pre-roll and mid-roll transitions.
 - Behavior for cross-origin iframes, MSE/Blob sources and source changes.
-- WebM request visibility on Android WebView from a synthetic fixture (pending CI); real-site WebM visibility remains unproven.
+- WebM request visibility on Android WebView from a synthetic fixture (verified by Run #240); real-site WebM visibility remains unproven.
 - A defensible fail-closed decision for ambiguous pages.
 - That the observed resource is legitimately downloadable and not DRM-, token-, authentication- or site-restricted.
 
@@ -131,6 +133,6 @@ Therefore Days 9–17 remain blocked. Do not create a production popup, mark a v
 
 - Consolidated all physical-device testing into Day 35.
 - Recorded source audit findings and Android 16 emulator PoC evidence.
-- Added Android 16 emulator probes for a synthetic WebM request, fail-closed ad-signal semantics, and synthetic pre-roll-to-main-source / mid-roll-marker transitions. These tests verify signal changes only; they do not establish real-site ad classification or download permission. CI verification for the latest additions is pending.
+- Added Android 16 emulator probes for a synthetic WebM request, fail-closed ad-signal semantics, and synthetic pre-roll-to-main-source / mid-roll-marker transitions. Run #240 passed all 12 instrumentation tests and 96 unit tests with no failures, errors or skips. These tests verify probe behavior and signal changes only; they do not establish real-site ad classification or download permission.
 - Added mandatory update-over-install invariants: stable application ID, signing certificate, strictly increasing versionCode and non-destructive data migrations.
 - Kept Days 9–17 gated until real-site detection and ad-classification feasibility is demonstrated.
