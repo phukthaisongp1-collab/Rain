@@ -348,7 +348,7 @@ class VideoDownloadCoordinator(
         }
     }
 
-    private fun safeError(error: Exception): String =
+    private fun safeError(error: Throwable): String =
         (error.message ?: error.javaClass.simpleName).take(256)
 
     private fun Cursor.intOrDefault(column: String, fallback: Int): Int =
