@@ -71,7 +71,7 @@ class VideoSourceValidatorTest {
             )
             assertEquals("video/mp4", validated.mimeType)
             assertEquals(12L, validated.contentLength)
-            assertEquals("\\"v1\\"", validated.etag)
+            assertEquals("\"v1\"", validated.etag)
             assertEquals(VideoContainerValidator.Container.MP4, validated.container)
         } finally {
             server.close()
