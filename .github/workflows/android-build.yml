@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, phase2/video-foundation-clean]
+    branches: [main, phase2/video-foundation-clean, phase2/download-manager-emulator-probe-final]
   workflow_dispatch:
 
 permissions:
