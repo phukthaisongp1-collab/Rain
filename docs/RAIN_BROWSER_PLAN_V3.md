@@ -490,7 +490,108 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 
 **สถานะสุดท้าย:** แผน Phase 2 นี้เป็นข้อกำหนดวางแผนที่รวมไว้ในเอกสารหลักแล้ว แต่ไม่ใช่คำสั่งเริ่มพัฒนา; ต้องได้รับคำสั่งเริ่ม M0 แยกต่างหาก
 
-### 7.2 Backlog ความสามารถอื่นสำหรับเฟสถัดไป
+### 7.2 Phase 2 — Reference Home Experience: Functional Features
+
+**สถานะ:** เจ้าของโครงการอนุมัติให้เพิ่มขอบเขตนี้เข้า Phase 2 เมื่อ 2026-11-27  
+**หลักการ:** ใช้ภาพตัวอย่างหน้าแรกที่เจ้าของโครงการเลือกเป็นข้อกำหนดด้านหน้าตาและรายการความสามารถ ทุกองค์ประกอบ/ปุ่ม/ไอคอนที่แสดงในภาพและสื่อถึงการทำงาน ต้องทำงานได้จริง ไม่ทำเป็นปุ่มตกแต่งหรือจำลองผลลัพธ์  
+**การแยกเฟส:** งานนี้เป็น workstream ของ Phase 2 แยกจาก Phase 1.5 อย่างชัดเจน ห้ามนำรายการนี้ไปนับเป็นความคืบหน้าหรือเกณฑ์ตรวจรับของ Phase 1.5 และห้ามทำให้ Phase 1 acceptance เปลี่ยนแปลง
+
+#### 7.2.1 ขอบเขตหน้าแรกตามภาพตัวอย่าง
+
+1. **Responsive layout และ orientation**
+   - รองรับโทรศัพท์แนวตั้งและแนวนอน และปรับ layout เมื่อผู้ใช้หมุนอุปกรณ์
+   - จัดสัดส่วน ระยะห่าง ขนาดภาพ โลโก้ ช่องค้นหา ทางลัด และแถบเครื่องมือให้เหมาะกับพื้นที่จริงในแต่ละ orientation
+   - ไม่ยืด/บิดภาพพื้นหลังหรือซ่อนปุ่มสำคัญ; ตรวจสอบทั้งหน้าจอแคบ/กว้างและความสูงที่ต่างกัน
+2. **ฉากหลังและภาพประกอบ**
+   - แสดงฉากภูเขา เมฆ ท้องฟ้า และองค์ประกอบภาพตาม reference
+   - จัดการ asset ให้เหมาะสมกับความละเอียดและขนาดหน้าจอ พร้อม fallback เมื่อโหลด asset ไม่ได้
+   - ฉากหลังเป็นองค์ประกอบภาพ ไม่ใช่ปุ่มที่ไม่มีความหมาย
+3. **RAIN branding**
+   - ใช้ไฟล์โลโก้ RAIN ที่เจ้าของโครงการอนุมัติเท่านั้น
+   - รักษาสัดส่วน ความคมชัด และตำแหน่งที่เหมาะสมทั้งแนวตั้งและแนวนอน
+4. **Weather widget**
+   - แสดงสภาพอากาศจากแหล่งข้อมูลจริง ไม่ใช้ข้อมูลตัวอย่างหรือค่าคงที่
+   - ระบุสถานที่ หน่วย อุณหภูมิ และเวลาที่ข้อมูลอัปเดต; รองรับสถานะกำลังโหลด/ไม่มีข้อมูล/เครือข่ายผิดพลาด
+   - การใช้ตำแหน่งต้องขอ permission อย่างเหมาะสม มีทางเลือกกำหนดเมืองเอง และไม่ติดตามตำแหน่งเบื้องหลังโดยไม่มีเหตุผล/การอนุญาต
+   - ระบุแหล่งข้อมูล เงื่อนไข API key, quota และข้อจำกัดการใช้งานก่อนเลือกผู้ให้บริการ
+5. **Website shortcuts**
+   - shortcut ทุกอันเปิด URL ปลายทางจริงผ่าน browser navigation ที่มีอยู่
+   - เพิ่ม แก้ไข ลบ และจัดลำดับ shortcut ได้ พร้อมบันทึกใน local storage
+   - ตรวจสอบ URL และ external intent ตามนโยบายความปลอดภัยเดิม
+   - จัดการกรณี URL ไม่ถูกต้องหรือเว็บไซต์เปิดไม่ได้อย่างเหมาะสม
+6. **Voice Search**
+   - ปุ่มไมโครโฟนต้องเรียก Android speech recognition จริง รับผลการรู้จำเสียง และส่งข้อความที่ได้เข้ากระบวนการค้นหาปกติ
+   - รองรับ permission/บริการรู้จำเสียงไม่พร้อมใช้งาน/ผู้ใช้ยกเลิก/ไม่รู้จำเสียง/เครือข่ายผิดพลาด
+   - แสดงข้อความที่รู้จำได้ให้ผู้ใช้ตรวจสอบหรือแก้ไขก่อนค้นหาได้ตาม UX ที่เหมาะสม
+   - แจ้งผู้ใช้เมื่อเสียงถูกส่งไปยังบริการภายนอก; ไม่บันทึกเสียงหรือ transcript โดยไม่มีข้อกำหนดและความยินยอม
+7. **Visual / Image Search**
+   - ปุ่มค้นหาด้วยภาพต้องให้เลือกภาพจากอุปกรณ์ และรองรับการถ่ายภาพเมื่อมีการอนุมัติ camera flow
+   - ตรวจสอบ MIME type, ขนาด, URI permission และจัดการภาพอย่างปลอดภัย
+   - ส่งภาพไปยังผู้ให้บริการค้นหาภาพที่ใช้งานได้จริง โดยต้องตรวจสอบ API/วิธีเชื่อมต่อ/เงื่อนไขบริการและความเป็นส่วนตัวก่อนเลือก
+   - แสดงผลลัพธ์การค้นหาจริงหรือเปิดหน้าผลลัพธ์ของ provider; ห้ามแสดงผลลัพธ์ปลอม
+   - แจ้งผู้ใช้ก่อนส่งภาพออกนอกอุปกรณ์ และไม่เก็บภาพเกินความจำเป็น
+8. **Bottom feature toolbar**
+   - สำรวจรายการไอคอน/ปุ่มทั้งหมดจาก reference และกำหนด action ของแต่ละรายการให้ชัดเจน
+   - ทุกปุ่มต้องเชื่อมกับฟังก์ชัน RAIN ที่มีอยู่จริงหรือฟังก์ชันที่ระบุใน Phase 2; ห้ามมีปุ่ม dead/inert
+   - หากรายการใดเป็นเพียงข้อมูล/ตกแต่งและไม่ใช่ action ต้องแสดงเป็น non-interactive element อย่างชัดเจน ไม่ทำให้เข้าใจว่าเป็นปุ่ม
+9. **Search field**
+   - รองรับทั้ง URL และ search query โดยใช้ BrowserUrlResolver/Search Engine ที่โครงการมีอยู่
+   - Voice Search และ Visual Search ต้องกลับเข้าสู่ navigation/search flow ที่ตรวจสอบได้ ไม่สร้างระบบค้นหาแยกที่ขัดกับระบบหลัก
+
+#### 7.2.2 ข้อกำหนดด้านสถาปัตยกรรมและความเป็นส่วนตัว
+
+- คง Kotlin, Android SDK, Android WebView และโครงสร้าง browser/data/network ปัจจุบัน; ห้ามเปลี่ยน engine หรือ architecture หลัก
+- เชื่อม UI เข้ากับ Repository/Manager ที่เหมาะสม ไม่ผูก view เข้ากับ network/provider โดยตรง
+- เก็บการตั้งค่าและ shortcut ใน local storage; ไม่มี RAIN account และไม่มี cloud sync
+- ขอ Android permission เฉพาะเมื่อผู้ใช้เรียกใช้ฟังก์ชันนั้น และอธิบายเหตุผลให้ชัดเจน
+- ใช้ HTTPS สำหรับบริการภายนอก ตรวจสอบนโยบาย privacy, data retention, rate limit, API key และค่าใช้จ่ายก่อนนำมาใช้
+- ห้ามฝัง secret/API key ส่วนตัวใน source code หรือ APK; หากต้องใช้ credential ฝั่ง server ต้องเสนอแบบที่ปลอดภัยและขออนุมัติ ห้ามสร้าง backend/cloud dependency ใหม่เอง
+- Weather, Voice และ Image Search ต้องมี error/empty/offline state ที่ชัดเจน และไม่ทำให้ browser navigation หลักเสียหาย
+- ห้ามเก็บ location, voice recording, transcript หรือภาพที่ผู้ใช้เลือกเกินกว่าที่จำเป็นต่อคำขอปัจจุบัน
+
+#### 7.2.3 ลำดับ Milestones
+
+- **M1 — Reference & control inventory:** ยืนยันรายการองค์ประกอบทุกชิ้นจากภาพและ mapping ของทุก control; ระบุ provider/ข้อจำกัดของ weather, voice และ image search
+- **M2 — Responsive home surface:** สร้างฉากหลัง โลโก้ Layout แนวตั้ง/แนวนอน และ visual assets
+- **M3 — Real data & navigation:** weather จริง, shortcut CRUD/persistence, search/URL navigation
+- **M4 — Voice & image workflows:** speech recognition และ image search end-to-end พร้อม permission/error/privacy handling
+- **M5 — Bottom toolbar & integration:** เชื่อมทุก action และตรวจ regression กับ browser features เดิม
+- **M6 — Verification & acceptance:** automated tests, provider integration checks, security/privacy review, orientation matrix และ real-device tests
+
+#### 7.2.4 Acceptance Criteria
+
+- ภาพหน้าแรกตรงกับ reference ในองค์ประกอบและลำดับสำคัญ โดยไม่เสีย usability ในแนวตั้ง/แนวนอน
+- หมุนอุปกรณ์แล้ว layout ปรับตาม orientation โดยไม่ crash, reset state หรือทำให้ navigation/tab state สูญหาย
+- Weather แสดงข้อมูลจาก provider จริง พร้อม timestamp, location/permission behavior และ failure state
+- Shortcut ทุกอันเปิดได้จริง; เพิ่ม/แก้ไข/ลบ/จัดลำดับแล้วข้อมูลคงอยู่หลังปิดและเปิดแอป
+- Voice Search รับเสียงจริง แปลงเป็นข้อความ และค้นหาได้จริง รวมถึงกรณี permission/service failure
+- Image Search รับภาพจริง ส่งไป provider ที่กำหนด และแสดงผลลัพธ์จริง พร้อม privacy disclosure
+- ทุก control ที่หน้าตาเหมือนปุ่มมี action ที่ระบุและทดสอบได้; ไม่มี placeholder/dead button
+- Build, lint, unit/instrumentation tests ที่เกี่ยวข้องผ่าน; บันทึกผล provider และ real-device test แยกตามหลักฐาน
+- ไม่เปลี่ยนสถาปัตยกรรมหลัก ไม่เพิ่ม RAIN account/cloud sync และไม่ทำให้ฟังก์ชัน browser เดิม regression
+
+#### 7.2.5 ข้อกำหนดก่อนเริ่มพัฒนา
+
+- Phase 2 ต้องได้รับคำสั่งเริ่มงานแยกต่างหาก; การเพิ่มหัวข้อนี้ในแผนไม่ใช่คำสั่งให้เริ่ม implementation
+- ก่อนเลือก Weather/Visual Search provider ให้จัดทำตัวเลือกพร้อมเงื่อนไข API, privacy, cost, quota และข้อจำกัด เพื่อให้เจ้าของโครงการตัดสินใจหากมีผลต่อข้อมูล/ค่าใช้จ่าย/บริการภายนอก
+- หากภาพ reference มีไอคอนที่ยังระบุความหมายไม่ได้ ต้องยืนยัน mapping ก่อนเขียน action ห้ามเดาหน้าที่ของไอคอนเอง
+- ทดสอบบนอุปกรณ์จริงทั้งแนวตั้งและแนวนอนก่อนตรวจรับ
+
+### 7.3 Backlog ความสามารถอื่นสำหรับเฟสถัดไป
+
+เตรียมจุดเชื่อมต่อโดยไม่เพิ่ม dependency หรือพัฒนา feature ล่วงหน้า:
+- Ad-blocker
+- Network/stream inspection ภายใต้ข้อจำกัดและนโยบายที่เกี่ยวข้อง
+- RAIN Player และ HLS
+- Download engine และ Offline Library
+- Auto-Proxy เฉพาะเมื่อ Android รองรับและผ่านการทดสอบ
+- Export/Import JSON
+- Profile
+- Reader Mode
+- Command Palette
+- Rain Stats
+
+ระบบดาวน์โหลด 3 ชั้น, ffmpeg และ Offline Library 7 วันยังเป็นเป้าหมายในเฟสที่เกี่ยวข้อง ไม่ใช่งานรอบ (ก) โดยอัตโนมัติ
 
 เตรียมจุดเชื่อมต่อโดยไม่เพิ่ม dependency หรือพัฒนา feature ล่วงหน้า:
 - Ad-blocker
