@@ -138,4 +138,10 @@
     <string name="protection_false_positive_note">False-positive reports are shared through Android\'s share sheet. RAIN does not upload reports automatically.</string>
 
     <string name="protection_default_reason">Android WebView Safe Browsing is enabled. No external threat-intelligence feed is currently connected.</string>
+    <string name="video_progress">Downloaded %1$s (%2$s)</string>
+    <string name="video_progress_unknown">size unknown</string>
+    <string name="video_cancel">Cancel download</string>
+    <string name="video_cancel_failed">Could not safely cancel this download.</string>
+    <string name="video_retry">Retry download</string>
+    <string name="video_retry_failed">Could not restart this download.</string>
 </resources>
