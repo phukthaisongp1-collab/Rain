@@ -1246,6 +1246,8 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     override fun onNavigationRequested(view: WebView, url: String) {
         if (url.startsWith("rain://", ignoreCase = true)) {
+            val currentTab = tabManager.findByWebView(view) ?: return
+            if (currentTab.url.isNotBlank()) return
             val uri = Uri.parse(url)
             when (uri.host) {
                 "search" -> openHomeSearch(uri.getQueryParameter("q").orEmpty())
@@ -1485,7 +1487,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                     .search-icon { font-size: 25px; color: #164d86; }
                     .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #16395f; font-size: 17px; }
                     .search input::placeholder { color: #647b96; }
-                    .mic { border: 0; background: transparent; color: #164d86; font-size: 22px; padding: 8px; }
+                    .mic { display: grid; place-items: center; border: 0; background: transparent; color: #164d86; font-size: 22px; padding: 8px; text-decoration: none; }
                     .search-submit { width: 48px; height: 48px; border: 0; border-radius: 50%; background: #0877df; color: white; font-size: 22px; }
                     .shortcuts { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin: 0 auto 28px; }
                     .shortcut {
