@@ -97,6 +97,9 @@ class VideoLibraryActivity : Activity() {
             1f
         ))
         setContentView(root)
+        runCatching { repository.list() }
+            .onSuccess(::renderLibrary)
+            .onFailure { showMessage(it.message ?: getString(R.string.video_play_failed)) }
         refreshLibrary()
     }
 
