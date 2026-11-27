@@ -24,8 +24,10 @@ interface WebViewCallbacks {
         view: WebView,
         customView: View,
         callback: WebChromeClient.CustomViewCallback
-    )
-    fun onHideCustomView(view: WebView)
+    ) {
+        callback.onCustomViewHidden()
+    }
+    fun onHideCustomView(view: WebView) = Unit
     fun onTitleChanged(view: WebView, title: String)
     fun onWebPermissionRequested(view: WebView, request: PermissionRequest)
     fun onWebPermissionRequestCanceled(request: PermissionRequest)
