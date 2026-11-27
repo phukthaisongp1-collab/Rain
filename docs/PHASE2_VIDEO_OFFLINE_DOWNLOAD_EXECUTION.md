@@ -1,6 +1,6 @@
 # RAIN Phase 2 — Video Offline Download Execution Control
 
-> Updated: 2026-11-27
+> Updated: 2026-11-28
 > Repository: `phukthaisongp1-collab/Rain`
 > Current application baseline: `com.rain.browser` / `0.1.4` / `versionCode 5`
 
@@ -53,7 +53,7 @@ If Video Library metadata is added later, migration must preserve every existing
 | 5 | Multiple video and no-source cases | Done — multiple elements are reported; missing source remains empty rather than being invented |
 | 6 | Explicit ad UI signal probe | Done for exposed DOM markers only; not a universal ad classifier |
 | 7 | Direct MP4 resource visibility | Done for one public MP4 sample on Android 16 emulator; WebViewClient observed the resource request |
-| 8 | Detection feasibility acceptance gate | Partial / blocked — Runs #240 and #241 passed Android 16 emulator CI. Run #240 artifact reports 12 instrumentation tests + 96 unit tests; Run #241 reran the same test code after a documentation-only commit. Real-site ad classification and source-permission evidence remain unproven |
+| 8 | Detection feasibility acceptance gate | Partial / blocked — Existing emulator CI passed. Added a read-only real-site WebView probe for the three owner-authorized URLs on branch `phase2/day8-real-site-feasibility-probe`; it has not yet been executed. Real-site ad classification and source-permission evidence remain unproven |
 | 9 | Download core foundation | Blocked by Day 8 gate |
 | 10 | Direct MP4 download integration | Blocked by Day 8 gate |
 | 11 | Direct WebM download integration | Blocked by Day 8 gate |
@@ -114,7 +114,17 @@ The four PoC cases are:
 3. Observe one direct MP4 resource request through a test WebViewClient on Android 16 emulator.
 4. Collect explicit `Advertisement` and `Skip Ad` DOM markers when the player exposes them.
 
-These results establish limited feasibility only. Follow-up instrumentation probes cover dynamic source changes, Blob URL handling and the current document/iframe boundary. A synthetic WebM request-visibility test has now been added; it must pass CI before being counted as verified. The synthetic response is intentionally not a playable asset and proves neither real-site media visibility nor permission to download. The existing evidence does not prove that all websites expose media URLs, that all media requests are visible, or that absence of an ad marker proves a video is main content. The PoC deliberately does not classify a video as safe to download and does not show a popup.
+These results establish limited feasibility only. Follow-up instrumentation probes cover dynamic source changes, Blob URL handling and the current document/iframe boundary.
+
+### Read-only real-site probe added on 2026-11-28
+
+- Added `RealSiteVideoFeasibilityProbeTest.kt` on branch `phase2/day8-real-site-feasibility-probe`.
+- It opens only the three owner-authorized top-level pages: `037-hdd.com`, `fwip-tv.com/visionquest/`, and `nunghd4k.com`.
+- It records visible HTML5 video metadata, exposed source URLs with query strings/fragments removed, iframe URLs, visible ad-label markers, Blob/MSE indicators, and a count of media-like resource entries.
+- It does not click controls, start playback, download media, inspect protected media responses, or infer permission from a visible URL. The probe runs in an isolated test WebView and does not change production browsing behavior.
+- This test is intentionally not part of normal CI because third-party pages are mutable and may be unavailable. Run manually on an Android 16 emulator with: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.rain.browser.browser.RealSiteVideoFeasibilityProbeTest`.
+- Collect log output using: `adb logcat -d -s RAIN_DAY8_SITE_PROBE:I`. Review the report for each site and retain only redacted output; never publish cookies, query tokens, or user session data.
+- Status: implementation committed; execution and review of site output are still pending. This is not a Day 8 pass. A synthetic WebM request-visibility test has now been added; it must pass CI before being counted as verified. The synthetic response is intentionally not a playable asset and proves neither real-site media visibility nor permission to download. The existing evidence does not prove that all websites expose media URLs, that all media requests are visible, or that absence of an ad marker proves a video is main content. The PoC deliberately does not classify a video as safe to download and does not show a popup.
 
 ## 5. Gate before Days 9–17
 
@@ -129,6 +139,10 @@ The approved addendum requires A1 detection feasibility evidence before full pro
 Therefore Days 9–17 remain blocked. Do not create a production popup, mark a video downloadable merely because it plays, or build the Video Library around an unverified media source. Continue with targeted feasibility tests and source evidence first. If the gate cannot be satisfied for a media class, mark that class unsupported/partially supported rather than bypassing restrictions.
 
 ## 6. Change log
+
+### 2026-11-28
+
+- Added an isolated, read-only Android WebView instrumentation probe for the three owner-authorized real-site URLs. It records only DOM-level signals and redacts URL query strings/fragments; it does not play or download media. Probe execution is still pending, so Day 8 remains blocked.
 
 ### 2026-11-27
 
