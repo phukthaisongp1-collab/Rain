@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -21,14 +23,25 @@ import com.rain.browser.data.VideoRecord
 import com.rain.browser.data.VideoRepository
 import com.rain.browser.data.VideoStatus
 import com.rain.browser.downloads.ManagedVideoPathPolicy
+import com.rain.browser.downloads.VideoDownloadCoordinator
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
 
 class VideoLibraryActivity : Activity() {
     private lateinit var repository: VideoRepository
+    private lateinit var transferCoordinator: VideoDownloadCoordinator
     private lateinit var managedDirectory: File
     private lateinit var listContainer: LinearLayout
+    private val refreshHandler = Handler(Looper.getMainLooper())
+    private val refreshTask = object : Runnable {
+        override fun run() {
+            if (!isFinishing && ::transferCoordinator.isInitialized) {
+                refreshLibrary()
+                refreshHandler.postDelayed(this, REFRESH_INTERVAL_MILLIS)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +51,7 @@ class VideoLibraryActivity : Activity() {
             "RAIN"
         )
         repository = VideoRepository(SqliteStorage(this), managedDirectory)
+        transferCoordinator = VideoDownloadCoordinator(this, repository, managedDirectory)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -85,11 +99,21 @@ class VideoLibraryActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::repository.isInitialized) refreshLibrary()
+        if (::repository.isInitialized) {
+            refreshLibrary()
+            refreshHandler.removeCallbacks(refreshTask)
+            refreshHandler.postDelayed(refreshTask, REFRESH_INTERVAL_MILLIS)
+        }
+    }
+
+    override fun onPause() {
+        refreshHandler.removeCallbacks(refreshTask)
+        super.onPause()
     }
 
     private fun refreshLibrary() {
         listContainer.removeAllViews()
+        runCatching { transferCoordinator.reconcileAll() }
         val records = runCatching { repository.list() }.getOrElse {
             showMessage(it.message ?: getString(R.string.video_play_failed))
             return
@@ -139,6 +163,17 @@ class VideoLibraryActivity : Activity() {
 
         val details = buildString {
             if (record.sizeBytes > 0L) append(Formatter.formatFileSize(this@VideoLibraryActivity, record.sizeBytes))
+            if (record.status == VideoStatus.DOWNLOADING) {
+                if (isNotEmpty()) append("  •  ")
+                val progress = if (record.sizeBytes > 0L) {
+                    ((record.bytesDownloaded * 100L) / record.sizeBytes).coerceIn(0L, 100L)
+                } else 0L
+                append(getString(
+                    R.string.video_progress,
+                    Formatter.formatFileSize(this@VideoLibraryActivity, record.bytesDownloaded),
+                    if (record.sizeBytes > 0L) "$progress%" else getString(R.string.video_progress_unknown)
+                ))
+            }
             if (record.durationMs > 0L) {
                 if (isNotEmpty()) append("  •  ")
                 append(formatDuration(record.durationMs))
@@ -171,6 +206,29 @@ class VideoLibraryActivity : Activity() {
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
+        }
+
+        if (record.status in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING)) {
+            actions.addView(Button(this).apply {
+                text = getString(R.string.video_cancel)
+                setOnClickListener {
+                    if (!transferCoordinator.cancel(record.id)) {
+                        showMessage(getString(R.string.video_cancel_failed))
+                    }
+                    refreshLibrary()
+                }
+            })
+        }
+
+        if (record.status in setOf(VideoStatus.FAILED, VideoStatus.CANCELED)) {
+            actions.addView(Button(this).apply {
+                text = getString(R.string.video_retry)
+                setOnClickListener {
+                    runCatching { transferCoordinator.retry(record.id) }
+                        .onFailure { showMessage(getString(R.string.video_retry_failed)) }
+                    refreshLibrary()
+                }
+            })
         }
 
         if (record.status == VideoStatus.READY) {
@@ -312,4 +370,8 @@ class VideoLibraryActivity : Activity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        const val REFRESH_INTERVAL_MILLIS = 1_000L
+    }
 }
