@@ -16,6 +16,8 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
@@ -74,6 +76,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var resumeRepository: ResumeRepository
     private val storageExecutor = Executors.newSingleThreadExecutor()
+    private val systemBackCallback = OnBackInvokedCallback { handleSystemBack() }
 
     private data class PendingWebPermission(
         val request: PermissionRequest,
@@ -121,6 +124,10 @@ class MainActivity : Activity(), WebViewCallbacks {
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            systemBackCallback
+        )
     }
 
     private fun bindViews() {
@@ -1408,7 +1415,18 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
     }
 
+    private fun handleSystemBack() {
+        val webView = tabManager.activeTab?.webView
+        if (webView?.canGoBack() == true) {
+            webView.goBack()
+            updateBrowserControls()
+        } else {
+            finish()
+        }
+    }
+
     override fun onDestroy() {
+        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(systemBackCallback)
         tabManager.clear().forEach { destroyWebView(it.webView) }
         storageExecutor.shutdown()
         super.onDestroy()
