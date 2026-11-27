@@ -225,7 +225,7 @@ class Html5VideoDetectionProbeTest {
                         ancestor.querySelectorAll('[aria-label], button, [role="status"], [data-ad]').forEach(function (node) {
                             var label = (node.getAttribute('aria-label') || '').trim();
                             var text = (node.innerText || node.textContent || '').trim();
-                            if (/\\b(advertisement|sponsored|skip ad|skip advertisement)\\b/i.test(label + ' ' + text)) {
+                            if (/\b(advertisement|sponsored|skip ad|skip advertisement)\b/i.test(label + ' ' + text)) {
                                 adIndicators.push({
                                     label: label,
                                     text: text.slice(0, 80),
