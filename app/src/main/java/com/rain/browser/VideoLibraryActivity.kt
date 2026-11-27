@@ -25,6 +25,7 @@ import com.rain.browser.data.VideoStatus
 import com.rain.browser.downloads.ManagedVideoPathPolicy
 import com.rain.browser.downloads.VideoDownloadCoordinator
 import java.io.File
+import java.util.concurrent.Executors
 import java.text.DateFormat
 import java.util.Date
 
@@ -34,6 +35,7 @@ class VideoLibraryActivity : Activity() {
     private lateinit var managedDirectory: File
     private lateinit var listContainer: LinearLayout
     private val refreshHandler = Handler(Looper.getMainLooper())
+    private val transferExecutor = Executors.newSingleThreadExecutor()
     private val refreshTask = object : Runnable {
         override fun run() {
             if (!isFinishing && ::transferCoordinator.isInitialized) {
@@ -224,9 +226,17 @@ class VideoLibraryActivity : Activity() {
             actions.addView(Button(this).apply {
                 text = getString(R.string.video_retry)
                 setOnClickListener {
-                    runCatching { transferCoordinator.retry(record.id) }
-                        .onFailure { showMessage(getString(R.string.video_retry_failed)) }
-                    refreshLibrary()
+                    isEnabled = false
+                    transferExecutor.execute {
+                        val result = runCatching { transferCoordinator.retry(record.id) }
+                        runOnUiThread {
+                            if (isFinishing) return@runOnUiThread
+                            if (result.isFailure) {
+                                showMessage(getString(R.string.video_retry_failed))
+                            }
+                            refreshLibrary()
+                        }
+                    }
                 }
             })
         }
@@ -370,6 +380,12 @@ class VideoLibraryActivity : Activity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    override fun onDestroy() {
+        refreshHandler.removeCallbacks(refreshTask)
+        transferExecutor.shutdownNow()
+        super.onDestroy()
+    }
 
     private companion object {
         const val REFRESH_INTERVAL_MILLIS = 1_000L
