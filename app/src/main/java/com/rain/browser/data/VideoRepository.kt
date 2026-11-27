@@ -178,6 +178,43 @@ class VideoRepository(
         ).also(::persist)
     }
 
+    fun setDestination(id: String, file: File, now: Long = System.currentTimeMillis()): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.QUEUED || now < 0L ||
+            !ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)
+        ) return null
+        return current.copy(
+            filePath = file.canonicalPath,
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun markCanceled(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING) || now < 0L) return null
+        return current.copy(
+            status = VideoStatus.CANCELED,
+            downloadId = null,
+            lastError = "",
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun resetForRetry(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status !in setOf(VideoStatus.FAILED, VideoStatus.CANCELED) || now < 0L) return null
+        return current.copy(
+            bytesDownloaded = 0L,
+            downloadId = null,
+            filePath = "",
+            status = VideoStatus.QUEUED,
+            lastError = "",
+            etag = "",
+            lastModified = "",
+            updatedAt = now
+        ).also(::persist)
+    }
+
     fun setLiked(id: String, liked: Boolean, now: Long = System.currentTimeMillis()): VideoRecord? {
         val current = get(id) ?: return null
         if (current.status != VideoStatus.READY || now < 0L) return null
