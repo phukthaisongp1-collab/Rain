@@ -39,10 +39,21 @@ class VideoDownloadCoordinator(
     @Synchronized
     fun enqueue(record: VideoRecord, userAgent: String = ""): Long {
         require(record.status == VideoStatus.QUEUED) { "Only queued video records can be started." }
-        val validatedSource = if (allowLoopbackForTests) null
-        else VideoSourceValidator.validate(record.url)
-        val source = validateSource(validatedSource?.finalUrl ?: record.url)
-        val mime = validatedSource?.mimeType ?: normalizeVideoMime(record.mimeType)
+        val validatedSource = try {
+            if (allowLoopbackForTests) null else VideoSourceValidator.validate(record.url)
+        } catch (error: Exception) {
+            repository.markFailed(record.id, safeError(error))
+            throw error
+        }
+        val sourceAndMime = try {
+            validateSource(validatedSource?.finalUrl ?: record.url) to
+                (validatedSource?.mimeType ?: normalizeVideoMime(record.mimeType))
+        } catch (error: Exception) {
+            repository.markFailed(record.id, safeError(error))
+            throw error
+        }
+        val source = sourceAndMime.first
+        val mime = sourceAndMime.second
         val extension = if (mime == "video/webm") "webm" else "mp4"
         val fileName = "rain-video-${record.id}.$extension"
 
@@ -53,18 +64,23 @@ class VideoDownloadCoordinator(
         check(managedDirectory.isDirectory) { "RAIN video storage is not a directory." }
 
         val externalMoviesDirectory = appContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-            ?: throw IllegalStateException("Android DownloadManager requires app-specific external Movies storage.")
+            ?: run {
+                repository.markFailed(record.id, "Android DownloadManager requires app-specific external Movies storage.")
+                throw IllegalStateException("Android DownloadManager requires app-specific external Movies storage.")
+            }
         val expectedManagedDirectory = File(externalMoviesDirectory, "RAIN").canonicalFile
-        check(managedDirectory.canonicalFile == expectedManagedDirectory) {
-            "Video storage does not match the Android DownloadManager destination."
+        if (managedDirectory.canonicalFile != expectedManagedDirectory) {
+            repository.markFailed(record.id, "Video storage does not match the Android DownloadManager destination.")
+            throw IllegalStateException("Video storage does not match the Android DownloadManager destination.")
         }
 
         val destination = File(managedDirectory, fileName)
         check(ManagedVideoPathPolicy.isManagedFile(managedDirectory, destination)) {
             "Video destination is outside RAIN-managed storage."
         }
-        check(repository.setDestination(record.id, destination) != null) {
-            "Unable to persist the video destination."
+        if (repository.setDestination(record.id, destination) == null) {
+            repository.markFailed(record.id, "Unable to persist the video destination.")
+            throw IllegalStateException("Unable to persist the video destination.")
         }
 
         val request = DownloadManager.Request(Uri.parse(source.toString())).apply {
