@@ -111,8 +111,8 @@ class VideoRepository(
             bytesDownloaded = bytesDownloaded,
             sizeBytes = if (totalBytes >= 0L) totalBytes else current.sizeBytes,
             status = VideoStatus.DOWNLOADING,
-            etag = etag.take(MAX_HEADER_LENGTH),
-            lastModified = lastModified.take(MAX_HEADER_LENGTH),
+            etag = etag.take(MAX_HEADER_LENGTH).ifBlank { current.etag },
+            lastModified = lastModified.take(MAX_HEADER_LENGTH).ifBlank { current.lastModified },
             updatedAt = now
         )
         persist(updated)
@@ -139,13 +139,13 @@ class VideoRepository(
         if (current.status !in setOf(VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)) return null
         if (durationMs < 0L || now < 0L) return null
         if (!file.isFile || !ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
-            return failCorrupted(current, "Video file is missing or outside RAIN storage.", now)
+            return failCorrupted(current, "Video file is missing or outside RAIN storage.", now, file)
         }
 
         val prefix = runCatching { file.inputStream().use { it.readNBytes(CONTAINER_PREFIX_BYTES) } }
-            .getOrElse { return failCorrupted(current, "Unable to read video container.", now) }
+            .getOrElse { return failCorrupted(current, "Unable to read video container.", now, file) }
         if (VideoContainerValidator.detect(prefix) == VideoContainerValidator.Container.UNKNOWN) {
-            return failCorrupted(current, "Unrecognized or corrupted video container.", now)
+            return failCorrupted(current, "Unrecognized or corrupted video container.", now, file)
         }
 
         val metadata = VideoRetentionPolicy.Metadata(
@@ -168,12 +168,62 @@ class VideoRepository(
         return updated
     }
 
+    fun markCorrupted(
+        id: String,
+        file: File,
+        reason: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status !in setOf(VideoStatus.DOWNLOADING, VideoStatus.VERIFYING) || now < 0L) {
+            return null
+        }
+        return failCorrupted(current, reason.trim().take(MAX_ERROR_LENGTH), now, file)
+    }
+
     fun markFailed(id: String, reason: String, now: Long = System.currentTimeMillis()): VideoRecord? {
         val current = get(id) ?: return null
         if (current.status == VideoStatus.READY || now < 0L) return null
         return current.copy(
             status = VideoStatus.FAILED,
             lastError = reason.trim().take(MAX_ERROR_LENGTH),
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun setDestination(id: String, file: File, now: Long = System.currentTimeMillis()): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.QUEUED || now < 0L ||
+            !ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)
+        ) return null
+        return current.copy(
+            filePath = file.canonicalPath,
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun markCanceled(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING) || now < 0L) return null
+        return current.copy(
+            status = VideoStatus.CANCELED,
+            downloadId = null,
+            lastError = "",
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun resetForRetry(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        val current = get(id) ?: return null
+        if (current.status !in setOf(VideoStatus.FAILED, VideoStatus.FAILED_CORRUPTED, VideoStatus.CANCELED) || now < 0L) return null
+        return current.copy(
+            bytesDownloaded = 0L,
+            downloadId = null,
+            filePath = "",
+            status = VideoStatus.QUEUED,
+            lastError = "",
+            etag = "",
+            lastModified = "",
             updatedAt = now
         ).also(::persist)
     }
@@ -208,10 +258,20 @@ class VideoRepository(
     /** Removes metadata only. The managed file must be deleted by a path-validated owner. */
     fun removeMetadata(id: String): Boolean = storage.delete(TABLE, id) > 0
 
-    private fun failCorrupted(current: VideoRecord, reason: String, now: Long): VideoRecord {
+    private fun failCorrupted(
+        current: VideoRecord,
+        reason: String,
+        now: Long,
+        candidateFile: File? = null
+    ): VideoRecord {
+        val currentFile = current.filePath.takeIf { it.isNotBlank() }?.let(::File)
+        val safeManagedPath = sequenceOf(candidateFile, currentFile).filterNotNull().firstNotNullOfOrNull { file ->
+            file.takeIf { it.isFile && ManagedVideoPathPolicy.isManagedFile(managedDirectory, it) }
+                ?.canonicalPath
+        }.orEmpty()
         return current.copy(
             status = VideoStatus.FAILED_CORRUPTED,
-            filePath = "",
+            filePath = safeManagedPath,
             lastError = reason,
             updatedAt = now
         ).also(::persist)

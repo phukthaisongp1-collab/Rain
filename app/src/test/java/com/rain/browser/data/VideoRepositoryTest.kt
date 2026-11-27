@@ -1,6 +1,7 @@
 package com.rain.browser.data
 
 import com.rain.browser.downloads.VideoRetentionPolicy
+import com.rain.browser.downloads.VideoRetentionCleanup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -36,6 +37,15 @@ class VideoRepositoryTest {
             assertNotNull(downloading)
             assertEquals(VideoStatus.DOWNLOADING, downloading?.status)
 
+            val progressed = repository.updateTransfer(
+                id = queued.id,
+                downloadId = 42L,
+                bytesDownloaded = 12L,
+                totalBytes = 16L,
+                now = 2_500L
+            )
+            assertEquals("\"v1\"", progressed?.etag)
+
             val file = File(directory, "video.mp4")
             file.writeBytes(
                 byteArrayOf(
@@ -59,6 +69,86 @@ class VideoRepositoryTest {
             assertEquals(5_000L, unliked?.unlikedAt)
             assertEquals(5_000L + VideoRetentionPolicy.RETENTION_MILLIS, unliked?.expiresAt)
             assertEquals(1, repository.list().size)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun persistsManagedDestinationAndSupportsCancelThenRetry() {
+        val storage = FakeStorage()
+        val directory = Files.createTempDirectory("rain-video-retry").toFile()
+        try {
+            val repository = VideoRepository(storage, directory)
+            val queued = repository.enqueue("https://media.example.test/video.mp4", "Retry video", now = 1L)
+            val destination = File(directory, "retry.mp4")
+            assertEquals(destination.canonicalPath, repository.setDestination(queued.id, destination, 2L)?.filePath)
+
+            val downloading = repository.updateTransfer(queued.id, 99L, 12L, 100L, now = 3L)
+            assertEquals(VideoStatus.DOWNLOADING, downloading?.status)
+            val canceled = repository.markCanceled(queued.id, 4L)
+            assertEquals(VideoStatus.CANCELED, canceled?.status)
+            assertNull(canceled?.downloadId)
+
+            val retried = repository.resetForRetry(queued.id, 5L)
+            assertEquals(VideoStatus.QUEUED, retried?.status)
+            assertEquals(0L, retried?.bytesDownloaded)
+            assertTrue(retried?.filePath.isNullOrEmpty())
+            assertNull(retried?.downloadId)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun refusesDestinationOutsideManagedDirectory() {
+        val directory = Files.createTempDirectory("rain-video-root").toFile()
+        val outside = Files.createTempDirectory("rain-video-outside-destination").toFile()
+        try {
+            val repository = VideoRepository(FakeStorage(), directory)
+            val queued = repository.enqueue("https://media.example.test/video.mp4", "Video", now = 1L)
+            assertNull(repository.setDestination(queued.id, File(outside, "outside.mp4"), 2L))
+        } finally {
+            directory.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun retentionCleanupDeletesOnlyExpiredUnlikedManagedVideo() {
+        val directory = Files.createTempDirectory("rain-retention-cleanup").toFile()
+        try {
+            val repository = VideoRepository(FakeStorage(), directory)
+            val expired = repository.enqueue("https://media.example.test/expired.mp4", "Expired", now = 1_000L)
+            repository.updateTransfer(expired.id, 11L, 12L, 12L, now = 1_100L)
+            val expiredFile = File(directory, "expired.mp4").apply {
+                writeBytes(byteArrayOf(
+                    0, 0, 0, 24, 'f'.code.toByte(), 't'.code.toByte(),
+                    'y'.code.toByte(), 'p'.code.toByte(), 0, 0, 0, 0
+                ))
+            }
+            repository.markReady(expired.id, expiredFile, now = 1_000L)
+
+            val liked = repository.enqueue("https://media.example.test/liked.mp4", "Liked", now = 1_000L)
+            repository.updateTransfer(liked.id, 12L, 12L, 12L, now = 1_100L)
+            val likedFile = File(directory, "liked.mp4").apply {
+                writeBytes(byteArrayOf(
+                    0, 0, 0, 24, 'f'.code.toByte(), 't'.code.toByte(),
+                    'y'.code.toByte(), 'p'.code.toByte(), 0, 0, 0, 0
+                ))
+            }
+            repository.markReady(liked.id, likedFile, now = 1_000L)
+            repository.setLiked(liked.id, true, now = 2_000L)
+
+            val unrelatedFile = File(directory, "user-file.bin").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+            val now = 1_000L + VideoRetentionPolicy.RETENTION_MILLIS
+
+            assertEquals(1, VideoRetentionCleanup.removeExpired(repository, directory, now))
+            assertFalse(expiredFile.exists())
+            assertNull(repository.get(expired.id))
+            assertTrue(likedFile.isFile)
+            assertNotNull(repository.get(liked.id))
+            assertTrue(unrelatedFile.isFile)
         } finally {
             directory.deleteRecursively()
         }
@@ -107,6 +197,7 @@ class VideoRepositoryTest {
 
             val result = repository.markReady(queued.id, invalid, now = 3L)
             assertEquals(VideoStatus.FAILED_CORRUPTED, result?.status)
+            assertEquals(invalid.canonicalPath, result?.filePath)
             assertFalse(result?.status == VideoStatus.READY)
         } finally {
             directory.deleteRecursively()

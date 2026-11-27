@@ -139,4 +139,13 @@
     <string name="video_expires_at">ครบกำหนดเก็บรักษา: %1$s</string>
     <string name="video_liked_keep">วิดีโอที่กดถูกใจจะถูกเก็บไว้จนกว่าคุณจะนำเครื่องหมายถูกใจออก</string>
     <string name="video_file_missing">ไม่พบไฟล์วิดีโอ ต้องการนำรายการนี้ออกจากคลังหรือไม่</string>
+    <string name="video_progress">ดาวน์โหลดแล้ว %1$s (%2$s)</string>
+    <string name="video_progress_unknown">ไม่ทราบขนาดไฟล์</string>
+    <string name="video_cancel">ยกเลิกการดาวน์โหลด</string>
+    <string name="video_cancel_failed">ไม่สามารถยกเลิกการดาวน์โหลดนี้ได้อย่างปลอดภัย</string>
+    <string name="video_retry">ลองดาวน์โหลดอีกครั้ง</string>
+    <string name="video_retry_failed">ไม่สามารถเริ่มดาวน์โหลดรายการนี้ใหม่ได้</string>
+    <string name="video_storage_channel">พื้นที่จัดเก็บ RAIN</string>
+    <string name="video_storage_warning_title">พื้นที่จัดเก็บอุปกรณ์ใกล้เต็ม</string>
+    <string name="video_storage_warning_message">ตรวจสอบวิดีโอออฟไลน์และไฟล์อื่นเพื่อเพิ่มพื้นที่ว่าง</string>
 </resources>
