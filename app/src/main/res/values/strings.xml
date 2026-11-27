@@ -42,7 +42,7 @@
     <string name="video_play_failed">This video could not be played.</string>
     <string name="video_refresh">Refresh</string>
     <string name="video_downloaded_at">Saved: %1$s</string>
-    <string name="video_expires_at">Auto-delete: %1$s</string>
+    <string name="video_expires_at">Retention expiry: %1$s</string>
     <string name="video_liked_keep">Liked videos are kept until you remove them.</string>
     <string name="video_file_missing">The video file is missing. Remove its library entry?</string>
     <string name="action_settings">Settings</string>
