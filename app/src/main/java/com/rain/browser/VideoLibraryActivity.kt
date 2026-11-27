@@ -2,7 +2,6 @@ package com.rain.browser
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.app.DownloadManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
