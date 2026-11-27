@@ -53,7 +53,7 @@ If Video Library metadata is added later, migration must preserve every existing
 | 5 | Multiple video and no-source cases | Done — multiple elements are reported; missing source remains empty rather than being invented |
 | 6 | Explicit ad UI signal probe | Done for exposed DOM markers only; not a universal ad classifier |
 | 7 | Direct MP4 resource visibility | Done for one public MP4 sample on Android 16 emulator; WebViewClient observed the resource request |
-| 8 | Detection feasibility acceptance gate | Partial / blocked — real-site ad, pre-roll/mid-roll, iframe, MSE/Blob and broader source validation remain |
+| 8 | Detection feasibility acceptance gate | Partial / blocked — additional emulator probes added for source changes, Blob URLs and iframe boundary; CI result pending; real-site ad, pre-roll/mid-roll and broader source validation remain |
 | 9 | Download core foundation | Blocked by Day 8 gate |
 | 10 | Direct MP4 download integration | Blocked by Day 8 gate |
 | 11 | Direct WebM download integration | Blocked by Day 8 gate |
@@ -111,7 +111,7 @@ The four PoC cases are:
 3. Observe one direct MP4 resource request through a test WebViewClient on Android 16 emulator.
 4. Collect explicit `Advertisement` and `Skip Ad` DOM markers when the player exposes them.
 
-These results establish limited feasibility only. They do not prove that all websites expose media URLs, that all media requests are visible, or that absence of an ad marker proves a video is main content. The PoC deliberately does not classify a video as safe to download and does not show a popup.
+These results establish limited feasibility only. Follow-up instrumentation probes have been added for dynamic source changes, Blob URL handling and the current document/iframe boundary; their CI result is pending and they are not yet counted as passing. The existing evidence does not prove that all websites expose media URLs, that all media requests are visible, or that absence of an ad marker proves a video is main content. The PoC deliberately does not classify a video as safe to download and does not show a popup.
 
 ## 5. Gate before Days 9–17
 
@@ -131,5 +131,6 @@ Therefore Days 9–17 remain blocked. Do not create a production popup, mark a v
 
 - Consolidated all physical-device testing into Day 35.
 - Recorded source audit findings and Android 16 emulator PoC evidence.
+- Added follow-up Android 16 emulator probes for changing media sources, opaque Blob URLs and iframe visibility; pending CI verification.
 - Added mandatory update-over-install invariants: stable application ID, signing certificate, strictly increasing versionCode and non-destructive data migrations.
 - Kept Days 9–17 gated until real-site detection and ad-classification feasibility is demonstrated.
