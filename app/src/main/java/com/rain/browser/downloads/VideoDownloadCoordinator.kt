@@ -22,7 +22,8 @@ import java.util.Locale
 class VideoDownloadCoordinator(
     context: Context,
     private val repository: VideoRepository,
-    private val managedDirectory: File
+    private val managedDirectory: File,
+    private val allowLoopbackForTests: Boolean = false
 ) {
     private val appContext = context.applicationContext
     private val downloadManager: DownloadManager =
@@ -256,14 +257,18 @@ class VideoDownloadCoordinator(
         require(!host.isNullOrBlank() && uri.rawUserInfo == null) {
             "Video source URL must have a host and must not contain embedded credentials."
         }
-        require(host != "localhost" && !host.endsWith(".localhost") && !host.endsWith(".local")) {
+        val localName = host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local")
+        require(!localName || allowLoopbackForTests && host == "localhost") {
             "Local network video sources are not supported."
         }
         if (host.matches(IPV4_LITERAL) || host.startsWith("[") || host.contains(":")) {
             val address = runCatching { InetAddress.getByName(host.trim('[', ']')) }.getOrNull()
-            require(address != null && !address.isAnyLocalAddress &&
-                !address.isLoopbackAddress && !address.isLinkLocalAddress &&
-                !address.isSiteLocalAddress && !address.isMulticastAddress
+            val testLoopback = allowLoopbackForTests && address?.isLoopbackAddress == true
+            require(address != null && (testLoopback || (
+                !address.isAnyLocalAddress && !address.isLoopbackAddress &&
+                    !address.isLinkLocalAddress && !address.isSiteLocalAddress &&
+                    !address.isMulticastAddress
+                ))
             ) { "Private or local IP video sources are not supported." }
         }
         return uri
