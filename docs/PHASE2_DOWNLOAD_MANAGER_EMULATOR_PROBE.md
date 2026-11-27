@@ -21,7 +21,7 @@ Exercise the Android platform DownloadManager independently from RAIN's producti
 - No database schema, repository, worker, service, video UI or media detection code is changed.
 - No third-party websites or media files are accessed.
 - Synthetic test files are removed during test cleanup.
-- Cleartext traffic is enabled only in the debug manifest so the emulator test can reach its loopback fixture. The main/release manifest continues to disallow cleartext traffic.
+- The debug-only network security configuration allows cleartext only for the loopback hosts used by this fixture; other cleartext hosts remain disallowed. The main/release manifest and network policy are unchanged.
 
 ## Interpretation
 
