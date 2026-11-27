@@ -70,7 +70,7 @@ jobs:
             adb devices
             test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = "36"
             test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
-            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
+            # Run only this PoC class; Private Browsing isolation has a separate Phase 2 gate.\n            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.rain.browser.browser.Html5VideoDetectionProbeTest
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.rain.browser
             adb shell monkey -p com.rain.browser 1
