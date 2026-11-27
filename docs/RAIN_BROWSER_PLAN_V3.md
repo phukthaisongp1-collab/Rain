@@ -555,3 +555,13 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 - ระบุข้อจำกัดจริงของ Android WebView สำหรับ Private Session, DoH และ Proxy
 - คงเป้าหมาย Privacy, tabs, bookmarks, history, resume, downloads, offline, localization และเฟสต่อยอดตามลำดับ
 - ปรับแผนตามคำสั่งเจ้าของโครงการ 2026-11-26: ย้าย Private Browsing ทั้ง implementation และ verification จาก Phase 1 ไป Phase 2; ขยาย Section 7.1 เป็นแผน M0–M4 ครอบคลุม CI/Harness, IPC/Readiness, Isolation, Cleanup/Lifecycle, Security Review, Real Device Validation, Acceptance Criteria, Timeline และ Stop Conditions; ปรับ Android minimum baseline เป็น API 36 ให้ตรงกับมติอนุมัติ
+
+
+## ภาพอ้างอิงอย่างเป็นทางการของ RAIN Browser
+
+เก็บภาพต้นฉบับสำหรับการออกแบบและตรวจสอบ UI ไว้ใน `docs/assets/` โดยไม่แก้ไขไฟล์ต้นฉบับ:
+
+- **ภาพหน้าหลัก (Home UI reference):** [file_00000000fc688211b9c8e02f71e27cd5.png](assets/file_00000000fc688211b9c8e02f71e27cd5.png) — PNG ขนาด 1536 × 864 พิกเซล
+- **โลโก้ RAIN Browser (Official logo reference):** [Meta_AI_rain_browser_1_transparent_20261127_094535.png](assets/Meta_AI_rain_browser_1_transparent_20261127_094535.png) — PNG ขนาด 1920 × 1280 พิกเซล (RGBA)
+
+ภาพทั้งสองเป็นไฟล์อ้างอิงเท่านั้น การนำไปใช้หรือดัดแปลงในแอปต้องเป็นไปตามข้อกำหนดและการอนุมัติของเจ้าของโครงการ ห้ามแก้ไขต้นฉบับทับไฟล์อ้างอิง
