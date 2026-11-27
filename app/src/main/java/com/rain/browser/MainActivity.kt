@@ -8,11 +8,6 @@ import android.app.DownloadManager
 import android.app.LocaleManager
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.GradientDrawable
-import android.view.Gravity
-import android.view.MotionEvent
 import android.net.Uri
 import android.os.Bundle
 import android.os.LocaleList
