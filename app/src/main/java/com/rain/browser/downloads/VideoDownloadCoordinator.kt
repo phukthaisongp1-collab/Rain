@@ -97,7 +97,9 @@ class VideoDownloadCoordinator(
             id = record.id,
             downloadId = requestId,
             bytesDownloaded = 0L,
-            totalBytes = -1L
+            totalBytes = validatedSource?.contentLength ?: -1L,
+            etag = validatedSource?.etag.orEmpty(),
+            lastModified = validatedSource?.lastModified.orEmpty()
         )
         if (persisted == null) {
             downloadManager.remove(requestId)
