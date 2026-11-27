@@ -202,7 +202,7 @@ class VideoRepository(
 
     fun resetForRetry(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
         val current = get(id) ?: return null
-        if (current.status !in setOf(VideoStatus.FAILED, VideoStatus.CANCELED) || now < 0L) return null
+        if (current.status !in setOf(VideoStatus.FAILED, VideoStatus.FAILED_CORRUPTED, VideoStatus.CANCELED) || now < 0L) return null
         return current.copy(
             bytesDownloaded = 0L,
             downloadId = null,
@@ -246,9 +246,13 @@ class VideoRepository(
     fun removeMetadata(id: String): Boolean = storage.delete(TABLE, id) > 0
 
     private fun failCorrupted(current: VideoRecord, reason: String, now: Long): VideoRecord {
+        val currentFile = current.filePath.takeIf { it.isNotBlank() }?.let(::File)
+        val safeManagedPath = currentFile?.takeIf {
+            it.isFile && ManagedVideoPathPolicy.isManagedFile(managedDirectory, it)
+        }?.canonicalPath.orEmpty()
         return current.copy(
             status = VideoStatus.FAILED_CORRUPTED,
-            filePath = "",
+            filePath = safeManagedPath,
             lastError = reason,
             updatedAt = now
         ).also(::persist)
