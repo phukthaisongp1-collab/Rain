@@ -196,8 +196,10 @@ class MainActivity : Activity(), WebViewCallbacks {
             tab.url = savedTab.getString(STATE_URL).orEmpty()
             tab.isDesktopMode = savedTab.getBoolean(STATE_DESKTOP, false)
             val restored = runCatching { webView.restoreState(savedTab) }.getOrNull()
-            if (restored == null) {
-                if (tab.url.isBlank()) showWelcomePage(webView) else loadUrlInTab(tab, tab.url)
+            if (tab.url.isBlank()) {
+                showWelcomePage(webView)
+            } else if (restored == null) {
+                loadUrlInTab(tab, tab.url)
             }
         }
         tabManager.selectAt(savedInstanceState.getInt(STATE_ACTIVE_INDEX, 0))
@@ -234,6 +236,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             url = GOOGLE_HOME_URL
             title = "Google"
         }
+        updateBrowserControls()
         webView.loadUrl(GOOGLE_HOME_URL)
     }
 
