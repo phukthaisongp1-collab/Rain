@@ -25,6 +25,9 @@ class VideoSourceValidatorTest {
         assertNotNull(runCatching {
             VideoSourceValidator.validate("https://media.example.test/video.mp4?signature=secret")
         }.exceptionOrNull())
+        assertNotNull(runCatching {
+            VideoSourceValidator.validate("https://media.example.test/video.mp4?%61ccess_token=secret")
+        }.exceptionOrNull())
     }
 
     @Test
