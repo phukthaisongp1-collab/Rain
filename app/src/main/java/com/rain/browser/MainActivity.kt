@@ -2,6 +2,7 @@ package com.rain.browser
 
 import android.Manifest
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.app.AlertDialog
 import android.app.DownloadManager
 import android.app.LocaleManager
@@ -14,6 +15,7 @@ import android.os.Environment
 import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.window.OnBackInvokedCallback
@@ -28,6 +30,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import android.content.Intent
 import android.webkit.GeolocationPermissions
+import android.webkit.WebChromeClient
 import android.webkit.PermissionRequest
 import android.webkit.URLUtil
 import android.webkit.WebSettings
@@ -58,6 +61,7 @@ import com.rain.browser.data.SettingsRepository
 import com.rain.browser.data.ResumeRepository
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
+import androidx.core.view.WindowCompat
 
 class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var tabManager: TabManager
@@ -69,6 +73,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var statusText: TextView
     private lateinit var modeText: TextView
     private lateinit var tabsButton: Button
+    private lateinit var topTabsButton: TextView
     private lateinit var reloadButton: Button
     private lateinit var searchEngineButton: Button
     private lateinit var permissionManager: PermissionManager
@@ -78,6 +83,10 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var resumeRepository: ResumeRepository
     private val storageExecutor = Executors.newSingleThreadExecutor()
     private val systemBackCallback = OnBackInvokedCallback { handleSystemBack() }
+    private var fullscreenCustomView: View? = null
+    private var fullscreenCustomViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var fullscreenOwner: WebView? = null
+    private var previousRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 
     private data class PendingWebPermission(
         val request: PermissionRequest,
@@ -107,6 +116,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(15, 23, 42)
         window.navigationBarColor = Color.rgb(15, 23, 42)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
         applyImmersiveFullscreen()
         configureTopToolbar()
@@ -139,6 +149,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         statusText = findViewById(R.id.status_text)
         modeText = findViewById(R.id.mode_text)
         tabsButton = findViewById(R.id.tabs_button)
+        topTabsButton = findViewById(R.id.top_tabs_button)
         reloadButton = findViewById(R.id.reload_button)
         searchEngineButton = findViewById(R.id.search_engine_button)
         updateSearchEngineButton()
@@ -146,6 +157,9 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     private fun bindActions() {
         findViewById<View>(R.id.menu_button).setOnClickListener { showBrowserMenu() }
+        findViewById<View>(R.id.rain_logo).setOnClickListener { loadHome() }
+        findViewById<View>(R.id.top_new_tab_button).setOnClickListener { createTab() }
+        topTabsButton.setOnClickListener { showTabsDialog() }
         findViewById<Button>(R.id.back_button).setOnClickListener {
             tabManager.activeTab?.webView?.let { if (it.canGoBack()) it.goBack() }
             updateBrowserControls()
@@ -205,29 +219,14 @@ class MainActivity : Activity(), WebViewCallbacks {
 
         val startPadding = (8 * density).toInt()
         val endPadding = (6 * density).toInt()
-        val minimumCameraGap = (44 * density).toInt()
-        val cameraGapPadding = (16 * density).toInt()
         toolbar.setOnApplyWindowInsetsListener { view, insets ->
             val cutout = insets.displayCutout
-            val safeTopInset = cutout?.safeInsetTop ?: 0
             view.setPadding(
                 startPadding + (cutout?.safeInsetLeft ?: 0),
-                safeTopInset,
+                0,
                 endPadding + (cutout?.safeInsetRight ?: 0),
                 0
             )
-
-            val requiredHeight = minimumHeight + safeTopInset
-            if (view.layoutParams.height < requiredHeight) {
-                view.layoutParams = view.layoutParams.apply { height = requiredHeight }
-            }
-
-            val detectedCutoutWidth = cutout?.boundingRects?.maxOfOrNull { it.width() } ?: 0
-            val cameraGap = maxOf(minimumCameraGap, detectedCutoutWidth + cameraGapPadding)
-            findViewById<View>(R.id.camera_safe_space).layoutParams =
-                findViewById<View>(R.id.camera_safe_space).layoutParams.apply {
-                    width = cameraGap
-                }
             insets
         }
         toolbar.requestApplyInsets()
@@ -625,6 +624,8 @@ class MainActivity : Activity(), WebViewCallbacks {
             statusText.text = getString(R.string.status_no_tab)
             modeText.text = getString(R.string.mode_mobile)
             tabsButton.text = getString(R.string.tabs_count, 0)
+            topTabsButton.text = "0"
+            topTabsButton.contentDescription = getString(R.string.tabs_count, 0)
             progressBar.visibility = View.GONE
             addressInput.text.clear()
             return
@@ -643,6 +644,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         statusText.text = tab.title.ifBlank { getString(R.string.status_ready) }
         modeText.text = if (tab.isDesktopMode) getString(R.string.mode_desktop) else getString(R.string.mode_mobile)
         tabsButton.text = getString(R.string.tabs_count, tabManager.tabs.size)
+        topTabsButton.text = tabManager.tabs.size.toString()
+        topTabsButton.contentDescription = getString(R.string.tabs_count, tabManager.tabs.size)
         reloadButton.text = if (tab.isLoading) getString(R.string.status_stop) else getString(R.string.action_reload)
         progressBar.progress = tab.progress
         progressBar.visibility = if (!isGoogleHome && tab.isLoading) View.VISIBLE else View.GONE
@@ -1489,13 +1492,77 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     private fun applyImmersiveFullscreen() {
         window.insetsController?.let { controller ->
-            controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
             controller.systemBarsBehavior =
                 WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (fullscreenCustomView != null) {
+                controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+            } else {
+                controller.show(WindowInsets.Type.statusBars())
+                controller.hide(WindowInsets.Type.navigationBars())
+            }
+        }
+    }
+
+    override fun onShowCustomView(
+        view: WebView,
+        customView: View,
+        callback: WebChromeClient.CustomViewCallback
+    ) {
+        if (fullscreenCustomView != null || tabManager.activeTab?.webView !== view) {
+            callback.onCustomViewHidden()
+            return
+        }
+
+        fullscreenCustomView = customView
+        fullscreenCustomViewCallback = callback
+        fullscreenOwner = view
+        previousRequestedOrientation = requestedOrientation
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+
+        (customView.parent as? ViewGroup)?.removeView(customView)
+        (window.decorView as? ViewGroup)?.addView(
+            customView,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        findViewById<View>(R.id.top_toolbar).visibility = View.GONE
+        findViewById<View>(R.id.actions_toolbar).visibility = View.GONE
+        progressBar.visibility = View.GONE
+        statusText.visibility = View.GONE
+        applyImmersiveFullscreen()
+    }
+
+    override fun onHideCustomView(view: WebView) {
+        if (fullscreenOwner === view) {
+            exitVideoFullscreen(notifyWebView = false)
+        }
+    }
+
+    private fun exitVideoFullscreen(notifyWebView: Boolean) {
+        val customView = fullscreenCustomView ?: return
+        (customView.parent as? ViewGroup)?.removeView(customView)
+
+        val callback = fullscreenCustomViewCallback
+        fullscreenCustomView = null
+        fullscreenCustomViewCallback = null
+        fullscreenOwner = null
+        requestedOrientation = previousRequestedOrientation
+
+        if (notifyWebView) callback?.onCustomViewHidden()
+        applyImmersiveFullscreen()
+        if (::tabManager.isInitialized && ::topTabsButton.isInitialized) {
+            updateBrowserControls()
         }
     }
 
     private fun handleSystemBack() {
+        if (fullscreenCustomView != null) {
+            exitVideoFullscreen(notifyWebView = true)
+            return
+        }
         val webView = tabManager.activeTab?.webView
         if (webView?.canGoBack() == true) {
             webView.goBack()
@@ -1506,6 +1573,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     override fun onDestroy() {
+        exitVideoFullscreen(notifyWebView = true)
         onBackInvokedDispatcher.unregisterOnBackInvokedCallback(systemBackCallback)
         tabManager.clear().forEach { destroyWebView(it.webView) }
         storageExecutor.shutdown()
