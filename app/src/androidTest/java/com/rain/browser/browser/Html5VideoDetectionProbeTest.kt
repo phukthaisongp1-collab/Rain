@@ -3,6 +3,8 @@ package com.rain.browser.browser
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
@@ -70,6 +72,74 @@ class Html5VideoDetectionProbeTest {
         assertFalse(signals.getJSONObject(0).getBoolean("hasExposedSource"))
     }
 
+
+    @Test
+    fun webViewClientObservesOneDirectMp4ResourceRequest() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val requestObserved = CountDownLatch(1)
+        val pageFinished = CountDownLatch(1)
+        val webViewRef = AtomicReference<WebView>()
+        val html = """
+            <!doctype html>
+            <html>
+              <body>
+                <video autoplay muted playsinline preload="auto"
+                    src="$SAMPLE_MP4_URL"></video>
+              </body>
+            </html>
+        """.trimIndent()
+
+        instrumentation.runOnMainSync {
+            val webView = WebView(instrumentation.targetContext)
+            webView.settings.javaScriptEnabled = true
+            webView.settings.mediaPlaybackRequiresUserGesture = false
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? {
+                    if (request.url.toString() == SAMPLE_MP4_URL) {
+                        requestObserved.countDown()
+                    }
+                    return null
+                }
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(
+                        "(function () { var video = document.querySelector('video'); " +
+                            "if (video) { video.muted = true; video.play().catch(function () {}); } })();",
+                        null
+                    )
+                    pageFinished.countDown()
+                }
+            }
+            webViewRef.set(webView)
+            webView.loadDataWithBaseURL(
+                "https://fixture.example.invalid/",
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
+
+        try {
+            assertTrue("WebView fixture did not finish loading", pageFinished.await(10, TimeUnit.SECONDS))
+            assertTrue(
+                "WebViewClient did not observe the direct MP4 request",
+                requestObserved.await(20, TimeUnit.SECONDS)
+            )
+        } finally {
+            instrumentation.runOnMainSync {
+                webViewRef.getAndSet(null)?.apply {
+                    stopLoading()
+                    webChromeClient = null
+                    destroy()
+                }
+            }
+        }
+    }
+
     private fun loadSignals(html: String): JSONArray {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val result = AtomicReference<String>()
@@ -115,6 +185,7 @@ class Html5VideoDetectionProbeTest {
     }
 
     private companion object {
+        const val SAMPLE_MP4_URL = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
         val VIDEO_SIGNAL_SCRIPT = """
             (function () {
                 return JSON.stringify(Array.from(document.querySelectorAll('video')).map(function (video) {
