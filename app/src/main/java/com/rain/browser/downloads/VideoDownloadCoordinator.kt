@@ -102,12 +102,12 @@ class VideoDownloadCoordinator(
             }
             validatedSource?.etag?.takeIf {
                 it.isNotBlank() && it.length <= MAX_VALIDATOR_HEADER_LENGTH &&
-                    it.none { character -> character == '\\r' || character == '\\n' }
+                    it.none { character -> character == '\r' || character == '\n' }
             }?.let { addRequestHeader("If-Match", it) }
             if (validatedSource?.etag.isNullOrBlank()) {
                 validatedSource?.lastModified?.takeIf {
                     it.isNotBlank() && it.length <= MAX_VALIDATOR_HEADER_LENGTH &&
-                        it.none { character -> character == '\\r' || character == '\\n' }
+                        it.none { character -> character == '\r' || character == '\n' }
                 }?.let { addRequestHeader("If-Unmodified-Since", it) }
             }
         }
@@ -161,7 +161,7 @@ class VideoDownloadCoordinator(
                     VideoStatus.DOWNLOADING,
                     snapshot.bytesDownloaded,
                     snapshot.totalBytes,
-                    snapshot.reason
+                    snapshot.reason.toString()
                 )
             }
 
@@ -174,7 +174,7 @@ class VideoDownloadCoordinator(
                     VideoStatus.FAILED,
                     snapshot.bytesDownloaded,
                     snapshot.totalBytes,
-                    snapshot.reason
+                    snapshot.reason.toString()
                 )
             }
 
