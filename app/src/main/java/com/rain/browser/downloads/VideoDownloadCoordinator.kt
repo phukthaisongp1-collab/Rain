@@ -161,7 +161,7 @@ class VideoDownloadCoordinator(
                     VideoStatus.DOWNLOADING,
                     snapshot.bytesDownloaded,
                     snapshot.totalBytes,
-                    snapshot.reason.toString()
+                    "Android DownloadManager failed (reason: ${snapshot.reason})."
                 )
             }
 
@@ -174,7 +174,7 @@ class VideoDownloadCoordinator(
                     VideoStatus.FAILED,
                     snapshot.bytesDownloaded,
                     snapshot.totalBytes,
-                    snapshot.reason.toString()
+                    "Android DownloadManager failed (reason: ${snapshot.reason})."
                 )
             }
 
