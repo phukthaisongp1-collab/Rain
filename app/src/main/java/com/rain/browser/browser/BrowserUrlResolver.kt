@@ -10,6 +10,25 @@ enum class SearchEngine {
 }
 
 object BrowserUrlResolver {
+    /**
+     * Resolves a user-entered website address for a saved home shortcut.
+     * Unlike ordinary address-bar input, plain search terms are rejected.
+     */
+    fun resolveWebsiteShortcut(input: String): String? {
+        val value = input.trim()
+        if (value.isEmpty() || value.any(Char::isWhitespace)) return null
+
+        val candidate = if (SCHEME_PATTERN.containsMatchIn(value)) value else "https://$value"
+        val uri = runCatching { URI(candidate) }.getOrNull() ?: return null
+        val scheme = uri.scheme?.lowercase(Locale.ROOT)
+        if ((scheme != "http" && scheme != "https") ||
+            uri.host.isNullOrBlank() ||
+            uri.rawUserInfo != null
+        ) return null
+
+        return uri.toASCIIString()
+    }
+
     fun resolve(input: String, searchEngine: SearchEngine): String {
         val value = input.trim()
         if (value.isEmpty()) return ""

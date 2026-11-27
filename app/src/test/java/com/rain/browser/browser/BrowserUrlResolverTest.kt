@@ -59,4 +59,71 @@ class BrowserUrlResolverTest {
             BrowserUrlResolver.resolve("https://user:pass@example.com", SearchEngine.DUCKDUCKGO)
         )
     }
+
+    @Test
+    fun trimsWhitespaceAroundWebsiteAddress() {
+        assertEquals(
+            "https://example.com/path",
+            BrowserUrlResolver.resolve("  example.com/path  ", SearchEngine.DUCKDUCKGO)
+        )
+    }
+
+    @Test
+    fun returnsEmptyForBlankInput() {
+        assertEquals("", BrowserUrlResolver.resolve("   ", SearchEngine.DUCKDUCKGO))
+    }
+
+    @Test
+    fun preservesHttpUrl() {
+        assertEquals(
+            "http://example.com/path",
+            BrowserUrlResolver.resolve("http://example.com/path", SearchEngine.GOOGLE)
+        )
+    }
+
+    @Test
+    fun encodesReservedCharactersInSearchQuery() {
+        assertEquals(
+            "https://duckduckgo.com/?q=rain+%26+weather%3F",
+            BrowserUrlResolver.resolve("rain & weather?", SearchEngine.DUCKDUCKGO)
+        )
+    }
+
+    @Test
+    fun treatsUnsupportedSchemesAsSearchText() {
+        assertEquals(
+            "https://www.google.com/search?q=ftp%3A%2F%2Fexample.com",
+            BrowserUrlResolver.resolve("ftp://example.com", SearchEngine.GOOGLE)
+        )
+    }
+    @Test
+    fun resolvesWebsiteShortcutWithoutScheme() {
+        assertEquals("https://example.com/path?q=rain", BrowserUrlResolver.resolveWebsiteShortcut("example.com/path?q=rain"))
+    }
+
+    @Test
+    fun preservesHttpWebsiteShortcut() {
+        assertEquals("http://example.com/path", BrowserUrlResolver.resolveWebsiteShortcut("http://example.com/path"))
+    }
+
+    @Test
+    fun rejectsSearchTextAsWebsiteShortcut() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("rain browser"))
+    }
+
+    @Test
+    fun rejectsUnsafeWebsiteShortcutSchemes() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("javascript:alert(1)"))
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("ftp://example.com"))
+    }
+
+    @Test
+    fun rejectsWebsiteShortcutWithCredentials() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("https://user:pass@example.com"))
+    }
+
+    @Test
+    fun rejectsBlankWebsiteShortcut() {
+        assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("   "))
+    }
 }
