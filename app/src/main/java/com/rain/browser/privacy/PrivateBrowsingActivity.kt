@@ -5,6 +5,8 @@ import androidx.activity.OnBackPressedCallback
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
@@ -36,6 +38,7 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyImmersiveFullscreen()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 closePrivateSession()
@@ -66,6 +69,24 @@ class PrivateBrowsingActivity : ComponentActivity(), WebViewCallbacks {
             clearStalePrivateData {
                 if (!isFinishing && !isDestroyed) initializePrivateWebView()
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyImmersiveFullscreen()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applyImmersiveFullscreen()
+    }
+
+    private fun applyImmersiveFullscreen() {
+        window.insetsController?.let { controller ->
+            controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+            controller.systemBarsBehavior =
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
     }
 
