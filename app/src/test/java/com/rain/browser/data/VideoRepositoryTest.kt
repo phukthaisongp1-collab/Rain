@@ -8,12 +8,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.nio.file.Files
 
 class VideoRepositoryTest {
     @Test
     fun persistsQueuedTransferReadyAndLikeRetentionState() {
         val storage = FakeStorage()
-        val directory = createTempDirectory("rain-video-repository").toFile()
+        val directory = Files.createTempDirectory("rain-video-repository").toFile()
         try {
             val repository = VideoRepository(storage, directory)
             val queued = repository.enqueue(
@@ -65,7 +66,7 @@ class VideoRepositoryTest {
 
     @Test
     fun rejectsUnsafeSourceUrls() {
-        val repository = VideoRepository(FakeStorage(), createTempDirectory("rain-video-url").toFile())
+        val repository = VideoRepository(FakeStorage(), Files.createTempDirectory("rain-video-url").toFile())
         val error = runCatching {
             repository.enqueue("file:///sdcard/private.mp4", "Unsafe", now = 1L)
         }.exceptionOrNull()
@@ -75,8 +76,8 @@ class VideoRepositoryTest {
     @Test
     fun refusesFileOutsideManagedDirectoryAndMarksItCorrupted() {
         val storage = FakeStorage()
-        val directory = createTempDirectory("rain-video-managed").toFile()
-        val outside = createTempDirectory("rain-video-outside").toFile()
+        val directory = Files.createTempDirectory("rain-video-managed").toFile()
+        val outside = Files.createTempDirectory("rain-video-outside").toFile()
         try {
             val repository = VideoRepository(storage, directory)
             val queued = repository.enqueue("https://media.example.test/video.webm", "Video", now = 1L)
@@ -97,7 +98,7 @@ class VideoRepositoryTest {
     @Test
     fun rejectsUnknownContainerBeforeMarkingReady() {
         val storage = FakeStorage()
-        val directory = createTempDirectory("rain-video-corrupt").toFile()
+        val directory = Files.createTempDirectory("rain-video-corrupt").toFile()
         try {
             val repository = VideoRepository(storage, directory)
             val queued = repository.enqueue("https://media.example.test/video.mp4", "Video", now = 1L)
