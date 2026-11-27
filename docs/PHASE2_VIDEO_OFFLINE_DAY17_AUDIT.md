@@ -31,13 +31,15 @@ The Day 17 target is implementation completion plus automated validation where t
 - Added `VideoRetentionCleanup` and a persistent daily WorkManager worker. It only removes expired, unliked records whose files are inside the managed directory; missing-file metadata can be cleaned, while outside-path files are left untouched.
 - Added a low-storage notification with a 500 MiB / 10% free-space threshold and a 24-hour notification cooldown. It is skipped if Android notification permission is not granted.
 - Added a native fail-closed `VideoDetectionPolicy` and unit tests. It requires a user gesture, main-frame signal, stable direct source, explicit non-ad state, MP4/WebM MIME, and corroborating metadata; duration alone is insufficient.
+- Added `VideoSourceValidator` to check DNS/IP safety, redirects, HTTPS downgrade, token/credential-bearing URLs, response status, content type, byte-range metadata, entity validators, and container signatures without sending cookies or authorization.
+- Added `VideoMediaInspector` to require Android MediaMetadataRetriever duration and a decodable video frame before a production download can become READY; an API 36 instrumentation test uses a tiny valid MP4 fixture.
 
 ## Required code/evidence still missing
 
 1. A production WebView video-signal bridge and user-facing Download/Close popup are not yet connected. This remains gated by the A1 real-site feasibility evidence; the current policy is isolated and is not yet a production capture path.
-2. Native source preflight must validate DNS/IPs, redirect chain, response status, content type, range behavior, and MP4/WebM signature without forwarding cookies or credentials. The coordinator currently performs basic URL and IP-literal checks; it does not yet prove redirect/DNS safety.
-3. Full file integrity and media metadata extraction (duration, thumbnail) are not yet complete; signature recognition is only an initial format gate.
-4. Additional Android 16 instrumentation must cover the production coordinator, retry, process restart/recovery, retention worker behavior, and generic download/APK regression.
+2. The source preflight is implemented for the direct URL and each observed redirect, but the Android DownloadManager may independently re-resolve the final host or follow a later redirect after preflight. A strict guarantee against DNS rebinding or post-validation redirect changes is not yet established.
+3. Android decoder validation and duration extraction are implemented. Thumbnail extraction/persistence and real-device codec coverage remain outstanding.
+4. Additional Android 16 instrumentation must cover retry, process restart/recovery, retention worker behavior, and generic download/APK regression.
 5. Integration and regression evidence must confirm existing browsing behavior and normal file/APK downloads remain unchanged.
 
 ## A1 gate — still blocking real-site production detection claims
