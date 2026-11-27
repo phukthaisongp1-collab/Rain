@@ -15,6 +15,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.ByteArrayInputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -154,6 +155,84 @@ class Html5VideoDetectionProbeTest {
             assertTrue("WebView fixture did not finish loading", pageFinished.await(10, TimeUnit.SECONDS))
             assertTrue(
                 "WebViewClient did not observe the direct MP4 request",
+                requestObserved.await(20, TimeUnit.SECONDS)
+            )
+        } finally {
+            instrumentation.runOnMainSync {
+                webViewRef.getAndSet(null)?.apply {
+                    stopLoading()
+                    webChromeClient = null
+                    destroy()
+                }
+            }
+        }
+    }
+
+    @Test
+    fun observesWebmResourceRequestWithoutClaimingDownloadPermission() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val requestObserved = CountDownLatch(1)
+        val pageFinished = CountDownLatch(1)
+        val webViewRef = AtomicReference<WebView>()
+        val resourceUrl = "https://fixture.example.invalid/media/sample.webm"
+        val html = """
+            <!doctype html>
+            <html>
+              <body>
+                <video id="webm" autoplay muted playsinline preload="auto" controls>
+                  <source src="$resourceUrl" type="video/webm">
+                </video>
+              </body>
+            </html>
+        """.trimIndent()
+
+        instrumentation.runOnMainSync {
+            val webView = WebView(instrumentation.targetContext)
+            webView.settings.javaScriptEnabled = true
+            webView.settings.mediaPlaybackRequiresUserGesture = false
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? {
+                    if (request.url.toString() == resourceUrl) {
+                        requestObserved.countDown()
+                        // A tiny synthetic response is sufficient to verify request visibility.
+                        // It is not a playable asset and does not represent site download permission.
+                        return WebResourceResponse(
+                            "video/webm",
+                            "binary",
+                            ByteArrayInputStream(
+                                byteArrayOf(0x1A.toByte(), 0x45.toByte(), 0xDF.toByte(), 0xA3.toByte())
+                            )
+                        )
+                    }
+                    return null
+                }
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(
+                        "var video = document.getElementById('webm'); " +
+                            "if (video) { video.load(); video.play().catch(function () {}); }",
+                        null
+                    )
+                    pageFinished.countDown()
+                }
+            }
+            webViewRef.set(webView)
+            webView.loadDataWithBaseURL(
+                "https://fixture.example.invalid/",
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
+
+        try {
+            assertTrue("WebView fixture did not finish loading", pageFinished.await(10, TimeUnit.SECONDS))
+            assertTrue(
+                "WebViewClient did not observe the synthetic WebM request",
                 requestObserved.await(20, TimeUnit.SECONDS)
             )
         } finally {
