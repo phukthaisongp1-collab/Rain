@@ -51,6 +51,19 @@ object BrowserUrlResolver {
         return if (isSafeWebUrl) uri.toASCIIString() else search(value, searchEngine)
     }
 
+    fun isGoogleHomePage(url: String): Boolean {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return false
+        val host = uri.host?.lowercase(Locale.ROOT) ?: return false
+        val googleHost = Regex("^(www\\.)?google\\.[a-z]{2,}(\\.[a-z]{2,})?$")
+            .matches(host)
+        val isHomePath = uri.path.isNullOrBlank() || uri.path == "/"
+        val hasSearchQuery = uri.rawQuery?.let { query ->
+            query.split("&").any { it.substringBefore("=").equals("q", ignoreCase = true) }
+        } ?: false
+        return (uri.scheme == "https" || uri.scheme == "http") &&
+            googleHost && isHomePath && !hasSearchQuery
+    }
+
     private fun looksLikeHost(value: String): Boolean {
         if (value.any(Char::isWhitespace)) return false
         val hostPart = value.substringBefore('/').substringBefore('?').substringBefore('#')
