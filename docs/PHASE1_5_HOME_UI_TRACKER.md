@@ -5,8 +5,8 @@
 > **Workstream:** Phase 1.5 — Home page redesign and functional controls  
 > **Planning estimate:** 7 working days  
 > **Start date:** 2026-11-27  
-> **Current status:** Day 1 complete; Day 2 not started  
-> **Progress:** 1/7 days (14.29%)
+> **Current status:** Day 1–2 complete; Day 3 in progress  
+> **Progress:** 2/7 days (28.57%)
 
 ## Purpose
 
@@ -40,13 +40,13 @@ Rework the RAIN Browser home page to match the visual reference selected by the 
 | Day | Planned work | Status | Evidence |
 |---|---|---|---|
 | 1 | Inspect repository baseline, existing home-page implementation, assets, navigation/actions, and relevant tests. Record affected files and constraints. | Complete (2026-11-27) | Inspection report below; baseline `7ce46d2`; PR #19 / Actions run `45931404564` |
-| 2 | Implement the reference-matched home-page layout and responsive sizing without changing core architecture. | In progress | Landscape-responsive CSS committed on PR branch as `fb27cc9`; Android Build run `45933238852` queued. |
-| 3 | Integrate the approved RAIN logo and required visual assets; refine icons, spacing, colors, and visual details against the reference. | Not started | — |
+| 2 | Implement the reference-matched home-page layout and responsive sizing without changing core architecture. | Complete (2026-11-27) | Responsive landscape breakpoint commit `fb27cc9`; Android Build run `45933238852` passed. |
+| 3 | Integrate the approved RAIN logo and required visual assets; refine icons, spacing, colors, and visual details against the reference. | In progress | Replaced placeholder wordmark with vector-traced artwork from `5768.png` and converted feature-strip emoji to inline SVG icons in commit `d69444e`; CI verification pending. |
 | 4 | Implement and verify address/query input and search navigation. | Not started | — |
 | 5 | Connect and verify microphone, visual search, website shortcuts, and shortcut navigation. | Not started | — |
 | 6 | Implement and verify Add shortcut behavior and all bottom-toolbar actions using existing browser features. | Not started | — |
 | 7 | Run build, lint, relevant automated tests, functional control checks, visual comparison, regression checks, and prepare the acceptance report. | Not started | — |
-| **Total** | **7 working days** | **1/7 complete (14.29%)** | **Day 1 complete; Day 2 implementation in progress and not yet verified** |
+| **Total** | **7 working days** | **2/7 complete (28.57%)** | **Day 1–2 complete; Day 3 visual asset integration in progress** |
 
 ## Daily completion record
 
@@ -145,4 +145,5 @@ Phase 1.5 may be presented for owner acceptance only when all applicable criteri
 | Date | Update |
 |---|---|
 | 2026-11-27 | Initial Phase 1.5 tracker created. |\n| 2026-11-27 | Day 1 inspection completed and recorded. No application source code changed. Progress updated to 1/7 (14.29%). |
-| 2026-11-27 | Day 2 started on `feature/rain-homepage-reference`; added a compact landscape-orientation CSS breakpoint in `MainActivity.kt` (commit `fb27cc9`). Portrait responsive rules remain in place. Android Build run `45933238852` is queued; Day 2 remains in progress pending verification. |
+| 2026-11-27 | Day 2 responsive orientation implementation completed on `feature/rain-homepage-reference` (commit `fb27cc9`). Android Build run `45933238852` completed successfully. No physical-device rotation test has been performed. |
+| 2026-11-27 | Day 3 started: integrated a vector-traced version of the located transparent RAIN logo artwork and replaced emoji feature-strip icons with inline SVG icons in `MainActivity.kt` (commit `d69444e`). Automated verification is pending. |
