@@ -25,6 +25,12 @@
     <string name="action_settings">Settings</string>
     <string name="status_ready">RAIN Browser</string>
 
+    <string name="settings_video_display">Video display: %1$s</string>
+    <string name="settings_video_display_title">Fullscreen video display</string>
+    <string name="video_fit">Fit</string>
+    <string name="video_crop">Crop</string>
+    <string name="video_fit_description">Fit — show the full image with its original aspect ratio</string>
+    <string name="video_crop_description">Crop — fill the screen while preserving aspect ratio</string>
     <string name="settings_title">Settings</string>
     <string name="settings_language">Language: %1$s</string>
     <string name="settings_search_engine">Search engine: %1$s</string>
