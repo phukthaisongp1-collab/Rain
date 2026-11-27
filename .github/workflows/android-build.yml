@@ -16,9 +16,9 @@ concurrency:
 
 jobs:
   build:
-    name: Lint, Unit Tests, and Debug APK
+    name: Lint, Unit Tests, Android 16 Instrumentation, and Debug APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
             exit 2
           fi
           "$ANDROID_SDK_ROOT/emulator/emulator" -accel-check
-      - name: Run Android 16 install and launch smoke test
+      - name: Run Android 16 instrumentation and install-launch smoke tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -70,6 +70,7 @@ jobs:
             adb devices
             test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = "36"
             test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
+            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.rain.browser
             adb shell monkey -p com.rain.browser 1
@@ -84,5 +85,7 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/reports/lint-results-debug.html
             app/build/test-results/testDebugUnitTest/*.xml
+            app/build/outputs/androidTest-results/connected/**/*.xml
+            app/build/reports/androidTests/connected/**
           if-no-files-found: warn
           retention-days: 14
