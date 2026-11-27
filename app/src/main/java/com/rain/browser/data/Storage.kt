@@ -21,6 +21,7 @@ class SqliteStorage(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         db.execSQL("CREATE INDEX history_visited_at_idx ON history(visited_at DESC)")
         db.execSQL("CREATE TABLE resume (id TEXT PRIMARY KEY NOT NULL, url TEXT NOT NULL, title TEXT NOT NULL, position_ms INTEGER NOT NULL, updated_at INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE settings (id TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)")
+        createVideosTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -28,6 +29,38 @@ class SqliteStorage(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 2) {
             db.execSQL("CREATE INDEX IF NOT EXISTS history_visited_at_idx ON history(visited_at DESC)")
         }
+        if (oldVersion < 3) {
+            createVideosTable(db)
+        }
+    }
+
+    private fun createVideosTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS videos (
+                id TEXT PRIMARY KEY NOT NULL,
+                url TEXT NOT NULL,
+                title TEXT NOT NULL,
+                thumbnail_url TEXT NOT NULL DEFAULT '',
+                mime_type TEXT NOT NULL DEFAULT '',
+                duration_ms INTEGER NOT NULL DEFAULT 0,
+                size_bytes INTEGER NOT NULL DEFAULT 0,
+                bytes_downloaded INTEGER NOT NULL DEFAULT 0,
+                download_id INTEGER,
+                file_path TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                downloaded_at INTEGER NOT NULL DEFAULT 0,
+                expires_at INTEGER,
+                is_liked INTEGER NOT NULL DEFAULT 0,
+                unliked_at INTEGER,
+                last_error TEXT NOT NULL DEFAULT '',
+                etag TEXT NOT NULL DEFAULT '',
+                last_modified TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )""".trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS videos_status_created_idx ON videos(status, created_at DESC)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS videos_expiry_idx ON videos(is_liked, expires_at)")
     }
 
     override fun get(table: String, id: String): Map<String, String>? {
@@ -73,7 +106,7 @@ class SqliteStorage(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     private companion object {
         const val DATABASE_NAME = "rain_browser.db"
-        const val DATABASE_VERSION = 2
-        val ALLOWED_TABLES = setOf("bookmarks", "history", "resume", "settings")
+        const val DATABASE_VERSION = 3
+        val ALLOWED_TABLES = setOf("bookmarks", "history", "resume", "settings", "videos")
     }
 }
