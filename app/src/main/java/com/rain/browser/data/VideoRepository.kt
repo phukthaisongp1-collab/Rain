@@ -139,13 +139,13 @@ class VideoRepository(
         if (current.status !in setOf(VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)) return null
         if (durationMs < 0L || now < 0L) return null
         if (!file.isFile || !ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
-            return failCorrupted(current, "Video file is missing or outside RAIN storage.", now)
+            return failCorrupted(current, "Video file is missing or outside RAIN storage.", now, file)
         }
 
         val prefix = runCatching { file.inputStream().use { it.readNBytes(CONTAINER_PREFIX_BYTES) } }
-            .getOrElse { return failCorrupted(current, "Unable to read video container.", now) }
+            .getOrElse { return failCorrupted(current, "Unable to read video container.", now, file) }
         if (VideoContainerValidator.detect(prefix) == VideoContainerValidator.Container.UNKNOWN) {
-            return failCorrupted(current, "Unrecognized or corrupted video container.", now)
+            return failCorrupted(current, "Unrecognized or corrupted video container.", now, file)
         }
 
         val metadata = VideoRetentionPolicy.Metadata(
@@ -245,11 +245,17 @@ class VideoRepository(
     /** Removes metadata only. The managed file must be deleted by a path-validated owner. */
     fun removeMetadata(id: String): Boolean = storage.delete(TABLE, id) > 0
 
-    private fun failCorrupted(current: VideoRecord, reason: String, now: Long): VideoRecord {
+    private fun failCorrupted(
+        current: VideoRecord,
+        reason: String,
+        now: Long,
+        candidateFile: File? = null
+    ): VideoRecord {
         val currentFile = current.filePath.takeIf { it.isNotBlank() }?.let(::File)
-        val safeManagedPath = currentFile?.takeIf {
-            it.isFile && ManagedVideoPathPolicy.isManagedFile(managedDirectory, it)
-        }?.canonicalPath.orEmpty()
+        val safeManagedPath = sequenceOf(candidateFile, currentFile).filterNotNull().firstNotNullOfOrNull { file ->
+            file.takeIf { it.isFile && ManagedVideoPathPolicy.isManagedFile(managedDirectory, it) }
+                ?.canonicalPath
+        }.orEmpty()
         return current.copy(
             status = VideoStatus.FAILED_CORRUPTED,
             filePath = safeManagedPath,
