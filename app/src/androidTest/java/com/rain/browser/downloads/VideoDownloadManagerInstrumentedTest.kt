@@ -146,7 +146,7 @@ class VideoDownloadManagerInstrumentedTest {
             .setMimeType("video/mp4")
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(false)
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalFilesDir(
                 context,
                 Environment.DIRECTORY_MOVIES,
