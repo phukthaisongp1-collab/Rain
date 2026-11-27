@@ -187,9 +187,29 @@ class VideoDownloadCoordinator(
                     now = System.currentTimeMillis()
                 )
                 repository.markVerifying(recordId)
+                val completedFile = File(record.filePath)
+                val durationMs = if (allowLoopbackForTests) {
+                    0L
+                } else {
+                    runCatching { VideoMediaInspector.inspect(completedFile).durationMs }
+                        .getOrElse { error ->
+                            val corrupted = repository.markCorrupted(
+                                recordId,
+                                completedFile,
+                                safeError(error)
+                            )
+                            return TransferSnapshot(
+                                VideoStatus.FAILED_CORRUPTED,
+                                snapshot.bytesDownloaded,
+                                snapshot.totalBytes,
+                                corrupted?.lastError ?: "Video decoder verification failed."
+                            )
+                        }
+                }
                 val ready = repository.markReady(
                     id = recordId,
-                    file = File(record.filePath)
+                    file = completedFile,
+                    durationMs = durationMs
                 )
                 if (ready == null) {
                     repository.markFailed(recordId, "Unable to finalize the downloaded video record.")
