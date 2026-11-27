@@ -238,6 +238,10 @@ class MainActivity : Activity(), WebViewCallbacks {
             .replace("{{NO_BOOKMARKS}}", getString(R.string.new_tab_no_bookmarks))
             .replace("{{RECENT}}", recentItems)
             .replace("{{BOOKMARKS}}", bookmarkItems)
+            .replace(
+                "{{SEARCH_ACTION}}",
+                if (searchEngine == SearchEngine.GOOGLE) "https://www.google.com/search" else "https://duckduckgo.com/"
+            )
         webView.loadDataWithBaseURL(null, page, "text/html", "UTF-8", null)
     }
 
@@ -1256,27 +1260,160 @@ class MainActivity : Activity(), WebViewCallbacks {
             <!doctype html>
             <html lang="en">
             <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1">
                 <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+                <meta name="theme-color" content="#d9efff">
+                <title>RAIN Browser</title>
                 <style>
-                    :root { color-scheme: dark; }
+                    * { box-sizing: border-box; }
+                    html, body { margin: 0; min-height: 100%; }
                     body {
-                        margin: 0; min-height: 100vh; display: grid; place-items: center;
-                        background: #0F172A; color: #E2E8F0; font-family: sans-serif;
-                        text-align: center;
+                        min-height: 100vh;
+                        overflow-x: hidden;
+                        color: #092b58;
+                        font-family: Roboto, "Arial", sans-serif;
+                        background:
+                            radial-gradient(ellipse at 50% 28%, rgba(255,255,255,.95) 0, rgba(255,255,255,.42) 32%, transparent 58%),
+                            linear-gradient(180deg, #8dcfff 0%, #d8efff 48%, #7bbbe9 75%, #d6f2ff 100%);
                     }
-                    main { padding: 24px; }
-                    h1 { color: #38BDF8; letter-spacing: 0.12em; }
-                    p { color: #CBD5E1; }
-                    section { width: min(90vw, 520px); margin: 18px auto; text-align: left; }
-                    li { margin: 8px 0; overflow-wrap: anywhere; }
-                    a { color: #38BDF8; text-decoration: none; }
+                    .scene { position: relative; min-height: 100vh; padding: 22px 5vw 28px; isolation: isolate; }
+                    .scene:before, .scene:after {
+                        content: ""; position: absolute; z-index: -1; left: -8%; right: -8%; bottom: 15%;
+                        height: 38%; pointer-events: none;
+                    }
+                    .scene:before {
+                        background: linear-gradient(155deg, transparent 0 18%, #3f91d1 18.2% 32%, #1765b3 32.2% 48%, transparent 48.2%),
+                                    linear-gradient(25deg, transparent 0 48%, #2c83c8 48.2% 62%, #155ca9 62.2% 76%, transparent 76.2%);
+                        opacity: .88;
+                        clip-path: polygon(0 72%, 12% 38%, 20% 57%, 32% 14%, 43% 62%, 54% 24%, 67% 61%, 78% 18%, 90% 57%, 100% 36%, 100% 100%, 0 100%);
+                    }
+                    .scene:after {
+                        bottom: 10%; height: 26%;
+                        background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(206,239,255,.8));
+                        clip-path: ellipse(70% 32% at 50% 100%);
+                        filter: blur(5px);
+                    }
+                    .clouds {
+                        position: absolute; z-index: -1; inset: 13% -5% 18%;
+                        opacity: .82; pointer-events: none;
+                        background:
+                            radial-gradient(ellipse at 9% 35%, #fff 0 5%, transparent 15%),
+                            radial-gradient(ellipse at 18% 42%, #fff 0 6%, transparent 17%),
+                            radial-gradient(ellipse at 83% 34%, #fff 0 6%, transparent 17%),
+                            radial-gradient(ellipse at 94% 44%, #fff 0 5%, transparent 16%),
+                            radial-gradient(ellipse at 50% 8%, rgba(255,255,255,.8) 0 8%, transparent 25%);
+                    }
+                    .weather {
+                        position: absolute; top: 22px; right: 5vw; display: flex; align-items: center; gap: 10px;
+                        padding: 9px 14px; border-radius: 16px; color: #08366e;
+                        background: rgba(235,248,255,.62); border: 1px solid rgba(255,255,255,.65);
+                        box-shadow: 0 8px 24px rgba(22,94,160,.08); font-size: 13px;
+                    }
+                    .weather-icon { font-size: 25px; }
+                    .weather strong { display: block; font-size: 16px; }
+                    main { width: min(100%, 980px); margin: 0 auto; position: relative; z-index: 1; padding-top: clamp(26px, 7vh, 78px); }
+                    .brand { display: flex; justify-content: center; margin: 0 auto 24px; }
+                    .brand svg { display: block; width: min(72vw, 440px); height: auto; overflow: visible; filter: drop-shadow(0 8px 15px rgba(10,75,140,.12)); }
+                    .search {
+                        display: flex; align-items: center; gap: 12px; width: min(100%, 820px); height: 62px;
+                        margin: 0 auto 28px; padding: 6px 8px 6px 20px; border-radius: 40px;
+                        background: rgba(255,255,255,.94); border: 1px solid rgba(255,255,255,.9);
+                        box-shadow: 0 10px 30px rgba(18,83,145,.16);
+                    }
+                    .search-icon { font-size: 25px; color: #164d86; }
+                    .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #16395f; font-size: 17px; }
+                    .search input::placeholder { color: #647b96; }
+                    .mic { border: 0; background: transparent; color: #164d86; font-size: 22px; padding: 8px; }
+                    .search-submit { width: 48px; height: 48px; border: 0; border-radius: 50%; background: #0877df; color: white; font-size: 22px; }
+                    .shortcuts { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin: 0 auto 28px; }
+                    .shortcut {
+                        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+                        width: 112px; min-height: 112px; padding: 12px 8px; border-radius: 22px;
+                        color: #082e61; text-decoration: none; font-size: 13px; font-weight: 600;
+                        background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.72);
+                        box-shadow: 0 8px 22px rgba(20,88,145,.11); backdrop-filter: blur(8px);
+                    }
+                    .shortcut-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 15px; background: white; font-size: 31px; font-weight: 800; }
+                    .google { color: #4285f4; } .youtube { color: #f00; } .facebook { color: #1877f2; } .xbrand { color: #111; } .instagram { color: #d62976; }
+                    .add { color: #0a65bd; font-size: 38px; font-weight: 400; }
+                    .features {
+                        display: grid; grid-template-columns: repeat(5, 1fr); width: min(100%, 920px); margin: 0 auto;
+                        padding: 14px 4px; border-radius: 28px; background: rgba(232,247,255,.74);
+                        border: 1px solid rgba(255,255,255,.78); box-shadow: 0 10px 28px rgba(17,84,143,.12);
+                        backdrop-filter: blur(10px);
+                    }
+                    .feature { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 72px; padding: 4px 7px; text-align: center; color: #07366e; font-size: 12px; font-weight: 700; }
+                    .feature + .feature { border-left: 1px solid rgba(20,82,142,.35); }
+                    .feature-icon { font-size: 25px; line-height: 1.1; }
+                    @media (max-width: 600px) {
+                        .scene { padding: 18px 14px 22px; }
+                        .weather { top: 12px; right: 14px; padding: 6px 9px; font-size: 10px; }
+                        .weather-icon { font-size: 19px; }
+                        .weather strong { font-size: 12px; }
+                        main { padding-top: 88px; }
+                        .brand { margin-bottom: 18px; }
+                        .brand svg { width: min(84vw, 360px); }
+                        .search { height: 54px; padding-left: 14px; gap: 7px; margin-bottom: 22px; }
+                        .search input { font-size: 14px; }
+                        .search-submit { width: 42px; height: 42px; }
+                        .shortcuts { gap: 9px; margin-bottom: 20px; }
+                        .shortcut { width: calc(33.333% - 8px); min-height: 92px; border-radius: 17px; font-size: 11px; }
+                        .shortcut-icon { width: 42px; height: 42px; font-size: 26px; }
+                        .features { grid-template-columns: repeat(5, 1fr); border-radius: 18px; padding: 8px 2px; }
+                        .feature { font-size: 9px; min-height: 66px; padding: 3px 2px; }
+                        .feature-icon { font-size: 20px; }
+                    }
                 </style>
             </head>
-            <body><main><h1>RAIN</h1><p>{{READY}}</p>
-              <section><h2>{{RECENT_TITLE}}</h2><ul>{{RECENT}}</ul></section>
-              <section><h2>{{BOOKMARK_TITLE}}</h2><ul>{{BOOKMARKS}}</ul></section>
-            </main></body>
+            <body>
+                <div class="scene">
+                    <div class="clouds"></div>
+                    <aside class="weather" aria-label="Weather location">
+                        <span class="weather-icon" aria-hidden="true">🌦️</span>
+                        <span><strong>Bangkok</strong>Local weather</span>
+                    </aside>
+                    <main>
+                        <div class="brand" aria-label="RAIN Browser">
+                            <svg viewBox="0 0 520 300" role="img" aria-label="RAIN Browser logo">
+                                <defs>
+                                    <linearGradient id="rainLogo" x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0" stop-color="#064da9"/>
+                                        <stop offset=".52" stop-color="#079bdc"/>
+                                        <stop offset="1" stop-color="#4ce5ad"/>
+                                    </linearGradient>
+                                </defs>
+                                <g stroke="url(#rainLogo)" stroke-width="4" stroke-linecap="round" opacity=".95">
+                                    <path d="M270 18 L215 145 M300 5 L242 145 M330 28 L274 145 M360 18 L300 145 M390 30 L330 145 M420 25 L360 145 M450 38 L390 145"/>
+                                </g>
+                                <text x="14" y="210" font-family="Arial,sans-serif" font-size="206" font-weight="800" fill="url(#rainLogo)">R</text>
+                                <text x="214" y="210" font-family="Arial,sans-serif" font-size="145" font-weight="600" letter-spacing="-8" fill="url(#rainLogo)">ain</text>
+                                <text x="260" y="270" text-anchor="middle" font-family="Arial,sans-serif" font-size="39" letter-spacing="13" fill="#123f72">Browser</text>
+                            </svg>
+                        </div>
+                        <form class="search" action="{{SEARCH_ACTION}}" method="get" role="search">
+                            <span class="search-icon" aria-hidden="true">⌕</span>
+                            <input name="q" type="search" autocomplete="off" placeholder="Search the web..." aria-label="Search the web">
+                            <button class="mic" type="button" aria-label="Voice search">🎙</button>
+                            <button class="search-submit" type="submit" aria-label="Search">⌕</button>
+                        </form>
+                        <nav class="shortcuts" aria-label="Favorite websites">
+                            <a class="shortcut" href="https://www.google.com/"><span class="shortcut-icon google">G</span><span>Google</span></a>
+                            <a class="shortcut" href="https://www.youtube.com/"><span class="shortcut-icon youtube">▶</span><span>YouTube</span></a>
+                            <a class="shortcut" href="https://www.facebook.com/"><span class="shortcut-icon facebook">f</span><span>Facebook</span></a>
+                            <a class="shortcut" href="https://x.com/"><span class="shortcut-icon xbrand">𝕏</span><span>X</span></a>
+                            <a class="shortcut" href="https://www.instagram.com/"><span class="shortcut-icon instagram">◎</span><span>Instagram</span></a>
+                            <span class="shortcut" aria-label="Add shortcut"><span class="shortcut-icon add">+</span><span>Add</span></span>
+                        </nav>
+                        <section class="features" aria-label="RAIN Browser features">
+                            <div class="feature"><span class="feature-icon">ϟ</span><span>Fast<br>Browsing</span></div>
+                            <div class="feature"><span class="feature-icon">🛡️</span><span>Secure<br>&amp; Private</span></div>
+                            <div class="feature"><span class="feature-icon">🍃</span><span>Lightweight<br>&amp; Eco-Friendly</span></div>
+                            <div class="feature"><span class="feature-icon">🧩</span><span>Extensions<br>Support</span></div>
+                            <div class="feature"><span class="feature-icon">⚙</span><span>Customize<br>Your Way</span></div>
+                        </section>
+                    </main>
+                </div>
+            </body>
             </html>
         """
     }
