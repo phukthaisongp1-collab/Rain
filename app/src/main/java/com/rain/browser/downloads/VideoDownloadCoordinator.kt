@@ -100,6 +100,16 @@ class VideoDownloadCoordinator(
             ) {
                 addRequestHeader("User-Agent", userAgent)
             }
+            validatedSource?.etag?.takeIf {
+                it.isNotBlank() && it.length <= MAX_VALIDATOR_HEADER_LENGTH &&
+                    it.none { character -> character == '\\r' || character == '\\n' }
+            }?.let { addRequestHeader("If-Match", it) }
+            if (validatedSource?.etag.isNullOrBlank()) {
+                validatedSource?.lastModified?.takeIf {
+                    it.isNotBlank() && it.length <= MAX_VALIDATOR_HEADER_LENGTH &&
+                        it.none { character -> character == '\\r' || character == '\\n' }
+                }?.let { addRequestHeader("If-Unmodified-Since", it) }
+            }
         }
 
         val requestId = try {
@@ -336,6 +346,7 @@ class VideoDownloadCoordinator(
 
     private companion object {
         const val MAX_USER_AGENT_LENGTH = 512
+        const val MAX_VALIDATOR_HEADER_LENGTH = 1_024
         val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
         val IPV4_LITERAL = Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$")
     }
