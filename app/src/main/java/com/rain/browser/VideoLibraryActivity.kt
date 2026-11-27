@@ -220,7 +220,7 @@ class VideoLibraryActivity : Activity() {
             })
         }
 
-        if (record.status in setOf(VideoStatus.FAILED, VideoStatus.CANCELED)) {
+        if (record.status in setOf(VideoStatus.FAILED, VideoStatus.FAILED_CORRUPTED, VideoStatus.CANCELED)) {
             actions.addView(Button(this).apply {
                 text = getString(R.string.video_retry)
                 setOnClickListener {
