@@ -73,6 +73,33 @@ class Html5VideoDetectionProbeTest {
     }
 
 
+
+    @Test
+    fun collectsExplicitAdUiMarkersWhenThePlayerExposesThem() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html>
+              <body>
+                <div id="player">
+                  <div role="status" aria-label="Advertisement">Advertisement</div>
+                  <button type="button" aria-label="Skip Ad">Skip Ad</button>
+                  <video controls src="https://media.example.invalid/ad.mp4"></video>
+                </div>
+              </body>
+            </html>
+            """.trimIndent()
+        )
+
+        val indicators = signals.getJSONObject(0).getJSONArray("adIndicators")
+        val labels = (0 until indicators.length()).map {
+            indicators.getJSONObject(it).getString("label")
+        }
+        assertTrue(labels.contains("Advertisement"))
+        assertTrue(labels.contains("Skip Ad"))
+        assertFalse(signals.getJSONObject(0).has("isAd"))
+    }
+
     @Test
     fun webViewClientObservesOneDirectMp4ResourceRequest() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -192,6 +219,21 @@ class Html5VideoDetectionProbeTest {
                     var rect = video.getBoundingClientRect();
                     var style = window.getComputedStyle(video);
                     var source = video.currentSrc || video.src || '';
+                    var adIndicators = [];
+                    var ancestor = video;
+                    for (var depth = 0; ancestor && depth < 4; depth++, ancestor = ancestor.parentElement) {
+                        ancestor.querySelectorAll('[aria-label], button, [role="status"], [data-ad]').forEach(function (node) {
+                            var label = (node.getAttribute('aria-label') || '').trim();
+                            var text = (node.innerText || node.textContent || '').trim();
+                            if (/\\b(advertisement|sponsored|skip ad|skip advertisement)\\b/i.test(label + ' ' + text)) {
+                                adIndicators.push({
+                                    label: label,
+                                    text: text.slice(0, 80),
+                                    role: node.getAttribute('role') || ''
+                                });
+                            }
+                        });
+                    }
                     return {
                         src: source,
                         hasExposedSource: source.length > 0,
@@ -203,7 +245,8 @@ class Html5VideoDetectionProbeTest {
                         readyState: video.readyState,
                         networkState: video.networkState,
                         visible: !!(rect.width && rect.height) &&
-                            style.display !== 'none' && style.visibility !== 'hidden'
+                            style.display !== 'none' && style.visibility !== 'hidden',
+                        adIndicators: adIndicators
                     };
                 }));
             })();
