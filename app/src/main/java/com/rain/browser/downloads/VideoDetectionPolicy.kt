@@ -37,6 +37,7 @@ object VideoDetectionPolicy {
         ) return Decision.IGNORE
 
         if (hasAdEvidence(signals)) return Decision.REJECT_AD
+        if (signals.adStatus != false) return Decision.NEED_MORE_EVIDENCE
 
         val page = parseWebUrl(signals.pageUrl) ?: return Decision.IGNORE
         val source = parseWebUrl(signals.sourceUrl) ?: return Decision.IGNORE
