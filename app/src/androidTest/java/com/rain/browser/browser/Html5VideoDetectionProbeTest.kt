@@ -102,6 +102,50 @@ class Html5VideoDetectionProbeTest {
     }
 
     @Test
+    fun doesNotTreatAbsenceOfAdMarkersAsProofOfMainContent() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <video id="unmarked" controls
+                src="https://media.example.invalid/content.mp4"></video>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val signal = signals.getJSONObject(0)
+        assertEquals("https://media.example.invalid/content.mp4", signal.getString("src"))
+        assertEquals(0, signal.getJSONArray("adIndicators").length())
+        // No visible ad marker is inconclusive; this must never be promoted to isAd=false.
+        assertFalse(signal.has("isAd"))
+        assertFalse(signal.has("isMainContent"))
+    }
+
+    @Test
+    fun keepsAdAndDownloadDecisionsOutOfDomSignalPayload() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <div role="status" aria-label="Advertisement">Advertisement</div>
+              <video id="ad" controls
+                src="https://media.example.invalid/segment.mp4"></video>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val signal = signals.getJSONObject(0)
+        assertTrue(signal.getJSONArray("adIndicators").length() > 0)
+        assertTrue(signal.has("src"))
+        assertFalse(signal.has("isAd"))
+        assertFalse(signal.has("isMainContent"))
+        assertFalse(signal.has("downloadAllowed"))
+        assertFalse(signal.has("isDownloadable"))
+    }
+
+    @Test
     fun webViewClientObservesOneDirectMp4ResourceRequest() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val requestObserved = CountDownLatch(1)
