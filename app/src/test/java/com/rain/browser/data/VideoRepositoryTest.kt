@@ -37,6 +37,15 @@ class VideoRepositoryTest {
             assertNotNull(downloading)
             assertEquals(VideoStatus.DOWNLOADING, downloading?.status)
 
+            val progressed = repository.updateTransfer(
+                id = queued.id,
+                downloadId = 42L,
+                bytesDownloaded = 12L,
+                totalBytes = 16L,
+                now = 2_500L
+            )
+            assertEquals("\\\"v1\\\"", progressed?.etag)
+
             val file = File(directory, "video.mp4")
             file.writeBytes(
                 byteArrayOf(
