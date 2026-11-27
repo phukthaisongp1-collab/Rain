@@ -13,6 +13,7 @@ import android.os.Environment
 import android.os.StatFs
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.rain.browser.R
 import com.rain.browser.VideoLibraryActivity
 import com.rain.browser.data.SqliteStorage
@@ -116,7 +117,7 @@ class VideoRetentionWorker(
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(applicationContext)
-        }.setSmallIcon(R.mipmap.ic_launcher)
+        }.setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(applicationContext.getString(R.string.video_storage_warning_title))
             .setContentText(applicationContext.getString(R.string.video_storage_warning_message))
             .setContentIntent(openLibrary)
