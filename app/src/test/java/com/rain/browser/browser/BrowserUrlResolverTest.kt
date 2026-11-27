@@ -126,4 +126,22 @@ class BrowserUrlResolverTest {
     fun rejectsBlankWebsiteShortcut() {
         assertEquals(null, BrowserUrlResolver.resolveWebsiteShortcut("   "))
     }
+    @Test
+    fun recognizesGoogleHomepageAcrossRegionalDomains() {
+        assertEquals(true, BrowserUrlResolver.isGoogleHomePage("https://www.google.com/"))
+        assertEquals(true, BrowserUrlResolver.isGoogleHomePage("https://www.google.co.th/?hl=th"))
+    }
+
+    @Test
+    fun doesNotTreatGoogleSearchResultsAsHomepage() {
+        assertEquals(false, BrowserUrlResolver.isGoogleHomePage("https://www.google.com/search?q=rain"))
+        assertEquals(false, BrowserUrlResolver.isGoogleHomePage("https://www.google.com/url?q=example.com"))
+    }
+
+    @Test
+    fun rejectsLookalikeGoogleHosts() {
+        assertEquals(false, BrowserUrlResolver.isGoogleHomePage("https://google.com.example.org/"))
+        assertEquals(false, BrowserUrlResolver.isGoogleHomePage("https://notgoogle.com/"))
+    }
+
 }

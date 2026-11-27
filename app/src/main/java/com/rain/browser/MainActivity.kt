@@ -196,8 +196,10 @@ class MainActivity : Activity(), WebViewCallbacks {
             tab.url = savedTab.getString(STATE_URL).orEmpty()
             tab.isDesktopMode = savedTab.getBoolean(STATE_DESKTOP, false)
             val restored = runCatching { webView.restoreState(savedTab) }.getOrNull()
-            if (restored == null) {
-                if (tab.url.isBlank()) showWelcomePage(webView) else loadUrlInTab(tab, tab.url)
+            if (tab.url.isBlank()) {
+                showWelcomePage(webView)
+            } else if (restored == null) {
+                loadUrlInTab(tab, tab.url)
             }
         }
         tabManager.selectAt(savedInstanceState.getInt(STATE_ACTIVE_INDEX, 0))
@@ -230,25 +232,12 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun showWelcomePage(webView: WebView) {
-        val recentItems = resumeRepository.list().take(5).joinToString("") { entry ->
-            "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
-                escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
-        }.ifBlank { "<li>" + getString(R.string.new_tab_no_recent) + "</li>" }
-        val bookmarkItems = bookmarkRepository.search().take(5).joinToString("") { entry ->
-            "<li><a href=\"" + escapeHtml(entry.url) + "\">" +
-                escapeHtml(entry.title.ifBlank { entry.url }) + "</a></li>"
-        }.ifBlank { "<li>" + getString(R.string.new_tab_no_bookmarks) + "</li>" }
-        val customShortcuts = buildHomeShortcutMarkup()
-        val page = WELCOME_PAGE
-            .replace("{{READY}}", escapeHtml(getString(R.string.new_tab_ready)))
-            .replace("{{RECENT_TITLE}}", getString(R.string.new_tab_recent))
-            .replace("{{BOOKMARK_TITLE}}", getString(R.string.new_tab_bookmarks))
-            .replace("{{NO_RECENT}}", getString(R.string.new_tab_no_recent))
-            .replace("{{NO_BOOKMARKS}}", getString(R.string.new_tab_no_bookmarks))
-            .replace("{{RECENT}}", recentItems)
-            .replace("{{BOOKMARKS}}", bookmarkItems)
-            .replace("{{CUSTOM_SHORTCUTS}}", customShortcuts)
-        webView.loadDataWithBaseURL(null, page, "text/html", "UTF-8", null)
+        tabManager.findByWebView(webView)?.apply {
+            url = GOOGLE_HOME_URL
+            title = "Google"
+        }
+        updateBrowserControls()
+        webView.loadUrl(GOOGLE_HOME_URL)
     }
 
     private fun escapeHtml(value: String): String = value
@@ -539,12 +528,25 @@ class MainActivity : Activity(), WebViewCallbacks {
     private fun updateBrowserControls() {
         val tab = tabManager.activeTab
         if (tab == null) {
+            findViewById<View>(R.id.top_toolbar).visibility = View.VISIBLE
+            findViewById<View>(R.id.address_toolbar).visibility = View.VISIBLE
+            findViewById<View>(R.id.actions_toolbar).visibility = View.VISIBLE
+            statusText.visibility = View.VISIBLE
             statusText.text = getString(R.string.status_no_tab)
             modeText.text = getString(R.string.mode_mobile)
             tabsButton.text = "Tabs (0)"
             progressBar.visibility = View.GONE
             return
         }
+
+        val currentUrl = tab.webView.url.orEmpty().ifBlank { tab.url }
+        val isGoogleHome = BrowserUrlResolver.isGoogleHomePage(currentUrl)
+        val toolbarVisibility = if (isGoogleHome) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.top_toolbar).visibility = toolbarVisibility
+        findViewById<View>(R.id.address_toolbar).visibility = toolbarVisibility
+        findViewById<View>(R.id.actions_toolbar).visibility = toolbarVisibility
+        statusText.visibility = toolbarVisibility
+
         if (!addressInput.hasFocus()) {
             addressInput.setText(tab.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }.orEmpty())
         }
@@ -553,7 +555,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         tabsButton.text = getString(R.string.tabs_count, tabManager.tabs.size)
         reloadButton.text = if (tab.isLoading) getString(R.string.status_stop) else getString(R.string.action_reload)
         progressBar.progress = tab.progress
-        progressBar.visibility = if (tab.isLoading) View.VISIBLE else View.GONE
+        progressBar.visibility = if (!isGoogleHome && tab.isLoading) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.back_button).isEnabled = tab.webView.canGoBack()
         findViewById<Button>(R.id.forward_button).isEnabled = tab.webView.canGoForward()
     }
@@ -1416,6 +1418,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val REQUEST_VOICE_SEARCH = 4103
         const val REQUEST_IMAGE_PICKER = 4104
         const val HISTORY_DAY_MILLIS = 24L * 60 * 60 * 1000
+        const val GOOGLE_HOME_URL = "https://www.google.com/"
         const val HOME_SHORTCUTS_PREFS = "rain_home_shortcuts"
         const val HOME_SHORTCUTS_KEY = "items"
 
