@@ -141,12 +141,13 @@
 11. Build, lint, unit/instrumentation/UI tests ที่เกี่ยวข้องผ่าน
 12. ทดสอบบนอุปกรณ์ Android จริง พร้อมหลักฐานและรายการ format/site ที่รองรับจริง
 
-## 7. ความสัมพันธ์กับ Phase 2 เดิม
+## 7. ลำดับความสำคัญและความสัมพันธ์กับ Phase 2 เดิม
 
-- เพิ่ม Video Offline Download เป็น workstream ใน Phase 2 ควบคู่กับ Private Browsing ไม่ได้แทนที่หรือลดขอบเขต Private Browsing
+- **Video Offline Download เป็นงานลำดับแรกของ Phase 2** ให้เริ่ม Audit/Technical Feasibility และพัฒนาตาม Gate ในเอกสารนี้ก่อนงาน Private Browsing
+- Private Browsing ยังคงอยู่ใน Phase 2 และต้องทำต่อหลังจาก Video Offline Download ผ่าน Gate/การตรวจรับตามแผน ไม่ได้ถูกยกเลิกหรือลดขอบเขต
 - Private Browsing ยังคงมี process/storage isolation, cookie/cache/Web Storage separation, Service Worker isolation, cleanup และ dedicated instrumentation verification ตามข้อกำหนดเดิม
 - ห้ามนับ Video Offline Download ว่าทำให้ Private Browsing ผ่าน หรือกลับกัน
-- การจัดลำดับเวลา/เดือนและ resource ของ Phase 2 ให้ PM รวมเข้ากับ master schedule หลังประเมิน effort และ dependency; เอกสารนี้ยังไม่กำหนดวันส่งมอบ
+- PM ต้องปรับ master schedule ให้ Video Offline Download เป็น workstream แรกของ Phase 2 และจัดลำดับ Private Browsing ถัดไป โดยประเมิน effort/dependency ก่อนกำหนดวันส่งมอบ
 - Phase 1.6 ยังคงขอบเขตเดิม; เอกสารนี้ไม่อนุมัติให้เริ่ม implementation ใน Phase 1.6
 
 ## 8. Definition of Done และการรายงาน
@@ -162,6 +163,9 @@
 ---
 
 ## Change Log
+
+### 2026-11-27 — จัดลำดับ Video Offline Download เป็นงานแรกของ Phase 2
+- กำหนดให้ Video Offline Download เริ่มก่อน Private Browsing โดยคง Private Browsing ไว้ใน Phase 2 ตามขอบเขตเดิม
 
 ### 2026-11-27 — เพิ่มข้อกำหนด Video Offline Download
 - เพิ่มเป้าหมายดาวน์โหลดวิดีโอจากหน้าเว็บเพื่อดูแบบออฟไลน์ ตามความต้องการเจ้าของโครงการ
