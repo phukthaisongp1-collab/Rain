@@ -188,6 +188,7 @@ class VideoRepositoryTest {
 
             val result = repository.markReady(queued.id, invalid, now = 3L)
             assertEquals(VideoStatus.FAILED_CORRUPTED, result?.status)
+            assertEquals(invalid.canonicalPath, result?.filePath)
             assertFalse(result?.status == VideoStatus.READY)
         } finally {
             directory.deleteRecursively()
