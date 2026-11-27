@@ -202,7 +202,7 @@ class VideoDownloadCoordinator(
     @Synchronized
     fun retry(recordId: String, userAgent: String = ""): Long {
         val record = repository.get(recordId) ?: throw IllegalArgumentException("Video record not found.")
-        require(record.status in setOf(VideoStatus.FAILED, VideoStatus.CANCELED)) {
+        require(record.status in setOf(VideoStatus.FAILED, VideoStatus.FAILED_CORRUPTED, VideoStatus.CANCELED)) {
             "Only failed or canceled videos can be retried."
         }
         if (record.filePath.isNotBlank()) {
