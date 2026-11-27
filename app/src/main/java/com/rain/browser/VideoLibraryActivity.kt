@@ -36,6 +36,7 @@ class VideoLibraryActivity : Activity() {
     private lateinit var listContainer: LinearLayout
     private val refreshHandler = Handler(Looper.getMainLooper())
     private val transferExecutor = Executors.newSingleThreadExecutor()
+    private var reconciliationQueued = false
     private val refreshTask = object : Runnable {
         override fun run() {
             if (!isFinishing && ::transferCoordinator.isInitialized) {
@@ -114,13 +115,25 @@ class VideoLibraryActivity : Activity() {
     }
 
     private fun refreshLibrary() {
-        listContainer.removeAllViews()
-        runCatching { transferCoordinator.reconcileAll() }
-        val records = runCatching { repository.list() }.getOrElse {
-            showMessage(it.message ?: getString(R.string.video_play_failed))
-            return
+        if (reconciliationQueued || !::transferCoordinator.isInitialized) return
+        reconciliationQueued = true
+        transferExecutor.execute {
+            val result = runCatching {
+                transferCoordinator.reconcileAll()
+                repository.list()
+            }
+            runOnUiThread {
+                reconciliationQueued = false
+                if (isFinishing) return@runOnUiThread
+                result.onFailure {
+                    showMessage(it.message ?: getString(R.string.video_play_failed))
+                }.onSuccess(::renderLibrary)
+            }
         }
+    }
 
+    private fun renderLibrary(records: List<VideoRecord>) {
+        listContainer.removeAllViews()
         if (records.isEmpty()) {
             listContainer.addView(TextView(this).apply {
                 text = getString(R.string.video_library_empty)
