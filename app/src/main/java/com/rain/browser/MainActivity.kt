@@ -37,6 +37,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ProgressBar
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import com.rain.browser.browser.BrowserTab
@@ -108,6 +109,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         window.navigationBarColor = Color.rgb(15, 23, 42)
         setContentView(R.layout.activity_main)
         applyImmersiveFullscreen()
+        configureTopToolbar()
 
         tabManager = TabManager()
         desktopModeManager = DesktopModeManager(this)
@@ -143,7 +145,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun bindActions() {
-        findViewById<Button>(R.id.go_button).setOnClickListener { openAddress() }
+        findViewById<View>(R.id.menu_button).setOnClickListener { showBrowserMenu() }
         findViewById<Button>(R.id.back_button).setOnClickListener {
             tabManager.activeTab?.webView?.let { if (it.canGoBack()) it.goBack() }
             updateBrowserControls()
@@ -190,6 +192,78 @@ class MainActivity : Activity(), WebViewCallbacks {
                 false
             }
         }
+    }
+
+    private fun configureTopToolbar() {
+        val toolbar = findViewById<View>(R.id.top_toolbar)
+        val density = resources.displayMetrics.density
+        val minimumHeight = (48 * density).toInt()
+        val targetHeight = (resources.displayMetrics.heightPixels * 0.08f)
+            .toInt()
+            .coerceAtLeast(minimumHeight)
+        toolbar.layoutParams = toolbar.layoutParams.apply { height = targetHeight }
+
+        val startPadding = (8 * density).toInt()
+        val endPadding = (6 * density).toInt()
+        val minimumCameraGap = (44 * density).toInt()
+        val cameraGapPadding = (16 * density).toInt()
+        toolbar.setOnApplyWindowInsetsListener { view, insets ->
+            val cutout = insets.displayCutout
+            view.setPadding(
+                startPadding + (cutout?.safeInsetLeft ?: 0),
+                cutout?.safeInsetTop ?: 0,
+                endPadding + (cutout?.safeInsetRight ?: 0),
+                0
+            )
+
+            val detectedCutoutWidth = cutout?.boundingRects?.maxOfOrNull { it.width() } ?: 0
+            val cameraGap = maxOf(minimumCameraGap, detectedCutoutWidth + cameraGapPadding)
+            findViewById<View>(R.id.camera_safe_space).layoutParams =
+                findViewById<View>(R.id.camera_safe_space).layoutParams.apply {
+                    width = cameraGap
+                }
+            insets
+        }
+        toolbar.requestApplyInsets()
+    }
+
+    private fun showBrowserMenu() {
+        val popupMenu = PopupMenu(this, findViewById(R.id.menu_button))
+        val activeTab = tabManager.activeTab
+        val actions = listOf(
+            R.id.back_button to getString(R.string.action_back),
+            R.id.forward_button to getString(R.string.action_forward),
+            R.id.reload_button to if (activeTab?.isLoading == true) {
+                getString(R.string.status_stop)
+            } else {
+                getString(R.string.action_reload)
+            },
+            R.id.home_button to getString(R.string.action_home),
+            R.id.new_tab_button to getString(R.string.action_new_tab),
+            R.id.tabs_button to getString(R.string.tabs_count, tabManager.tabs.size),
+            R.id.bookmarks_button to getString(R.string.action_bookmarks),
+            R.id.history_button to getString(R.string.action_history),
+            R.id.resume_button to getString(R.string.action_resume),
+            R.id.search_engine_button to getString(R.string.search_button, searchEngineLabel()),
+            R.id.private_button to getString(R.string.action_private),
+            R.id.protection_button to getString(R.string.action_protection),
+            R.id.permissions_button to getString(R.string.action_permissions),
+            R.id.desktop_button to getString(R.string.action_display_mode),
+            R.id.zoom_out_button to getString(R.string.action_zoom_out),
+            R.id.zoom_in_button to getString(R.string.action_zoom_in),
+            R.id.text_out_button to getString(R.string.action_text_out),
+            R.id.text_in_button to getString(R.string.action_text_in),
+            R.id.settings_button to getString(R.string.action_settings)
+        )
+
+        actions.forEachIndexed { order, action ->
+            popupMenu.menu.add(android.view.Menu.NONE, action.first, order, action.second)
+        }
+        popupMenu.setOnMenuItemClickListener { item ->
+            findViewById<View>(item.itemId).performClick()
+            true
+        }
+        popupMenu.show()
     }
 
     private fun restoreTabs(savedInstanceState: Bundle?) {
@@ -537,28 +611,28 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     private fun updateBrowserControls() {
         val tab = tabManager.activeTab
+        val topToolbar = findViewById<View>(R.id.top_toolbar)
+        topToolbar.visibility = View.VISIBLE
+
         if (tab == null) {
-            findViewById<View>(R.id.top_toolbar).visibility = View.VISIBLE
-            findViewById<View>(R.id.address_toolbar).visibility = View.VISIBLE
-            findViewById<View>(R.id.actions_toolbar).visibility = View.VISIBLE
             statusText.visibility = View.VISIBLE
             statusText.text = getString(R.string.status_no_tab)
             modeText.text = getString(R.string.mode_mobile)
-            tabsButton.text = "Tabs (0)"
+            tabsButton.text = getString(R.string.tabs_count, 0)
             progressBar.visibility = View.GONE
+            addressInput.text.clear()
             return
         }
 
         val currentUrl = tab.webView.url.orEmpty().ifBlank { tab.url }
         val isGoogleHome = BrowserUrlResolver.isGoogleHomePage(currentUrl)
-        val toolbarVisibility = if (isGoogleHome) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.top_toolbar).visibility = toolbarVisibility
-        findViewById<View>(R.id.address_toolbar).visibility = toolbarVisibility
-        findViewById<View>(R.id.actions_toolbar).visibility = toolbarVisibility
-        statusText.visibility = toolbarVisibility
+        statusText.visibility = if (isGoogleHome) View.GONE else View.VISIBLE
 
         if (!addressInput.hasFocus()) {
-            addressInput.setText(tab.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }.orEmpty())
+            val address = if (isGoogleHome) "" else {
+                tab.url.takeIf { it.startsWith("http://") || it.startsWith("https://") }.orEmpty()
+            }
+            addressInput.setText(address)
         }
         statusText.text = tab.title.ifBlank { getString(R.string.status_ready) }
         modeText.text = if (tab.isDesktopMode) getString(R.string.mode_desktop) else getString(R.string.mode_mobile)
