@@ -68,6 +68,10 @@ class WebViewFactory(private val context: Context) {
                     request: WebResourceRequest
                 ): Boolean {
                     val url = request.url.toString()
+                    if (request.isForMainFrame && url.startsWith("rain://", ignoreCase = true)) {
+                        callbacks.onNavigationRequested(view, url)
+                        return true
+                    }
                     return when (
                         NavigationGuardPolicy.evaluate(
                             currentUrl = view.url.orEmpty(),
