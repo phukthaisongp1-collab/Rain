@@ -226,7 +226,7 @@ class VideoLibraryActivity : Activity() {
             actions.addView(Button(this).apply {
                 text = getString(R.string.video_retry)
                 setOnClickListener {
-                    isEnabled = false
+                    this@apply.isEnabled = false
                     transferExecutor.execute {
                         val result = runCatching { transferCoordinator.retry(record.id) }
                         runOnUiThread {
