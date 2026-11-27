@@ -111,8 +111,8 @@ class VideoRepository(
             bytesDownloaded = bytesDownloaded,
             sizeBytes = if (totalBytes >= 0L) totalBytes else current.sizeBytes,
             status = VideoStatus.DOWNLOADING,
-            etag = etag.take(MAX_HEADER_LENGTH),
-            lastModified = lastModified.take(MAX_HEADER_LENGTH),
+            etag = etag.take(MAX_HEADER_LENGTH).ifBlank { current.etag },
+            lastModified = lastModified.take(MAX_HEADER_LENGTH).ifBlank { current.lastModified },
             updatedAt = now
         )
         persist(updated)
