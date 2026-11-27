@@ -1344,7 +1344,8 @@ class MainActivity : Activity(), WebViewCallbacks {
                     }
                     .feature { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 72px; padding: 4px 7px; text-align: center; color: #07366e; font-size: 12px; font-weight: 700; }
                     .feature + .feature { border-left: 1px solid rgba(20,82,142,.35); }
-                    .feature-icon { font-size: 25px; line-height: 1.1; }
+                    .feature-icon { display: grid; place-items: center; width: 30px; height: 30px; line-height: 1; }
+                    .feature-icon svg { display: block; width: 28px; height: 28px; }
                     @media (max-width: 600px) {
                         .scene { padding: 18px 14px 22px; }
                         .weather { top: 12px; right: 14px; padding: 6px 9px; font-size: 10px; }
@@ -1361,7 +1362,8 @@ class MainActivity : Activity(), WebViewCallbacks {
                         .shortcut-icon { width: 42px; height: 42px; font-size: 26px; }
                         .features { grid-template-columns: repeat(5, 1fr); border-radius: 18px; padding: 8px 2px; }
                         .feature { font-size: 9px; min-height: 66px; padding: 3px 2px; }
-                        .feature-icon { font-size: 20px; }
+                        .feature-icon { width: 24px; height: 24px; }
+                        .feature-icon svg { width: 22px; height: 22px; }
                     }
 
                     /* Compact layout for phones rotated to landscape. */
@@ -1397,20 +1399,10 @@ class MainActivity : Activity(), WebViewCallbacks {
                     </aside>
                     <main>
                         <div class="brand" aria-label="RAIN Browser">
-                            <svg viewBox="0 0 520 300" role="img" aria-label="RAIN Browser logo">
-                                <defs>
-                                    <linearGradient id="rainLogo" x1="0" y1="0" x2="1" y2="1">
-                                        <stop offset="0" stop-color="#064da9"/>
-                                        <stop offset=".52" stop-color="#079bdc"/>
-                                        <stop offset="1" stop-color="#4ce5ad"/>
-                                    </linearGradient>
-                                </defs>
-                                <g stroke="url(#rainLogo)" stroke-width="4" stroke-linecap="round" opacity=".95">
-                                    <path d="M270 18 L215 145 M300 5 L242 145 M330 28 L274 145 M360 18 L300 145 M390 30 L330 145 M420 25 L360 145 M450 38 L390 145"/>
-                                </g>
-                                <text x="14" y="210" font-family="Arial,sans-serif" font-size="206" font-weight="800" fill="url(#rainLogo)">R</text>
-                                <text x="214" y="210" font-family="Arial,sans-serif" font-size="145" font-weight="600" letter-spacing="-8" fill="url(#rainLogo)">ain</text>
-                                <text x="260" y="270" text-anchor="middle" font-family="Arial,sans-serif" font-size="39" letter-spacing="13" fill="#123f72">Browser</text>
+                            <svg viewBox="0 0 1296 967" role="img" aria-label="RAIN Browser logo">
+                                <defs><linearGradient id="rain" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#064da9"/><stop offset=".52" stop-color="#079bdc"/><stop offset="1" stop-color="#4ce5ad"/></linearGradient></defs>
+                                <path d="M 1116,274 L 1040,413 L 972,565 L 1040,446 L 1105,306 Z M 866,280 L 806,384 L 729,552 L 667,552 L 665,547 L 731,426 L 765,355 L 798,273 L 734,386 L 660,552 L 557,552 L 556,604 L 559,608 L 726,608 L 736,611 L 748,622 L 754,642 L 751,656 L 598,656 L 572,662 L 546,678 L 533,692 L 522,715 L 519,757 L 535,797 L 562,820 L 595,831 L 672,832 L 694,828 L 724,811 L 730,805 L 740,778 L 599,777 L 578,760 L 574,749 L 575,736 L 581,724 L 600,711 L 715,711 L 734,702 L 751,682 L 754,686 L 754,830 L 809,831 L 807,615 L 797,591 L 785,577 L 765,563 L 737,553 L 735,549 L 799,432 Z M 1038,252 L 972,372 L 892,549 L 888,552 L 853,551 L 857,555 L 858,832 L 913,831 L 913,553 L 895,549 L 970,408 Z M 3,210 L 2,321 L 5,323 L 312,323 L 348,337 L 375,363 L 390,396 L 390,428 L 374,464 L 346,490 L 309,503 L 141,503 L 140,506 L 362,813 L 402,831 L 512,832 L 511,824 L 357,615 L 359,610 L 400,593 L 436,569 L 465,537 L 492,489 L 504,438 L 503,383 L 492,338 L 478,310 L 455,277 L 417,243 L 386,227 L 349,214 L 321,210 Z M 979,190 L 869,399 L 807,542 L 866,438 L 899,371 Z M 1229,121 L 1177,216 L 1113,366 L 1174,254 Z M 1287,107 L 1143,383 L 1140,396 L 1079,525 L 1074,544 L 1067,552 L 1048,553 L 1014,565 L 990,582 L 972,605 L 959,647 L 961,832 L 1016,831 L 1016,651 L 1024,631 L 1042,612 L 1060,608 L 1137,608 L 1155,612 L 1171,625 L 1180,656 L 1180,831 L 1239,830 L 1239,646 L 1229,610 L 1204,577 L 1173,559 L 1146,552 L 1075,552 L 1072,548 L 1141,422 Z M 1162,81 L 1108,181 L 1042,334 L 1106,217 Z M 986,79 L 915,214 L 869,324 L 935,202 Z M 834,58 L 802,113 L 697,320 L 600,539 L 695,360 Z M 1093,46 L 972,283 L 858,541 L 1003,253 L 1073,99 Z M 926,5 L 851,148 L 810,247 L 868,141 L 901,70 Z" fill="url(#rain)" fill-rule="evenodd"/>
+                                <path d="M 583,890 L 605,962 L 618,960 L 635,910 L 653,961 L 666,960 L 687,895 L 686,889 L 675,891 L 661,944 L 657,942 L 640,889 L 629,890 L 611,943 L 595,891 Z M 1072,888 L 1052,895 L 1047,889 L 1036,890 L 1038,962 L 1046,962 L 1048,958 L 1048,914 L 1057,904 L 1073,900 Z M 906,890 L 893,903 L 889,913 L 888,931 L 892,945 L 902,957 L 916,963 L 933,963 L 945,958 L 955,947 L 955,940 L 946,940 L 935,950 L 921,952 L 904,943 L 902,932 L 958,930 L 959,916 L 954,903 L 945,893 L 933,888 Z M 902,913 L 913,901 L 930,899 L 943,910 L 945,917 L 906,919 Z M 769,890 L 759,901 L 761,919 L 770,927 L 798,935 L 802,945 L 793,952 L 781,952 L 766,942 L 758,942 L 758,948 L 767,959 L 777,963 L 802,961 L 815,948 L 814,933 L 802,924 L 776,916 L 770,906 L 779,899 L 793,899 L 802,909 L 811,910 L 813,903 L 807,894 L 795,888 Z M 465,889 L 449,901 L 443,914 L 442,932 L 447,945 L 460,960 L 486,963 L 500,957 L 511,945 L 515,933 L 513,911 L 508,901 L 492,889 Z M 472,899 L 490,901 L 501,916 L 499,940 L 485,951 L 472,951 L 458,942 L 457,912 Z M 373,888 L 359,890 L 353,895 L 347,889 L 336,891 L 338,962 L 349,960 L 349,914 L 358,903 L 373,900 Z M 249,870 L 237,866 L 190,866 L 192,962 L 239,962 L 250,958 L 257,949 L 260,931 L 249,911 L 258,898 L 259,887 Z M 202,922 L 209,917 L 236,918 L 246,926 L 248,942 L 233,951 L 206,951 L 202,947 Z M 203,879 L 240,879 L 247,887 L 247,894 L 238,906 L 207,908 L 202,904 Z M 3,503 L 2,830 L 79,831 L 93,825 L 112,809 L 119,786 L 119,503 Z" fill="#123f72" fill-rule="evenodd"/>
                             </svg>
                         </div>
                         <form class="search" action="{{SEARCH_ACTION}}" method="get" role="search">
@@ -1428,11 +1420,11 @@ class MainActivity : Activity(), WebViewCallbacks {
                             <span class="shortcut" aria-label="Add shortcut"><span class="shortcut-icon add">+</span><span>Add</span></span>
                         </nav>
                         <section class="features" aria-label="RAIN Browser features">
-                            <div class="feature"><span class="feature-icon">ϟ</span><span>Fast<br>Browsing</span></div>
-                            <div class="feature"><span class="feature-icon">🛡️</span><span>Secure<br>&amp; Private</span></div>
-                            <div class="feature"><span class="feature-icon">🍃</span><span>Lightweight<br>&amp; Eco-Friendly</span></div>
-                            <div class="feature"><span class="feature-icon">🧩</span><span>Extensions<br>Support</span></div>
-                            <div class="feature"><span class="feature-icon">⚙</span><span>Customize<br>Your Way</span></div>
+                            <div class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0756a8" d="M13.4 1.5 4.8 13h5.8l-.8 9.5L19.2 9h-6.1z"/></svg></span><span>Fast<br>Browsing</span></div>
+                            <div class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0756a8" d="M12 1.5 21 5v6.2c0 5.4-3.7 9.2-9 11.3-5.3-2.1-9-5.9-9-11.3V5z"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m7.5 11.8 3 3 6-6"/></svg></span><span>Secure<br>&amp; Private</span></div>
+                            <div class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#31a95b" d="M20.8 2.5C11 2.8 5.2 5.5 4.2 11.3c-.6 3.4 1.6 5.7 4.5 5.2 5.5-.9 9.6-6.5 12.1-14z"/><path fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" d="M3 21c3.5-5.3 7.2-8.7 13.4-12.4"/></svg></span><span>Lightweight<br>&amp; Eco-Friendly</span></div>
+                            <div class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0756a8" d="M8 2a2 2 0 1 0 0 4H3v5h4a2 2 0 1 1 0 4H3v7h7v-4a2 2 0 1 1 4 0v4h7v-7h-4a2 2 0 1 1 0-4h4V6h-5a2 2 0 1 0-4 0H8z"/></svg></span><span>Extensions<br>Support</span></div>
+                            <div class="feature"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0756a8" d="m19.4 13.5 2-1.5-2-1.5.2-2.4-2.5-.5-1-2.2-2.2 1L12 4.8l-1.9 1.6-2.5-.5-.8 2.4-2.3 1 1.1 2.2-1 2.2 2.3 1 .8 2.4 2.5-.5 1.9 1.6 1.9-1.6 2.5.5 1-2.2 2.5-.5z"/><circle cx="12" cy="12" r="3" fill="#fff"/></svg></span><span>Customize<br>Your Way</span></div>
                         </section>
                     </main>
                 </div>
