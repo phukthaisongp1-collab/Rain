@@ -131,6 +131,6 @@ Therefore Days 9–17 remain blocked. Do not create a production popup, mark a v
 
 - Consolidated all physical-device testing into Day 35.
 - Recorded source audit findings and Android 16 emulator PoC evidence.
-- Added Android 16 emulator probes for a synthetic WebM request and fail-closed ad-signal semantics (absence of ad markers is inconclusive; DOM signals do not set ad/main-content/download-permission decisions). CI verification for the latest additions is pending.
+- Added Android 16 emulator probes for a synthetic WebM request, fail-closed ad-signal semantics, and synthetic pre-roll-to-main-source / mid-roll-marker transitions. These tests verify signal changes only; they do not establish real-site ad classification or download permission. CI verification for the latest additions is pending.
 - Added mandatory update-over-install invariants: stable application ID, signing certificate, strictly increasing versionCode and non-destructive data migrations.
 - Kept Days 9–17 gated until real-site detection and ad-classification feasibility is demonstrated.
