@@ -4,9 +4,9 @@
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Workstream:** Phase 1.5 — Home page redesign and functional controls  
 > **Planning estimate:** 7 working days  
-> **Start date:** To be recorded when Day 1 work begins formally  
-> **Current status:** Day 1 in progress  
-> **Progress:** 0/7 days (0%)
+> **Start date:** 2026-11-27  
+> **Current status:** Day 1 complete; Day 2 not started  
+> **Progress:** 1/7 days (14.29%)
 
 ## Purpose
 
@@ -39,14 +39,14 @@ Rework the RAIN Browser home page to match the visual reference selected by the 
 
 | Day | Planned work | Status | Evidence |
 |---|---|---|---|
-| 1 | Inspect repository baseline, existing home-page implementation, assets, navigation/actions, and relevant tests. Record affected files and constraints. | In progress | Pending inspection report |
+| 1 | Inspect repository baseline, existing home-page implementation, assets, navigation/actions, and relevant tests. Record affected files and constraints. | Complete (2026-11-27) | Inspection report below; baseline `7ce46d2`; PR #19 / Actions run `45931404564` |
 | 2 | Implement the reference-matched home-page layout and responsive sizing without changing core architecture. | Not started | — |
 | 3 | Integrate the approved RAIN logo and required visual assets; refine icons, spacing, colors, and visual details against the reference. | Not started | — |
 | 4 | Implement and verify address/query input and search navigation. | Not started | — |
 | 5 | Connect and verify microphone, visual search, website shortcuts, and shortcut navigation. | Not started | — |
 | 6 | Implement and verify Add shortcut behavior and all bottom-toolbar actions using existing browser features. | Not started | — |
 | 7 | Run build, lint, relevant automated tests, functional control checks, visual comparison, regression checks, and prepare the acceptance report. | Not started | — |
-| **Total** | **7 working days** | **0/7 complete (0%)** | **No day is accepted yet** |
+| **Total** | **7 working days** | **1/7 complete (14.29%)** | **Day 1 inspection complete; implementation not started** |
 
 ## Daily completion record
 
@@ -55,17 +55,67 @@ Rework the RAIN Browser home page to match the visual reference selected by the 
 **Objective:** Establish the actual implementation baseline before modifying source code.
 
 Checklist:
-- [ ] Confirm current default branch and latest commit.
-- [ ] Inspect the app module and current home-page entry point.
-- [ ] Locate the current layout/UI implementation and related assets.
-- [ ] Trace search, microphone, visual-search, shortcut, Add, and bottom-toolbar actions.
-- [ ] Identify relevant tests and existing build/lint commands.
-- [ ] Record affected files, dependencies, constraints, and any ambiguity against the selected reference.
-- [ ] Publish an inspection report with file paths and commit evidence.
+- [x] Confirm current default branch and latest commit.
+- [x] Inspect the app module and current home-page entry point.
+- [x] Locate the current layout/UI implementation and related assets.
+- [x] Trace search, microphone, visual-search, shortcut, Add, and bottom-toolbar actions.
+- [x] Identify relevant tests and existing build/lint commands.
+- [x] Record affected files, dependencies, constraints, and any ambiguity against the selected reference.
+- [x] Publish an inspection report with file paths and commit evidence.
 
-**Status:** In progress  
-**Completion date:** —  
-**Commit / evidence:** Pending
+**Status:** Complete  
+**Completion date:** 2026-11-27  
+**Baseline commit:** `7ce46d23b9510cbb13b26e8e4e02d6dcc1af34e4`  
+**Candidate UI commit:** `c71c62287419b75ddb882e76caa84083b4e6928d`  
+**Pull request:** [#19 — Implement RAIN Browser reference home screen](https://github.com/phukthaisongp1-collab/Rain/pull/19) (open, not merged)  
+**CI evidence:** Android Build run `45931404564` completed successfully for the PR head. This is CI evidence for that candidate commit, not physical-device validation.
+
+#### Inspection findings
+
+**Repository baseline**
+- Default branch: `main`; repository is public and accessible with read/write permission.
+- The inspected `main` baseline includes the Android app, Kotlin source, XML resources, unit tests, instrumentation tests, Gradle configuration, and GitHub Actions workflows.
+- Platform baseline in `app/build.gradle.kts`: `minSdk = 36`, `compileSdk = 36`, `targetSdk = 36`, JDK 17.
+- No source code was changed during Day 1.
+
+**Current home page on `main`**
+- Entry point: `MainActivity.onCreate()` calls `setContentView(R.layout.activity_main)`, then `bindViews()`, `bindActions()`, and `restoreTabs()`.
+- Layout: `app/src/main/res/layout/activity_main.xml`.
+- Welcome page: `WELCOME_PAGE` HTML/CSS constant and `showWelcomePage()` in `app/src/main/java/com/rain/browser/MainActivity.kt`.
+- The current `main` home page is the original dark welcome screen with RAIN heading, recent items, and bookmarks. The browser controls are in the native XML layout.
+
+**Existing reference implementation candidate**
+- PR #19 changes three files: `MainActivity.kt`, `activity_main.xml`, and new `drawable/rain_address_background.xml`.
+- Its home-page visual uses inline CSS gradients and CSS mountain/cloud approximations, plus an inline SVG wordmark. It is not using the approved uploaded RAIN logo asset.
+- The weather panel is hard-coded to Bangkok and static; it is not a live weather feature.
+- Search form uses the selected Google/DuckDuckGo endpoint. The native address input continues to use `BrowserUrlResolver`.
+- Website shortcuts are anchors to fixed destinations (Google, YouTube, Facebook, X, Instagram).
+- The microphone button has no event handler; the Add shortcut item is a non-interactive span. There is no visual-search control.
+- The five feature-strip items are static `div` elements, not working buttons. Existing native toolbar buttons retain their `MainActivity.bindActions()` listeners, but the actual rendered layout and each action still require functional verification.
+- PR #19 is open and unmerged; its UI is not part of `main` yet. Do not assume it is accepted or merge it as part of Day 1.
+
+**Existing browser behavior and relevant files**
+- Search/address resolution: `app/src/main/java/com/rain/browser/browser/BrowserUrlResolver.kt`; `SearchEngine` is declared in the same file.
+- Main action wiring: `MainActivity.bindActions()`; includes Go, Back, Forward, Reload/Stop, Home, New Tab, Tabs, search-engine toggle, display mode, zoom/text size, Private, Protection, Permissions, Bookmarks, History, Resume, and Settings.
+- Browser surface: `WebViewFactory.kt`, `TabManager.kt`, `BrowserTab.kt`, and `NavigationGuardPolicy.kt`.
+- Manifest: `app/src/main/AndroidManifest.xml`; declares Internet, Camera, Record Audio and location permissions, but declaration alone does not implement microphone or image search flows.
+- Related layout/style resources: `app/src/main/res/layout/activity_main.xml`, `app/src/main/res/values/styles.xml`, `app/src/main/res/values/colors.xml`, and `app/src/main/res/drawable/`.
+- The inspected `main` drawable directory has no approved RAIN logo/image asset; PR #19 adds only the address-field drawable.
+
+**Tests and build commands**
+- Unit tests present: `BrowserSecurityPolicyTest`, `BrowserUrlResolverTest`, `NavigationGuardPolicyTest`, `RepositoryTest`, `DownloadPolicyTest`, `NetworkPolicyManagerTest`, `WebProtectionManagerTest`, `WebProtectionPresentationTest`, `WebViewProxyManagerTest`, and `PermissionManagerTest`.
+- `PrivateBrowsingIsolationTest` is an instrumentation test in the separate Phase 2/private-browsing workstream; it is not counted as Phase 1.5 home-page validation.
+- Existing CI command: `./gradlew --no-daemon --stacktrace clean lint testDebugUnitTest assembleDebug`.
+- Workflow: `.github/workflows/android-build.yml`; it also performs an Android 16 emulator install/launch smoke test when KVM acceleration is available.
+- The PR #19 Actions run is successful, but it does not prove the microphone, visual search, Add shortcut, live weather, or physical-device behavior works.
+
+**Constraints and implementation notes**
+- Preserve the existing Activity, WebView, tab manager, URL resolver, and native action wiring; no architecture change is needed for the scoped UI work.
+- The approved logo asset must be located/provided from the existing project context before it can be integrated. Do not substitute the candidate's generated SVG wordmark.
+- The precise visual reference remains the owner's selected image; compare against that exact image during Day 2/3 rather than combining it with earlier homepage concepts.
+- No physical-device testing was performed during Day 1.
+
+**Day 1 result:** Repository and current implementation inspection completed. No source files changed. Day 2 may proceed to implementation planning and layout work within the approved scope.
 
 ## Acceptance criteria
 
@@ -94,4 +144,4 @@ Phase 1.5 may be presented for owner acceptance only when all applicable criteri
 
 | Date | Update |
 |---|---|
-| 2026-11-27 | Initial Phase 1.5 seven-working-day tracker created. Day 1 marked in progress; no completion claimed. |
+| 2026-11-27 | Initial Phase 1.5 tracker created. |\n| 2026-11-27 | Day 1 inspection completed and recorded. No application source code changed. Progress updated to 1/7 (14.29%). |
