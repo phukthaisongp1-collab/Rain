@@ -1,6 +1,7 @@
 package com.rain.browser.data
 
 import com.rain.browser.downloads.VideoRetentionPolicy
+import com.rain.browser.downloads.VideoRetentionCleanup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -101,6 +102,46 @@ class VideoRepositoryTest {
         } finally {
             directory.deleteRecursively()
             outside.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun retentionCleanupDeletesOnlyExpiredUnlikedManagedVideo() {
+        val directory = Files.createTempDirectory("rain-retention-cleanup").toFile()
+        try {
+            val repository = VideoRepository(FakeStorage(), directory)
+            val expired = repository.enqueue("https://media.example.test/expired.mp4", "Expired", now = 1_000L)
+            repository.updateTransfer(expired.id, 11L, 12L, 12L, now = 1_100L)
+            val expiredFile = File(directory, "expired.mp4").apply {
+                writeBytes(byteArrayOf(
+                    0, 0, 0, 24, 'f'.code.toByte(), 't'.code.toByte(),
+                    'y'.code.toByte(), 'p'.code.toByte(), 0, 0, 0, 0
+                ))
+            }
+            repository.markReady(expired.id, expiredFile, now = 1_000L)
+
+            val liked = repository.enqueue("https://media.example.test/liked.mp4", "Liked", now = 1_000L)
+            repository.updateTransfer(liked.id, 12L, 12L, 12L, now = 1_100L)
+            val likedFile = File(directory, "liked.mp4").apply {
+                writeBytes(byteArrayOf(
+                    0, 0, 0, 24, 'f'.code.toByte(), 't'.code.toByte(),
+                    'y'.code.toByte(), 'p'.code.toByte(), 0, 0, 0, 0
+                ))
+            }
+            repository.markReady(liked.id, likedFile, now = 1_000L)
+            repository.setLiked(liked.id, true, now = 2_000L)
+
+            val unrelatedFile = File(directory, "user-file.bin").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+            val now = 1_000L + VideoRetentionPolicy.RETENTION_MILLIS
+
+            assertEquals(1, VideoRetentionCleanup.removeExpired(repository, directory, now))
+            assertFalse(expiredFile.exists())
+            assertNull(repository.get(expired.id))
+            assertTrue(likedFile.isFile)
+            assertNotNull(repository.get(liked.id))
+            assertTrue(unrelatedFile.isFile)
+        } finally {
+            directory.deleteRecursively()
         }
     }
 
