@@ -3,10 +3,10 @@
 > **Project:** RAIN Browser  
 > **Repository:** `phukthaisongp1-collab/Rain`  
 > **Workstream:** Phase 1.5 — Home page redesign and functional controls  
-> **Planning estimate:** 7 working days  
+> **Planning estimate:** 8 working days  
 > **Start date:** 2026-11-27  
 > **Current status:** Day 1–2 complete; Day 3 in progress  
-> **Progress:** 2/7 days (28.57%)
+> **Progress:** 2/8 days (25%)
 
 ## Purpose
 
@@ -33,7 +33,7 @@ Rework the RAIN Browser home page to match the visual reference selected by the 
 6. Do not add features outside this Phase 1.5 scope.
 7. Keep Phase 1.5 progress separate from Phase 1's 60-day tracker and all Phase 2 work. No Phase 1 or Phase 2 completion totals may be changed by this tracker.
 8. The seven days are an initial estimate, not a guarantee. Update the estimate only when repository inspection or verified implementation work shows a material reason.
-9. Real-device testing must be reported separately with the device, Android version, APK/build identifier, steps, results, and evidence. Do not claim a device test without running it.
+9. All testing is consolidated into Day 8. Do not schedule or count functional, visual, automated, regression, emulator, or real-device testing as a task for Days 1–7. Historical CI runs remain historical evidence only; final verification for this schedule must be performed and recorded on Day 8. Real-device testing must record the device, Android version, APK/build identifier, steps, results, and evidence. Do not claim a device test without running it.
 
 ## Progress summary
 
@@ -41,10 +41,10 @@ Rework the RAIN Browser home page to match the visual reference selected by the 
 |---|---|---|---|
 | 1 | Inspect repository baseline, existing home-page implementation, assets, navigation/actions, and relevant tests. Record affected files and constraints. | Complete (2026-11-27) | Inspection report below; baseline `7ce46d2`; PR #19 / Actions run `45931404564` |
 | 2 | Implement the reference-matched home-page layout and responsive sizing without changing core architecture. | Complete (2026-11-27) | Responsive landscape breakpoint commit `fb27cc9`; Android Build run `45933238852` passed. |
-| 3 | Integrate the approved RAIN logo and required visual assets; refine icons, spacing, colors, and visual details against the reference. | In progress | Replaced placeholder wordmark with vector-traced artwork from `5768.png` and converted feature-strip emoji to inline SVG icons in commit `d69444e`. Android Build run `45934419995` completed successfully: lint, unit tests, debug APK assembly, and Android 16 emulator install/launch smoke test all passed. Scenic background remains CSS-based and requires further comparison/refinement; Day 3 remains in progress until visual refinement is verified. |
-| 4 | Implement and verify address/query input and search navigation. | In progress | Home search routes through `BrowserUrlResolver`; existing URL-resolver unit tests passed in Actions run `45936068890`; live home-page interaction test pending. |
-| 5 | Connect and verify microphone, visual search, website shortcuts, and shortcut navigation. | In progress | Android speech-recognition intent, image picker/share chooser, and persistent custom shortcuts implemented; Android 16 emulator launched successfully, but voice/image chooser interactions still require device verification. |
-| 6 | Implement and verify Add shortcut behavior and all bottom-toolbar actions using existing browser features. | In progress | Local persistent Add shortcut dialog implemented; static check confirms all 20 native toolbar buttons are referenced in `bindActions()`; Add dialog interaction test pending. |
+| 3 | Integrate the approved RAIN logo and required visual assets; refine icons, spacing, colors, and visual details against the reference. | In progress | Replaced placeholder wordmark with vector-traced artwork from `5768.png` and converted feature-strip emoji to inline SVG icons in commit `d69444e`. Scenic background refinement commit `77f84c8`; final visual verification is deferred to Day 8. Earlier CI run `45934419995` is historical evidence only, not the scheduled final test. |
+| 4 | Complete address/query input and search-navigation implementation; prepare test cases without running final verification. | In progress | Home search routes through `BrowserUrlResolver`; five additional resolver test cases were added in commit `b9fe994`. Execute the full resolver and live-navigation tests on Day 8. |
+| 5 | Complete microphone, visual-search, website-shortcut, and shortcut-navigation implementation; prepare test cases without running final verification. | In progress | Android speech-recognition intent, image picker/share chooser, and persistent custom shortcuts are implemented. Voice, image chooser/Lens handoff, shortcut persistence, and destination checks are deferred to Day 8. |
+| 6 | Complete Add shortcut behavior and connect all bottom-toolbar actions to existing browser features; prepare test cases without running final verification. | In progress | Local persistent Add shortcut dialog implemented; static inspection indicates all 20 native toolbar buttons are referenced in `bindActions()`. Interaction and action correctness checks are deferred to Day 8. |
 | 7 | Run build, lint, relevant automated tests, functional control checks, visual comparison, regression checks, and prepare the acceptance report. | In progress | Actions run `45936068890` passed lint, unit tests, debug APK assembly, KVM check, and Android 16 emulator install/launch smoke test. Physical-device and exact-reference visual acceptance remain pending. |
 | **Total** | **7 working days** | **2/7 complete (28.57%)** | **Day 1–2 complete; Day 3 visual asset integration in progress** |
 
@@ -129,9 +129,9 @@ Phase 1.5 may be presented for owner acceptance only when all applicable criteri
 - [ ] Each configured website shortcut opens its intended destination.
 - [ ] Add shortcut control performs the intended action and handles invalid/duplicate input safely.
 - [ ] Every bottom-toolbar control opens the correct existing feature.
-- [ ] Build and relevant automated checks pass, or failures are documented without being represented as passes.
+- [ ] Build and all relevant automated checks pass on Day 8, or failures are documented without being represented as passes.
 - [ ] Existing browser functionality has no newly introduced regression in the tested scope.
-- [ ] Real-device test results and remaining platform limitations are recorded separately.
+- [ ] Real-device test results and remaining platform limitations are recorded separately on Day 8.
 
 ## Change control and boundaries
 
@@ -149,3 +149,5 @@ Phase 1.5 may be presented for owner acceptance only when all applicable criteri
 | 2026-11-27 | Day 3 started: integrated a vector-traced version of the located transparent RAIN logo artwork and replaced emoji feature-strip icons with inline SVG icons in `MainActivity.kt` (commit `d69444e`). Automated verification is pending. |
 | 2026-11-27 | Days 4–6 implementation started on PR #19: home search routes through `BrowserUrlResolver`; voice recognition uses Android `RecognizerIntent`; visual search selects an image and shares it to Google Lens or another compatible installed app; custom website shortcuts persist locally. Source commits include `984c1b4`. |
 | 2026-11-27 | CI run `45936068890` passed: lint, unit tests, debug APK assembly, KVM acceleration verification, and Android 16 emulator install/launch smoke test. APK artifact `rain-android-build` is available until 2026-12-11. Functional voice/image/Add interactions, exact-reference visual comparison, and physical-device testing remain pending. |
+
+| 2026-11-27 | Schedule revised at owner direction: move every test and validation activity, including the former Day 7 test plan and real-device checks, to Day 8. Days 1–7 are implementation and test-preparation only. Progress recalculated as 2/8 (25%). |
