@@ -1363,6 +1363,29 @@ class MainActivity : Activity(), WebViewCallbacks {
                         .feature { font-size: 9px; min-height: 66px; padding: 3px 2px; }
                         .feature-icon { font-size: 20px; }
                     }
+
+                    /* Compact layout for phones rotated to landscape. */
+                    @media (orientation: landscape) and (max-height: 520px) {
+                        .scene { min-height: 100vh; padding: 8px 3vw 12px; }
+                        .weather { top: 8px; right: 3vw; gap: 7px; padding: 5px 8px; font-size: 10px; }
+                        .weather-icon { font-size: 18px; }
+                        .weather strong { font-size: 12px; }
+                        main { width: min(100%, 920px); padding-top: 8px; }
+                        .brand { margin-bottom: 10px; }
+                        .brand svg { width: min(38vw, 250px); max-height: 27vh; }
+                        .search { width: min(100%, 760px); height: 46px; margin-bottom: 12px; padding: 4px 7px 4px 14px; gap: 8px; }
+                        .search-icon { font-size: 21px; }
+                        .search input { font-size: 14px; }
+                        .search-submit { width: 36px; height: 36px; }
+                        .mic { padding: 5px; font-size: 18px; }
+                        .shortcuts { gap: 8px; margin-bottom: 12px; }
+                        .shortcut { width: 86px; min-height: 76px; padding: 6px; gap: 4px; border-radius: 14px; font-size: 10px; }
+                        .shortcut-icon { width: 34px; height: 34px; border-radius: 10px; font-size: 23px; }
+                        .add { font-size: 29px; }
+                        .features { width: min(100%, 860px); padding: 5px 3px; border-radius: 16px; }
+                        .feature { min-height: 48px; gap: 3px; padding: 2px 4px; font-size: 9px; }
+                        .feature-icon { font-size: 18px; }
+                    }
                 </style>
             </head>
             <body>
