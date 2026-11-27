@@ -216,7 +216,12 @@ class VideoLibraryActivity : Activity() {
             return
         }
 
-        val videoView = VideoView(this)
+        val videoView = VideoView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(240)
+            )
+        }
         val controller = MediaController(this)
         controller.setAnchorView(videoView)
         videoView.setMediaController(controller)
