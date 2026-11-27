@@ -145,4 +145,7 @@
     <string name="video_cancel_failed">ไม่สามารถยกเลิกการดาวน์โหลดนี้ได้อย่างปลอดภัย</string>
     <string name="video_retry">ลองดาวน์โหลดอีกครั้ง</string>
     <string name="video_retry_failed">ไม่สามารถเริ่มดาวน์โหลดรายการนี้ใหม่ได้</string>
+    <string name="video_storage_channel">พื้นที่จัดเก็บ RAIN</string>
+    <string name="video_storage_warning_title">พื้นที่จัดเก็บอุปกรณ์ใกล้เต็ม</string>
+    <string name="video_storage_warning_message">ตรวจสอบวิดีโอออฟไลน์และไฟล์อื่นเพื่อเพิ่มพื้นที่ว่าง</string>
 </resources>
