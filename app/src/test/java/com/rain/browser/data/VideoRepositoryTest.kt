@@ -44,7 +44,7 @@ class VideoRepositoryTest {
                 totalBytes = 16L,
                 now = 2_500L
             )
-            assertEquals("\\\"v1\\\"", progressed?.etag)
+            assertEquals("\"v1\"", progressed?.etag)
 
             val file = File(directory, "video.mp4")
             file.writeBytes(
