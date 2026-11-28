@@ -57,6 +57,8 @@ class SqliteStorage(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
                 last_modified TEXT NOT NULL DEFAULT '',
                 checksum_sha256 TEXT NOT NULL DEFAULT '',
                 authorization_confirmed INTEGER NOT NULL DEFAULT 0,
+                last_opened_at INTEGER,
+                playback_position_ms INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )""".trimIndent()
