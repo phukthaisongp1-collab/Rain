@@ -136,11 +136,16 @@ class HlsDownloadService : Service() {
             }
         }
 
-        val record = repository.startHlsTransfer(recordId) ?: return
         val cancellation = HlsDownloadCancellation()
         cancellations[recordId] = cancellation
+        val record = repository.startHlsTransfer(recordId)
+        if (record == null) {
+            cancellations.remove(recordId, cancellation)
+            return
+        }
         try {
-            publishProgress(record, 0L, 0, 0)
+            cancellation.throwIfCancelled()
+            publishProgress(record, record.bytesDownloaded, 0, 0)
             val fetched = HlsPlaylistFetcher.fetch(record.url)
             val playlist = HlsPlaylistParser.parse(fetched.finalUrl, fetched.content)
             require(playlist is HlsParsedPlaylist.Media) {
