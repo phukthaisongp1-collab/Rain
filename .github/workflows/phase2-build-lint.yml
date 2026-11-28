@@ -43,5 +43,29 @@ jobs:
         uses: gradle/actions/wrapper-validation@v4
       - name: Make Gradle Wrapper executable
         run: chmod +x ./gradlew
+      - name: Configure per-test logging
+        run: |
+          cat > "$RUNNER_TEMP/test-logging.init.gradle" <<'EOF'
+          import org.gradle.api.tasks.testing.Test
+
+          allprojects {
+              tasks.withType(Test).configureEach {
+                  testLogging {
+                      events "passed", "failed", "skipped"
+                      showStandardStreams = false
+                  }
+              }
+          }
+          EOF
       - name: Run Android lint and assemble debug APK
-        run: JAVA_HOME="$JAVA_HOME_17_X64" ./gradlew --no-daemon --stacktrace -Dorg.gradle.java.installations.paths="$JAVA_HOME_17_X64,$JAVA_HOME_21_X64" lint testDebugUnitTest assembleDebug
+        run: JAVA_HOME="$JAVA_HOME_17_X64" ./gradlew --no-daemon --stacktrace -I "$RUNNER_TEMP/test-logging.init.gradle" -Dorg.gradle.java.installations.paths="$JAVA_HOME_17_X64,$JAVA_HOME_21_X64" lint testDebugUnitTest assembleDebug
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: day9-unit-test-reports
+          path: |
+            app/build/reports/tests/**
+            app/build/test-results/**/*.xml
+          if-no-files-found: warn
+          retention-days: 14
