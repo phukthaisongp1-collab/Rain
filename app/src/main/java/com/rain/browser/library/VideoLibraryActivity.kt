@@ -23,9 +23,12 @@ import android.widget.TextView
 import com.rain.browser.data.SqliteStorage
 import com.rain.browser.data.VideoRecord
 import com.rain.browser.data.VideoRepository
+import com.rain.browser.data.HLS_MEDIA_MIME_TYPE
 import com.rain.browser.data.VideoStatus
 import com.rain.browser.downloads.ManagedVideoPathPolicy
 import com.rain.browser.downloads.VideoDownloadCoordinator
+import com.rain.browser.downloads.HlsDownloadService
+import com.rain.browser.downloads.HlsSegmentDownloader
 import com.rain.browser.player.VideoPlayerActivity
 import java.io.File
 import java.net.URI
@@ -53,7 +56,7 @@ class VideoLibraryActivity : Activity() {
             if (isFinishing || isDestroyed) return
             worker.execute {
                 val initial = runCatching { repository.list() }.getOrDefault(emptyList())
-                initial.filter { it.status in ACTIVE_STATUSES }
+                initial.filter { it.status in ACTIVE_STATUSES && it.mimeType != HLS_MEDIA_MIME_TYPE }
                     .forEach { record -> runCatching { coordinator.refresh(record.id) } }
                 val visible = runCatching {
                     repository.list()
@@ -261,6 +264,47 @@ class VideoLibraryActivity : Activity() {
             }
             row.addView(details)
             row.addView(info)
+            if (record.mimeType == HLS_MEDIA_MIME_TYPE &&
+                record.status in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING)
+            ) {
+                row.addView(Button(this).apply {
+                    text = "ยกเลิก"
+                    textSize = 11f
+                    setOnClickListener {
+                        isEnabled = false
+                        HlsDownloadService.cancel(this@VideoLibraryActivity, record.id)
+                        handler.removeCallbacks(refreshTask)
+                        handler.post(refreshTask)
+                    }
+                })
+            }
+            if (record.status in RETRY_STATUSES) {
+                row.addView(Button(this).apply {
+                    text = "ลองอีกครั้ง"
+                    textSize = 11f
+                    setOnClickListener {
+                        isEnabled = false
+                        worker.execute {
+                            val result = runCatching {
+                                if (record.mimeType == HLS_MEDIA_MIME_TYPE) {
+                                    val queued = repository.resetForRetry(record.id)
+                                        ?: throw IllegalStateException("ไม่สามารถเตรียมรายการ HLS สำหรับลองใหม่ได้")
+                                    HlsDownloadService.start(this@VideoLibraryActivity, queued.id)
+                                } else {
+                                    coordinator.retry(record.id)
+                                }
+                            }
+                            runOnUiThread {
+                                if (!isFinishing && !isDestroyed) {
+                                    result.onFailure { isEnabled = true }
+                                    handler.removeCallbacks(refreshTask)
+                                    handler.post(refreshTask)
+                                }
+                            }
+                        }
+                    }
+                })
+            }
             if (record.status == VideoStatus.READY) {
                 val heart = Button(this).apply {
                     text = if (record.isLiked) "♥" else "♡"
@@ -374,7 +418,24 @@ class VideoLibraryActivity : Activity() {
             val result = runCatching {
                 val current = repository.get(record.id)
                     ?: throw IllegalStateException("ไม่พบรายการวิดีโอ")
-                if (current.status in ACTIVE_STATUSES && !coordinator.cancel(current.id)) {
+                if (current.mimeType == HLS_MEDIA_MIME_TYPE &&
+                    current.status in ACTIVE_STATUSES
+                ) {
+                    HlsDownloadService.cancel(this@VideoLibraryActivity, current.id)
+                    repeat(CANCEL_WAIT_ATTEMPTS) {
+                        val latest = repository.get(current.id) ?: return@repeat
+                        if (latest.status !in ACTIVE_STATUSES) return@repeat
+                        Thread.sleep(CANCEL_WAIT_INTERVAL_MS)
+                    }
+                    val latest = repository.get(current.id)
+                        ?: throw IllegalStateException("ไม่พบรายการวิดีโอ")
+                    check(latest.status !in ACTIVE_STATUSES) {
+                        "การยกเลิก HLS ยังไม่เสร็จ กรุณาลองอีกครั้ง"
+                    }
+                    check(HlsSegmentDownloader(managedDirectory()).deleteTemporaryFiles(current.id)) {
+                        "ไม่สามารถลบไฟล์ชั่วคราว HLS ได้อย่างปลอดภัย"
+                    }
+                } else if (current.status in ACTIVE_STATUSES && !coordinator.cancel(current.id)) {
                     throw IllegalStateException("ไม่สามารถยกเลิกการดาวน์โหลดได้")
                 }
                 val latest = repository.get(record.id)
@@ -382,9 +443,8 @@ class VideoLibraryActivity : Activity() {
                 if (latest.filePath.isNotBlank()) {
                     val file = File(latest.filePath)
                     if (file.exists()) {
-                        val movies = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-                            ?: throw IllegalStateException("พื้นที่จัดเก็บวิดีโอไม่พร้อมใช้งาน")
-                        check(ManagedVideoPathPolicy.isManagedFile(File(movies, "RAIN"), file)) {
+                        val directory = managedDirectory()
+                        check(ManagedVideoPathPolicy.isManagedFile(directory, file)) {
                             "ไฟล์อยู่นอกพื้นที่จัดเก็บของ RAIN จึงไม่ลบไฟล์นี้"
                         }
                         check(file.delete()) { "ไม่สามารถลบไฟล์วิดีโอได้" }
@@ -407,6 +467,12 @@ class VideoLibraryActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun managedDirectory(): File {
+        val movies = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+            ?: throw IllegalStateException("พื้นที่จัดเก็บวิดีโอไม่พร้อมใช้งาน")
+        return File(movies, "RAIN")
     }
 
     private fun showDetails(record: VideoRecord) {
@@ -485,6 +551,9 @@ class VideoLibraryActivity : Activity() {
         const val THUMBNAIL_HEIGHT = 180
         const val MAX_THUMBNAIL_CACHE_BYTES = 4 * 1024 * 1024
         val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
-        val VISIBLE_STATUSES = ACTIVE_STATUSES + setOf(VideoStatus.READY, VideoStatus.MISSING)
+        val VISIBLE_STATUSES = ACTIVE_STATUSES + RETRY_STATUSES + setOf(VideoStatus.READY, VideoStatus.MISSING)
+        val RETRY_STATUSES = setOf(VideoStatus.FAILED, VideoStatus.FAILED_CORRUPTED, VideoStatus.CANCELED)
+        const val CANCEL_WAIT_ATTEMPTS = 100
+        const val CANCEL_WAIT_INTERVAL_MS = 100L
     }
 }
