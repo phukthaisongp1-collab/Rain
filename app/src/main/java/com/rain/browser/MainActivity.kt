@@ -92,6 +92,10 @@ class MainActivity : Activity(), WebViewCallbacks {
     private var videoRepository: VideoRepository? = null
     private var videoDownloadCoordinator: VideoDownloadCoordinator? = null
     private var pendingVideoDownload: PendingVideoDownload? = null
+    private var videoLibraryRoot: View? = null
+    private var videoLibraryBrowserRoot: View? = null
+    private var videoLibraryPollHandler: Handler? = null
+    private var videoLibraryPollRunnable: Runnable? = null
     private val storageExecutor = Executors.newSingleThreadExecutor()
     private val systemBackCallback = OnBackInvokedCallback { handleSystemBack() }
     private var fullscreenCustomView: View? = null
@@ -502,7 +506,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         if (source?.getBooleanExtra(EXTRA_SHOW_VIDEO_DOWNLOADS, false) != true) return
         source.removeExtra(EXTRA_SHOW_VIDEO_DOWNLOADS)
         if (this::tabManager.isInitialized && !isFinishing && !isDestroyed) {
-            showVideoDownloadsDialog()
+            showVideoLibraryScreen()
         }
     }
 
@@ -554,7 +558,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             android.view.Menu.NONE,
             MENU_VIDEO_DOWNLOADS,
             actions.size + 1,
-            "รายการดาวน์โหลดวิดีโอ"
+            "คลังวิดีโอออฟไลน์"
         )
         popupMenu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
@@ -567,8 +571,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         popupMenu.show()
     }
 
-    // Day 19 replaces this temporary dialog with the Video Library experience.
-    private fun showVideoDownloadsDialog() {
+    private fun showVideoLibraryScreen() {
+        if (videoLibraryRoot != null) return
         val repository = videoRepository
         val coordinator = videoDownloadCoordinator
         if (repository == null || coordinator == null) {
@@ -576,34 +580,72 @@ class MainActivity : Activity(), WebViewCallbacks {
             return
         }
 
+        val contentRoot = findViewById<ViewGroup>(android.R.id.content)
+        val browserRoot = contentRoot.getChildAt(0) ?: return
         val density = resources.displayMetrics.density
-        val content = LinearLayout(this).apply {
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding((20 * density).toInt(), (8 * density).toInt(), (20 * density).toInt(), 0)
+            setBackgroundColor(Color.rgb(15, 23, 42))
+            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), 0)
         }
-        val scrollView = android.widget.ScrollView(this).apply { addView(content) }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("คลังวิดีโอออฟไลน์")
-            .setView(scrollView)
-            .setPositiveButton(R.string.dialog_close, null)
-            .create()
-        val handler = Handler(Looper.getMainLooper())
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        header.addView(Button(this).apply {
+            text = "กลับ"
+            setOnClickListener { closeVideoLibraryScreen() }
+        })
+        header.addView(TextView(this).apply {
+            text = "คลังวิดีโอออฟไลน์"
+            textSize = 20f
+            setTextColor(Color.WHITE)
+            setPadding((12 * density).toInt(), 0, 0, 0)
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val scrollView = android.widget.ScrollView(this).apply {
+            addView(list)
+        }
+        root.addView(header, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            (56 * density).toInt()
+        ))
+        root.addView(scrollView, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        ))
 
+        browserRoot.visibility = View.GONE
+        contentRoot.addView(root, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        videoLibraryBrowserRoot = browserRoot
+        videoLibraryRoot = root
+
+        val handler = Handler(Looper.getMainLooper())
+        videoLibraryPollHandler = handler
         val waitingForNetworkIds = mutableSetOf<String>()
 
         fun render(records: List<com.rain.browser.data.VideoRecord>) {
-            content.removeAllViews()
+            list.removeAllViews()
             if (records.isEmpty()) {
-                content.addView(TextView(this).apply {
+                list.addView(TextView(this).apply {
                     text = "ยังไม่มีวิดีโอในคลังออฟไลน์"
-                    setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
+                    textSize = 16f
+                    setTextColor(Color.LTGRAY)
+                    setPadding(0, (20 * density).toInt(), 0, (20 * density).toInt())
                 })
                 return
             }
+
             records.forEach { record ->
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
+                    setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
                     isClickable = true
                     isFocusable = true
                     setOnClickListener { showVideoRecordDetails(record) }
@@ -612,6 +654,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                     text = record.title
                     textSize = 16f
                     maxLines = 2
+                    setTextColor(Color.WHITE)
                 })
                 val statusLabel = if (record.id in waitingForNetworkIds) {
                     "รอเครือข่าย"
@@ -619,7 +662,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                     com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
                     com.rain.browser.data.VideoStatus.DOWNLOADING -> "กำลังดาวน์โหลด"
                     com.rain.browser.data.VideoStatus.VERIFYING -> "กำลังตรวจสอบไฟล์"
-                    com.rain.browser.data.VideoStatus.READY -> "ดาวน์โหลดเสร็จแล้ว"
+                    com.rain.browser.data.VideoStatus.READY -> "พร้อมเล่นออฟไลน์"
                     com.rain.browser.data.VideoStatus.FAILED -> "ดาวน์โหลดไม่สำเร็จ"
                     com.rain.browser.data.VideoStatus.FAILED_CORRUPTED -> "ไฟล์ไม่สมบูรณ์"
                     com.rain.browser.data.VideoStatus.CANCELED -> "ยกเลิกแล้ว"
@@ -631,11 +674,12 @@ class MainActivity : Activity(), WebViewCallbacks {
                 } else if (record.status == com.rain.browser.data.VideoStatus.READY) 100 else 0
                 row.addView(TextView(this).apply {
                     text = if (total > 0L) {
-                        statusLabel + " · " + percent + "% (" + (downloaded / 1_048_576) + " / " + (total / 1_048_576) + " MB)"
+                        "$statusLabel · $percent% (\${downloaded / 1_048_576} / \${total / 1_048_576} MB)"
                     } else {
-                        statusLabel + " · " + (downloaded / 1_048_576) + " MB"
+                        "$statusLabel · \${downloaded / 1_048_576} MB"
                     }
                     textSize = 13f
+                    setTextColor(Color.LTGRAY)
                 })
                 row.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
                     max = 100
@@ -659,7 +703,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                                 storageExecutor.execute {
                                     val canceled = runCatching { coordinator.cancel(record.id) }.getOrDefault(false)
                                     runOnUiThread {
-                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
+                                        if (videoLibraryRoot === root && !isFinishing && !isDestroyed) {
                                             Toast.makeText(
                                                 this@MainActivity,
                                                 if (canceled) "ยกเลิกการดาวน์โหลดแล้ว" else "ไม่สามารถยกเลิกการดาวน์โหลดได้",
@@ -682,11 +726,9 @@ class MainActivity : Activity(), WebViewCallbacks {
                                     tabManager.activeTab?.webView?.settings?.userAgentString.orEmpty()
                                 }.getOrDefault("")
                                 storageExecutor.execute {
-                                    val retryResult = runCatching {
-                                        coordinator.retry(record.id, userAgent)
-                                    }
+                                    val retryResult = runCatching { coordinator.retry(record.id, userAgent) }
                                     runOnUiThread {
-                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
+                                        if (videoLibraryRoot === root && !isFinishing && !isDestroyed) {
                                             val message = if (retryResult.isSuccess) {
                                                 "เริ่มดาวน์โหลดวิดีโอใหม่แล้ว"
                                             } else {
@@ -703,9 +745,9 @@ class MainActivity : Activity(), WebViewCallbacks {
                     else -> Unit
                 }
                 if (actionRow.childCount > 0) row.addView(actionRow)
-                content.addView(row)
-                content.addView(View(this).apply {
-                    setBackgroundColor(Color.LTGRAY)
+                list.addView(row)
+                list.addView(View(this).apply {
+                    setBackgroundColor(Color.DKGRAY)
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         (1 * density).toInt()
@@ -716,7 +758,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
         val pollRunnable = object : Runnable {
             override fun run() {
-                if (!dialog.isShowing || isFinishing || isDestroyed) return
+                if (videoLibraryRoot !== root || isFinishing || isDestroyed) return
                 storageExecutor.execute {
                     val current = repository.list()
                     waitingForNetworkIds.clear()
@@ -733,7 +775,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                     }
                     val refreshed = repository.list()
                     runOnUiThread {
-                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
+                        if (videoLibraryRoot === root && !isFinishing && !isDestroyed) {
                             render(refreshed)
                             handler.postDelayed(this, VIDEO_DOWNLOAD_REFRESH_INTERVAL_MS)
                         }
@@ -741,14 +783,22 @@ class MainActivity : Activity(), WebViewCallbacks {
                 }
             }
         }
-        dialog.setOnDismissListener { handler.removeCallbacks(pollRunnable) }
-        dialog.show()
-        dialog.window?.setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-        handler.post(pollRunnable)
+        videoLibraryPollRunnable = pollRunnable
+        pollRunnable.run()
     }
+
+    private fun closeVideoLibraryScreen() {
+        videoLibraryPollRunnable?.let { runnable ->
+            videoLibraryPollHandler?.removeCallbacks(runnable)
+        }
+        videoLibraryPollRunnable = null
+        videoLibraryPollHandler = null
+        (videoLibraryRoot?.parent as? ViewGroup)?.removeView(videoLibraryRoot)
+        videoLibraryRoot = null
+        videoLibraryBrowserRoot?.visibility = View.VISIBLE
+        videoLibraryBrowserRoot = null
+    }
+
     private fun showVideoRecordDetails(record: com.rain.browser.data.VideoRecord) {
         val statusLabel = when (record.status) {
             com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
@@ -2121,6 +2171,10 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     private fun handleSystemBack() {
+        if (videoLibraryRoot != null) {
+            closeVideoLibraryScreen()
+            return
+        }
         if (fullscreenCustomView != null) {
             exitVideoFullscreen(notifyWebView = true)
             return
@@ -2135,6 +2189,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     }
 
     override fun onDestroy() {
+        closeVideoLibraryScreen()
         exitVideoFullscreen(notifyWebView = true)
         onBackInvokedDispatcher.unregisterOnBackInvokedCallback(systemBackCallback)
         tabManager.clear().forEach { destroyWebView(it.webView) }
