@@ -77,6 +77,9 @@ class HlsMediaRemuxer(
             check(outputPart.renameTo(outputFile)) {
                 "Unable to finalize the HLS MP4 output file."
             }
+            check(HlsSegmentDownloader(managedDirectory).deleteTemporaryFiles(recordId)) {
+                "Unable to safely clean up completed HLS temporary files."
+            }
             return RemuxResult(
                 file = outputFile,
                 durationMs = VideoMediaInspector.inspect(outputFile).durationMs,
