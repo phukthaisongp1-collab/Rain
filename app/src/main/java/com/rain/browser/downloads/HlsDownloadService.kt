@@ -53,7 +53,7 @@ class HlsDownloadService : Service() {
                 val recordId = intent.getStringExtra(EXTRA_RECORD_ID).orEmpty()
                 if (recordId.isNotBlank()) {
                     cancellations[recordId]?.cancel()
-                        ?: repository.markCanceled(recordId)
+                        ?: repository.markHlsCanceled(recordId)
                     publishRecordState(recordId)
                 }
                 worker.execute { stopWhenIdle(startId) }
@@ -63,7 +63,7 @@ class HlsDownloadService : Service() {
                 repository.list()
                     .filter { it.mimeType == HLS_MEDIA_MIME_TYPE && it.status in ACTIVE_STATUSES }
                     .forEach { record ->
-                        cancellations[record.id]?.cancel() ?: repository.markCanceled(record.id)
+                        cancellations[record.id]?.cancel() ?: repository.markHlsCanceled(record.id)
                         publishRecordState(record.id)
                     }
                 worker.execute { stopWhenIdle(startId) }
@@ -122,6 +122,18 @@ class HlsDownloadService : Service() {
                 publishRecordState(recordId)
                 return
             }
+            if (finalOutput.exists() &&
+                ManagedVideoPathPolicy.isManagedFile(managedDirectory, finalOutput)
+            ) {
+                repository.markCorrupted(
+                    recordId,
+                    finalOutput,
+                    "ไฟล์ HLS ที่กู้คืนหลัง process หยุดทำงานไม่ผ่านการตรวจสอบ"
+                )
+                runCatching { finalOutput.delete() }
+                publishRecordState(recordId)
+                return
+            }
         }
 
         val record = repository.startHlsTransfer(recordId) ?: return
@@ -176,7 +188,7 @@ class HlsDownloadService : Service() {
             publishRecordState(recordId)
         } catch (error: Exception) {
             if (cancellation.isCancelled()) {
-                repository.markCanceled(recordId)
+                repository.markHlsCanceled(recordId)
             } else {
                 repository.markFailed(recordId, safeError(error))
             }
