@@ -52,6 +52,23 @@ RAIN ต้องรวมความสามารถหลักของ Go
 
 ห้ามเปลี่ยน applicationId หรือ Signing Key หลังเผยแพร่รุ่นแรก เพราะจะกระทบการอัปเดตทับแอปเดิมและความต่อเนื่องของข้อมูล
 
+### 1.4.1 RAIN Auto Update — ข้อกำหนดผลิตภัณฑ์
+- ช่องทางอัปเดตหลักเป็น **In-App Update ผ่าน GitHub Releases**; GitHub เป็นระบบเผยแพร่เบื้องหลัง ผู้ใช้ไม่ต้องเปิด GitHub หรือดาวน์โหลด APK ด้วยตนเอง
+- แอปตรวจสอบ Release ล่าสุดจาก Repository ทางการ `phukthaisongp1-collab/Rain` เมื่อเริ่มใช้งานและเมื่อผู้ใช้สั่งตรวจสอบจากเมนู/Settings โดยต้องไม่บล็อกการเปิด Browser หากเครือข่ายล้มเหลว
+- เมื่อพบรุ่นใหม่ ให้แสดง versionName และ release notes พร้อมตัวเลือก “อัปเดต” หรือ “ภายหลัง”; ห้ามดาวน์โหลดหรือติดตั้งโดยไม่แจ้งผู้ใช้
+- เมื่อผู้ใช้เลือกอัปเดต RAIN ดาวน์โหลด APK ผ่าน HTTPS เอง ตรวจ SHA-256 ตาม metadata ของ Release และตรวจ packageName, versionCode และ Signing Certificate fingerprint ก่อนส่งไฟล์ให้ Android Package Installer
+- ต้องตรงกับ applicationId `com.rain.browser`, versionCode ต้องมากกว่ารุ่นที่ติดตั้ง และ Signing Certificate SHA-256 ต้องตรงกับค่าที่กำหนดใน Release policy; ห้ามติดตั้งไฟล์ที่ตรวจสอบไม่ผ่าน
+- Android Package Installer เป็นผู้ตรวจสอบลายเซ็นและดำเนินการติดตั้งจริง ผู้ใช้ต้องยืนยันการติดตั้งในหน้าระบบ Android; **ไม่รองรับ Silent Install** บนอุปกรณ์ทั่วไปที่ไม่ได้เป็น Device Owner/Managed Device
+- หาก Android ขออนุญาต “ติดตั้งแอปที่ไม่รู้จัก” ให้เปิดหน้าตั้งค่าของ RAIN เฉพาะเมื่อผู้ใช้เริ่มอัปเดต และอธิบายเหตุผลก่อน ผู้ใช้ปฏิเสธได้โดยไม่กระทบการใช้งาน Browser
+- APK และ metadata ต้องมาจาก GitHub Release ของ Repository ทางการเท่านั้น; ไม่รับ URL อัปเดตจากเว็บภายนอก, WebView, query parameter หรือข้อมูลที่เว็บไซต์กำหนด
+- Release ต้องแนบ APK และ metadata `rain-update.json` ซึ่งระบุ `versionName`, `versionCode`, ชื่อ asset, SHA-256 และ release notes; metadata ต้องสอดคล้องกับ APK ที่สร้างจาก Source Commit เดียวกัน
+- ทุก Release ใช้ Keystore/alias/certificate เดิม; GitHub Actions ใช้ Secrets ที่มีอยู่ ห้ามนำ Keystore/password ลง Repository, Release asset, Log หรือแชต
+- versionCode เพิ่มขึ้นอย่างเคร่งครัด ห้ามซ้ำ/ลด; การแก้ไขฉุกเฉินต้องออก versionCode ใหม่เสมอ
+- การอัปเดตต้องรักษา application data, SQLite database, bookmarks, history, settings, resume และ videos; ห้ามถอนการติดตั้งหรือล้างข้อมูลเพื่ออัปเดต
+- หากตรวจสอบ Release ไม่ได้, metadata ผิด, checksum/signature/package/version ไม่ตรง หรือดาวน์โหลดไม่สมบูรณ์ ให้ยกเลิกการติดตั้ง ลบไฟล์ชั่วคราวที่ RAIN สร้าง และเปิด Browser รุ่นเดิมต่อได้
+- Release ที่เผยแพร่แล้วต้องคง asset และ metadata ให้ดาวน์โหลดได้; ห้ามลบ/แทนที่ Release ที่เป็นเป้าหมายของผู้ใช้โดยไม่มีแผน migration
+- การปล่อย Release ยังต้องผ่าน CI, Release Signing, Security Review และ Real-World Continuous Testing; การมี Auto Update ไม่ใช่เหตุให้ข้าม Gate
+
 ### 1.5 ธีม
 - Dark Slate: #0F172A
 - Rain Blue: #38BDF8
@@ -215,6 +232,14 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 
 หาก Secrets ไม่ครบ หรือ Signing/Verification ไม่ผ่าน Workflow ต้องล้มเหลวและห้ามเผยแพร่ Release
 
+### 3.4 Release Publishing และ Auto Update
+- Workflow สำหรับ Release ต้องสร้าง Signed APK จาก Source Commit/Tag ที่ระบุ, ตรวจ applicationId/versionCode/versionName และตรวจ Signing Certificate SHA-256 เทียบค่าที่อนุมัติ
+- เมื่อทุก Gate ผ่าน ให้เผยแพร่ APK และ `rain-update.json` เป็น GitHub Release ของ Tag เดียวกัน พร้อม release notes; ใช้ `contents: write` เฉพาะ Job ที่เผยแพร่ Release และใช้ `GITHUB_TOKEN` ตาม least privilege
+- Metadata ต้องสร้างจากค่าที่อ่านจาก APK จริง ไม่เชื่อค่าที่กรอกแยกจาก Build; คำนวณ SHA-256 หลัง Build/Sign และตรวจซ้ำก่อน Upload
+- แอปอ่าน Release metadata ผ่าน HTTPS จาก Repository ทางการเท่านั้น และตรวจ versionCode/packageName/certificate/hash ก่อนเริ่ม Android Installer
+- ห้ามเผยแพร่ Release หาก Keystore/Secrets หาย, certificate เปลี่ยน, APK ไม่ผ่าน verify, metadata ไม่ตรง APK, CI ไม่ผ่าน หรือ versionCode ไม่เพิ่ม
+- การเปลี่ยน/หมุน Signing Key ต้องมีแผน Android signing-key upgrade ที่ตรวจสอบ compatibility และได้รับอนุมัติแยกต่างหาก; ห้ามทำในงาน Auto Update ปกติ
+
 ---
 
 ## 4. แผนพัฒนาเฟส 1 — 4 รอบย่อย
@@ -295,6 +320,19 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 7. รองรับภาษาไทยและอังกฤษ และสลับภาษาในแอปได้ตามข้อจำกัด Android
 
 **Real-World Gate สำหรับงานที่ยังไม่เริ่ม/การปรับปรุงในอนาคต:** ใช้งานข้อมูลจริงและการตั้งค่าบนอุปกรณ์จริง ตรวจ persistence หลังปิด/เปิดแอป, retention/cleanup, migration/update-over-install, ภาษาและ Settings รวมถึงกรณี process death/พื้นที่จัดเก็บไม่เพียงพอ
+
+---
+
+### 4.5 การทดสอบและ Release Gate ที่ใช้ร่วมกันทุก Phase/Workstream
+มาตรฐาน Real-World Continuous Testing ในข้อ 1.7 ใช้กับทุกงานที่ยังไม่เริ่ม งานใหม่ งานแก้ไข และทุก Release โดยให้แต่ละ Phase เพิ่มการทดสอบเฉพาะความเสี่ยงของตน:
+- **Phase 1 / Core Browser:** Browser navigation, tabs, desktop/mobile mode, WebView, permissions, bookmarks/history/settings และการอัปเดตทับโดยไม่สูญเสียข้อมูล
+- **Phase 1.5 / Home UI & UX:** layout, touch, orientation, shortcuts, search, loading/error/offline states และการกลับจากหน้า Update/Android Installer
+- **Phase 1.6 / Browser Experience:** website compatibility, long sessions, resource usage, network transitions, crash/recovery และ regression ของ Browser
+- **Phase 2 / Offline Media & Private Browsing:** direct/HLS download, queue/resume/cancel, storage, playback, privacy isolation/cleanup และ data integrity ตาม workstream
+- **Phase ถัดไป/Backlog:** ต้องกำหนด Real-World Gate ที่เกี่ยวข้องใน Spec ก่อนเริ่ม ไม่ถือว่าผ่านจาก CI เพียงอย่างเดียว
+- **Auto Update ทุก Phase:** ทดสอบ Release metadata, no-update/current-version, update available, invalid metadata/hash/package/certificate, network interruption, installer cancellation, permission denial, update-over-install และการคงข้อมูลจริงบน Android 16
+- ไม่บังคับย้อนทดสอบหรือรับรอง Phase/Milestone ที่ปิดก่อน 2026-11-28; ใช้ประวัติและหลักฐานเดิมตามข้อ 1.7.1
+- การทดสอบในแต่ละ Release ใช้ชุด Regression ที่สัมพันธ์กับ Change Set และความเสี่ยง ไม่จำเป็นต้องรัน Checklist ทั้งหมดซ้ำทุกครั้ง แต่ Real-World Usage และ Issue feedback ดำเนินต่อเนื่องตลอดอายุผลิตภัณฑ์
 
 ---
 
