@@ -42,7 +42,7 @@
 | 36 | ประกอบ TS/fMP4, remux MP4 และตรวจสอบ output | ปิดแล้ว — CI Push/PR ผ่าน |
 | 37 | HLS lifecycle, foreground service, Library, notifications และ process recovery | ปิดแล้ว — CI Push/PR ผ่าน |
 | 38 | Security review และ unsupported-source behavior | ปิดแล้ว — CI Push/PR ผ่าน |
-| 39 | Stabilization, ตรวจความสอดคล้องของเอกสาร และ Pre-Regression handoff | กำลังดำเนินการ |
+| 39 | Stabilization, ตรวจความสอดคล้องของเอกสาร และ Pre-Regression handoff | แก้เอกสารแล้ว; Push CI ผ่าน, PR CI กำลังทำงาน — ยังไม่ปิด Day |
 | 40–41 | Integration + Regression รอบเดียว ครอบคลุม Direct/HLS, lifecycle, recovery, security และ regression ของ browser/download เดิม | ยังไม่เริ่ม |
 | 42 | แก้ไขเฉพาะปัญหาที่พบจาก Day 40–41 และรันทดสอบซ้ำเฉพาะส่วนที่แก้ | ยังไม่เริ่ม |
 | 43 | Pre-Acceptance CI, ตรวจหลักฐาน build/lint, manifest, schema, signing และเอกสารข้อจำกัด | ยังไม่เริ่ม |
@@ -139,13 +139,37 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 
 ## 6. สถานะงานจริง ณ 28 พ.ย. 2026
 
-- Day 1–7: เสร็จแล้ว
-- Day 8: ปิดตามเงื่อนไขในหัวข้อ 3 (CI Run #337 ผ่าน)
-- Day 9: ได้รับอนุมัติให้เริ่มตามขอบเขตใหม่ (Schema v3 + Download Core); ยังไม่ถือว่าผ่าน Acceptance
-- PR #40: มีโค้ดสำหรับงานหลายวัน แต่ยังไม่ผ่าน Acceptance และจะใช้เป็นแหล่งคัดเลือกโค้ดเท่านั้น ไม่ Merge ทั้ง PR
-- Day 10–17: ยังไม่ถือว่าผ่าน Acceptance; ทำตามลำดับหลัง Day 9
-- Day 18–34: ยังไม่เริ่ม
-- Day 44: รอทดสอบเครื่องจริง
+### 6.1 ตารางความคืบหน้างานดาวน์โหลดวิดีโอออฟไลน์
+
+| ช่วงงาน | ขอบเขต | สถานะจริง |
+|---|---|---|
+| Day 1–8 | Detection foundation, feasibility gate และข้อจำกัด real-site | เสร็จตามเกณฑ์ที่อนุมัติ |
+| Day 9 | Download Core และ SQLite Schema v3 แบบ additive-only | เสร็จ; ใช้ตาราง `videos` เดิม ไม่มี Migration เพิ่มใน HLS |
+| Day 10–18 | Direct MP4/WebM detection, validation, DownloadManager, notifications และ recovery | เสร็จ; CI ผ่านตาม Gate ของช่วงงาน |
+| Day 19–21 | Video Library, metadata, search, thumbnail และรายละเอียดรายการ | เสร็จ |
+| Day 22 | Custom offline player: seek, double-tap ±10s, speed, hold 2x, brightness/volume gestures, scrub preview, fullscreen, auto-hide และ PiP | Implemented; รอ runtime acceptance Day 40–44 |
+| Day 23–28 | Playback validation, resume position, Like/Unlike, expiry, checksum และ managed-file cleanup | เสร็จ; playback ตรวจ existence/size ไม่ hash ทั้งไฟล์ซ้ำทุกครั้ง |
+| Day 29–31 | Shared 4 GiB cap, storage preflight/recovery และ DownloadManager orphan protection | เสร็จ; Direct DownloadManager ยังมีข้อจำกัด polling และ post-preflight DNS/redirect ตามที่ยอมรับ |
+| Day 32 | HLS URL discovery จาก `shouldInterceptRequest` และรวม DOM candidates | เสร็จ; Push/PR CI ผ่าน |
+| Day 33 | HLS Master/Media parser และ fail-closed สำหรับรูปแบบที่ไม่รองรับ | เสร็จ; Push/PR CI ผ่าน |
+| Day 34 | HLS-only OkHttp transport, DNS/connected socket IP checks และ redirect validation | เสร็จ; Push/PR CI ผ่าน |
+| Day 35 | Parallel segment transfer, AES-128, retries, resume และ aggregate cap | เสร็จ; Push/PR CI ผ่าน |
+| Day 36 | TS/fMP4 assembly, MediaExtractor/MediaMuxer remux และ output validation | เสร็จ; Push/PR CI ผ่าน |
+| Day 37 | HLS repository lifecycle, dataSync Foreground Service, Library, notifications และ recovery | เสร็จ; Push/PR CI ผ่าน |
+| Day 38 | HLS security review และข้อความปฏิเสธ DRM/token/login/Cloudflare/DASH/live | เสร็จ; Push/PR CI ผ่าน |
+| Day 39 | Stabilization และปรับ execution plan/ข้อจำกัดให้ตรงโค้ดจริง | แก้เอกสารแล้ว; Push ผ่าน, PR CI ยังทำงาน |
+| Day 40–41 | Integration + Regression รอบเดียว รวม Direct/HLS และ browser/download regression | ยังไม่เริ่ม — รอ Day 39 CI ผ่านทั้งคู่ |
+| Day 42 | Targeted fixes จากผล Day 40–41 เท่านั้น | ยังไม่เริ่ม |
+| Day 43 | Pre-Acceptance CI, manifest/schema/signing/docs audit | ยังไม่เริ่ม |
+| Day 44 | ทดสอบบนโทรศัพท์ Android 16 เครื่องจริงและ Final Acceptance | ยังไม่เริ่ม |
+
+### 6.2 หลักฐาน CI ล่าสุด
+
+- Day 39 commit: `1bd01a05fecc639b73d1216de0913dd425ea552d`
+- Push #46133968431: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46133968431 — **Success**
+- PR #46133974894: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46133974894 — **In progress ณ เวลาปรับปรุงเอกสาร**
+- PR #45: Draft, ยังไม่ Merge
+- Day 39 จะถือว่าปิดได้ต่อเมื่อ Push และ PR CI ของ commit นี้ผ่านทั้งคู่เท่านั้น
 
 ### หลักฐาน CI สำหรับ Day 8
 
@@ -157,11 +181,12 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 
 ## 7. เงื่อนไขการปิดโครงการ
 
-- Day 8 ปิดตามเงื่อนไขหัวข้อ 3
-- Day 9–30 พัฒนาครบ และ CI Build ผ่าน
-- Day 31–33 Integration/Regression ผ่าน
-- Day 34 Pre-Acceptance ผ่าน
-- Day 44 ทดสอบบนเครื่องจริงและ Final Acceptance ผ่าน
+- Day 1–39: งานตามแผน 44 วันครบตามขอบเขต และ Push/PR CI ผ่านทุก Gate ของวันนั้น
+- Day 40–41: Integration + Regression ผ่านสำหรับ Direct MP4/WebM, HLS clear/AES-128, Library/player, cancellation/retry/resume, process recovery, storage cap, notification/Foreground Service และ regression ของ browser/download เดิม
+- Day 42: ปัญหาที่พบจาก Day 40–41 ได้รับการแก้ไขและทดสอบซ้ำเฉพาะส่วนที่เปลี่ยน
+- Day 43: Pre-Acceptance ผ่าน รวม CI, manifest/permissions, schema/data preservation, signing identity และเอกสารข้อจำกัด
+- Day 44: ทดสอบบนอุปกรณ์ Android 16 จริงของเจ้าของโครงการและ Final Acceptance ผ่าน
+- PR #45 ต้องคง Draft และห้าม Merge จนกว่าเจ้าของโครงการจะอนุมัติอย่างชัดเจน
 
 ## 8. ประวัติการปรับแผน
 
