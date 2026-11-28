@@ -46,8 +46,8 @@
 | 13 | Dialog รายการดาวน์โหลดวิดีโอ แสดงชื่อ สถานะ และเปอร์เซ็นต์ พร้อม refresh ทุก 1.5 วินาทีขณะเปิด | ปิดแล้ว — CI Run #46099702278 ผ่าน |
 | 14 | ยกเลิกงานที่ยังทำงาน และดาวน์โหลดใหม่สำหรับรายการล้มเหลว/ถูกยกเลิก โดยตรวจสอบและลบเฉพาะไฟล์เดิมใน RAIN | กำลังดำเนินการ |
 | 15 | ใช้ Android DownloadManager ทำงานต่อเบื้องหลังโดยไม่เพิ่ม Foreground Service หรือ Permission ใหม่ | ปิดแล้ว — CI Run #46100166799 ผ่าน |
-| 16 | แสดงสถานะรอเครือข่ายจาก DownloadManager; ใช้ If-Match/If-Unmodified-Since จาก ETag/Last-Modified และเมื่อ Source เปลี่ยนให้การ Resume ถูกปฏิเสธ จากนั้น Retry จะลบ partial ใน RAIN และตรวจ Source ใหม่ก่อนเริ่มจากต้น | กำลังดำเนินการ |
-| 17 | กู้คืน Process และตรวจสอบสถานะงาน | ยังไม่เริ่ม/รอพัฒนาตามลำดับ |
+| 16 | แสดงสถานะรอเครือข่ายจาก DownloadManager; ใช้ If-Match/If-Unmodified-Since จาก ETag/Last-Modified และเมื่อ Source เปลี่ยนให้การ Resume ถูกปฏิเสธ จากนั้น Retry จะลบ partial ใน RAIN และตรวจ Source ใหม่ก่อนเริ่มจากต้น | ปิดแล้ว — CI Run #46100436441 ผ่าน |
+| 17 | เมื่อเริ่มแอปให้เทียบรายการใน `videos` กับ DownloadManager ผ่าน `download_id`; งานที่ไม่มี system request จะถูกทำเครื่องหมาย FAILED และลบ partial เฉพาะใน RAIN; orphan DownloadManager request จะถูกลบเฉพาะเมื่อยืนยัน local path อยู่ใน RAIN (ตำแหน่งไม่ทราบจะไม่แตะต้อง) | กำลังดำเนินการ |
 | 18 | Notifications | ยังไม่เริ่ม |\n\nหมายเหตุ Dialog ดาวน์โหลดวิดีโอใน Day 13–18 เป็น UI ชั่วคราว เปิดจากเมนูเบราว์เซอร์เดิมเท่านั้น ไม่มี Activity ใหม่ และจะถูกแทนที่ใน Day 19 เมื่อเริ่ม Video Library\n
 | 19 | สร้าง Video Library | ยังไม่เริ่ม |
 | 20 | บันทึกและอัปเดตข้อมูลวิดีโอใน Library โดยใช้ตาราง `videos` ที่สร้างใน Day 9 (ไม่มี Migration เพิ่ม) | ยังไม่เริ่ม |

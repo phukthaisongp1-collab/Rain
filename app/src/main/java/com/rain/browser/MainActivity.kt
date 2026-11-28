@@ -177,6 +177,12 @@ class MainActivity : Activity(), WebViewCallbacks {
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
+        // Day 19 replaces the temporary download dialog; keep startup recovery in the Download Core.
+        videoDownloadCoordinator?.let { coordinator ->
+            storageExecutor.execute {
+                runCatching { coordinator.reconcileAll() }
+            }
+        }
         onBackInvokedDispatcher.registerOnBackInvokedCallback(
             OnBackInvokedDispatcher.PRIORITY_DEFAULT,
             systemBackCallback

@@ -142,6 +142,12 @@ class VideoDownloadCoordinator(
         val requestId = record.downloadId ?: return null
         val snapshot = query(requestId) ?: run {
             if (record.status in ACTIVE_STATUSES) {
+                val staleFile = record.filePath.takeIf { it.isNotBlank() }?.let(::File)
+                if (staleFile != null && staleFile.exists() &&
+                    ManagedVideoPathPolicy.isManagedFile(managedDirectory, staleFile)
+                ) {
+                    runCatching { staleFile.delete() }
+                }
                 repository.markFailed(recordId, "Android DownloadManager no longer has this request.")
             }
             return null
@@ -285,8 +291,10 @@ class VideoDownloadCoordinator(
     /** Reconciles persisted records with Android's durable DownloadManager queue. */
     @Synchronized
     fun reconcileAll(): List<TransferSnapshot> {
+        val records = repository.list()
+        val knownRequestIds = records.mapNotNull { it.downloadId }.toSet()
         val results = mutableListOf<TransferSnapshot>()
-        repository.list().filter { it.status in ACTIVE_STATUSES }.forEach { record ->
+        records.filter { it.status in ACTIVE_STATUSES }.forEach { record ->
             val result = if (record.downloadId == null) {
                 repository.markFailed(record.id, "Video transfer has no persisted system request ID.")
                 TransferSnapshot(VideoStatus.FAILED, record.bytesDownloaded, record.sizeBytes)
@@ -300,7 +308,38 @@ class VideoDownloadCoordinator(
             }
             results += result
         }
+        removeOrphanedManagedRequests(knownRequestIds)
         return results
+    }
+
+    /**
+     * Removes only app-owned DownloadManager requests whose resolved local file
+     * is proven to be inside RAIN storage. Unknown locations are left untouched.
+     */
+    private fun removeOrphanedManagedRequests(knownRequestIds: Set<Long>) {
+        val cursor = runCatching { downloadManager.query(DownloadManager.Query()) }.getOrNull() ?: return
+        cursor.use {
+            val idColumn = it.getColumnIndex(DownloadManager.COLUMN_ID)
+            val fileColumn = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_FILENAME)
+            val uriColumn = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+            if (idColumn < 0) return
+            while (it.moveToNext()) {
+                val requestId = it.getLong(idColumn)
+                if (requestId in knownRequestIds) continue
+                val localPath = if (fileColumn >= 0 && !it.isNull(fileColumn)) {
+                    it.getString(fileColumn)
+                } else if (uriColumn >= 0 && !it.isNull(uriColumn)) {
+                    val localUri = Uri.parse(it.getString(uriColumn))
+                    localUri.path.takeIf { localUri.scheme.equals("file", true) }
+                } else {
+                    null
+                } ?: continue
+                val candidate = File(localPath)
+                if (ManagedVideoPathPolicy.isManagedFile(managedDirectory, candidate)) {
+                    downloadManager.remove(requestId)
+                }
+            }
+        }
     }
 
     private fun query(requestId: Long): DownloadSnapshot? {
