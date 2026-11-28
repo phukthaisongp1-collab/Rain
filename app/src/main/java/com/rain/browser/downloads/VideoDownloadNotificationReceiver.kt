@@ -60,7 +60,7 @@ class VideoDownloadNotificationReceiver : BroadcastReceiver() {
 
                 val openDownloadsIntent = Intent(context, MainActivity::class.java).apply {
                     action = ACTION_OPEN_DOWNLOADS
-                    putExtra(MainActivity.EXTRA_SHOW_VIDEO_DOWNLOADS, true)
+                    putExtra("rain_extra_show_video_downloads", true)
                     addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 }
                 val contentIntent = PendingIntent.getActivity(
