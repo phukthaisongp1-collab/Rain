@@ -306,3 +306,23 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - The service uses `START_STICKY` recovery and the browser startup path also checks for active persisted HLS records. Interrupted downloads resume from verified chunks. A finalized MP4 left between remux and database finalization is validated and adopted on recovery; invalid managed output is removed safely. DownloadManager reconciliation explicitly excludes HLS records and protects their expected final output path from orphan cleanup.
 - The service declares only the already-approved `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_DATA_SYNC` permissions and `foregroundServiceType="dataSync"`. No Media3, WorkManager, Cookie/Authorization/Referer forwarding, DRM support, or database migration was added.
 - Runtime service scheduling, notification permission behavior, cancellation races, process-death recovery, and HLS media fixtures remain part of Days 40–41 regression validation. Physical-device acceptance remains Day 44.
+
+### Day 38 — HLS security review and unsupported-source behavior
+
+- Security review confirms every HLS playlist, key, initialization-map, segment, and redirect request uses `HlsHttpClient`. Its DNS resolver rejects non-public answers before connection, and its OkHttp network interceptor checks the actual connected socket IP before the request is sent. Connections are not reused; automatic redirects and connection retries are disabled.
+- HLS redirects are followed manually for at most five hops. Each target is revalidated for HTTP(S), public destination IP, embedded credentials, local hostnames, and sensitive query parameters. HTTPS-to-HTTP downgrade is rejected.
+- The HLS transport sends only a generic RAIN User-Agent, Accept, identity encoding, and Connection: close. No CookieJar is configured. No WebView Cookie, Authorization, Referer, or page request headers are read, persisted, or forwarded.
+- Token/signed URL query names are rejected before a playlist, key, or segment request is made. The filter includes common token suffixes, auth, JWT, API-key, CloudFront, AWS-signature, and HLS token parameter names. A URL whose credential is encoded in an unrecognized opaque path or arbitrary query value cannot be reliably classified; RAIN still does not attempt to obtain or bypass that credential.
+- HLS media is limited to clear streams and identity AES-128 with an independently fetched 16-byte key. AES keys remain in memory only. SAMPLE-AES, non-identity KEYFORMAT, session keys, DRM, live playlists without ENDLIST, DASH/MPD, unsupported byte ranges, and unsupported playlist structures are rejected.
+- Unsupported response classification is fail-closed and does not trigger another request. User-facing messages include:
+  - HTTP 401/403: `เว็บนี้จำกัดการดาวน์โหลด ไม่รองรับ`
+  - Token/auth/signed query URL: `ไม่รองรับ URL ที่มี Token หรือข้อมูลยืนยันตัวตน`
+  - DASH: `ไม่รองรับ DASH (MPD) สำหรับการดาวน์โหลดวิดีโอออฟไลน์`
+  - Login HTML: `เว็บนี้ต้องเข้าสู่ระบบ RAIN ไม่รองรับการใช้ Cookie หรือข้อมูลเข้าสู่ระบบจากเว็บไซต์`
+  - Cloudflare challenge: `เว็บนี้แสดง Cloudflare Challenge หรือหน้าป้องกันอัตโนมัติ RAIN ไม่สามารถข้ามได้`
+  - Live HLS: `ไม่รองรับ HLS Live Playlist ที่ไม่มี EXT-X-ENDLIST`
+  - DRM/SAMPLE-AES: `ไม่รองรับ HLS SAMPLE-AES หรือ DRM` / `ไม่รองรับ HLS Session Key หรือ DRM`
+  - Invalid non-HLS response: `URL นี้ไม่ใช่ HLS Playlist ที่ถูกต้อง`
+- The accepted DNS-rebinding limitation is removed for the HLS transport path by validating DNS answers and the actual connected socket for every new request, including redirects. This does not change the direct MP4/WebM Android DownloadManager path: its post-preflight DNS/redirect limitation remains explicitly accepted and documented.
+- Cloudflare challenges, login pages, paywalls, DRM, and authentication requirements are not bypassed. The HLS URL discovery limitation remains: a playlist whose URL path and query values do not contain `.m3u8` is not discovered by the approved interception rule.
+- No new permissions, dependencies, schema migrations, tests, or changes to the generic browser DownloadManager pipeline were introduced for this security review. Regression fixtures and negative security tests remain scheduled for Days 40–41.
