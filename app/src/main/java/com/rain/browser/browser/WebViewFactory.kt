@@ -18,6 +18,7 @@ interface WebViewCallbacks {
     fun onCrossSiteNavigationRequested(view: WebView, url: String) = Unit
     fun onExternalNavigationRequested(view: WebView, url: String) = Unit
     fun onPageStarted(view: WebView, url: String)
+    fun onHlsPlaylistCandidate(view: WebView, url: String) = Unit
     fun onPageFinished(view: WebView, url: String)
     fun onProgressChanged(view: WebView, progress: Int)
     fun onShowCustomView(
@@ -72,6 +73,14 @@ class WebViewFactory(private val context: Context) {
                 safeBrowsingEnabled = BrowserSecurityPolicy.safeBrowsingEnabled
             }
             webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): android.webkit.WebResourceResponse? {
+                    callbacks.onHlsPlaylistCandidate(view, request.url.toString())
+                    return null
+                }
+
                 override fun shouldOverrideUrlLoading(
                     view: WebView,
                     request: WebResourceRequest

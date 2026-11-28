@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.LocaleList
 import android.os.Environment
 import android.provider.Settings
@@ -28,6 +30,8 @@ import android.speech.RecognizerIntent
 import android.widget.LinearLayout
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
+import java.io.File
 import android.content.Intent
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
@@ -59,6 +63,17 @@ import com.rain.browser.data.BookmarkRepository
 import com.rain.browser.data.HistoryRepository
 import com.rain.browser.data.SettingsRepository
 import com.rain.browser.data.ResumeRepository
+import com.rain.browser.data.VideoRepository
+import com.rain.browser.data.HLS_MEDIA_MIME_TYPE
+import com.rain.browser.library.VideoLibraryActivity
+import com.rain.browser.downloads.VideoDownloadCoordinator
+import com.rain.browser.downloads.HlsDownloadService
+import com.rain.browser.downloads.HlsPlaylistRegistry
+import com.rain.browser.downloads.HlsPlaylistFetcher
+import com.rain.browser.downloads.HlsPlaylistParser
+import com.rain.browser.downloads.HlsParsedPlaylist
+import com.rain.browser.downloads.HlsVariant
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
 import androidx.core.view.WindowCompat
@@ -83,7 +98,12 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var historyRepository: HistoryRepository
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var resumeRepository: ResumeRepository
+    private var videoRepository: VideoRepository? = null
+    private var videoDownloadCoordinator: VideoDownloadCoordinator? = null
+    private var pendingVideoDownload: PendingVideoDownload? = null
     private val storageExecutor = Executors.newSingleThreadExecutor()
+    private val hlsExecutor = Executors.newSingleThreadExecutor()
+    private val hlsPlaylistRegistries = ConcurrentHashMap<WebView, HlsPlaylistRegistry>()
     private val systemBackCallback = OnBackInvokedCallback { handleSystemBack() }
     private var fullscreenCustomView: View? = null
     private var fullscreenCustomViewCallback: WebChromeClient.CustomViewCallback? = null
@@ -113,6 +133,29 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     private data class HomeShortcut(val name: String, val url: String)
 
+    private data class PendingVideoDownload(
+        val url: String,
+        val title: String,
+        val mimeType: String,
+        val userAgent: String
+    )
+
+    private data class DetectedVideoSource(
+        val url: String,
+        val title: String,
+        val mimeType: String,
+        val videoIndex: Int,
+        val width: Int,
+        val height: Int,
+        val qualityLabel: String
+    )
+
+    private data class DetectedMediaOption(
+        val label: String,
+        val directSource: DetectedVideoSource? = null,
+        val hlsUrl: String? = null
+    )
+
     private enum class VideoFitMode { FIT, CROP }
 
     private var videoFitMode = VideoFitMode.FIT
@@ -137,6 +180,29 @@ class MainActivity : Activity(), WebViewCallbacks {
         historyRepository = HistoryRepository(storage)
         settingsRepository = SettingsRepository(storage)
         resumeRepository = ResumeRepository(storage)
+        getExternalFilesDir(Environment.DIRECTORY_MOVIES)?.let { moviesDirectory ->
+            val managedVideoDirectory = File(moviesDirectory, "RAIN")
+            videoRepository = VideoRepository(storage, managedVideoDirectory)
+            videoDownloadCoordinator = VideoDownloadCoordinator(
+                this,
+                videoRepository!!,
+                managedVideoDirectory
+            )
+        }
+        videoDownloadCoordinator?.let { coordinator ->
+            storageExecutor.execute {
+                runCatching { coordinator.reconcileAll() }
+                val hasRecoverableHls = videoRepository?.list()?.any {
+                    it.mimeType == HLS_MEDIA_MIME_TYPE &&
+                        it.status in setOf(
+                            com.rain.browser.data.VideoStatus.QUEUED,
+                            com.rain.browser.data.VideoStatus.DOWNLOADING,
+                            com.rain.browser.data.VideoStatus.VERIFYING
+                        )
+                } == true
+                if (hasRecoverableHls) runCatching { HlsDownloadService.recover(this@MainActivity) }
+            }
+        }
         videoFitMode = runCatching {
             VideoFitMode.valueOf(
                 getSharedPreferences(VIDEO_DISPLAY_PREFS, MODE_PRIVATE)
@@ -150,6 +216,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
+        handleVideoNotificationIntent(intent)
         onBackInvokedDispatcher.registerOnBackInvokedCallback(
             OnBackInvokedDispatcher.PRIORITY_DEFAULT,
             systemBackCallback
@@ -248,6 +315,374 @@ class MainActivity : Activity(), WebViewCallbacks {
         ViewCompat.requestApplyInsets(root)
     }
 
+    private fun detectVideosOnCurrentPage() {
+        val tab = tabManager.activeTab ?: return
+        val webView = tab.webView
+        val pageTitle = tab.title.ifBlank { tab.url }
+        webView.evaluateJavascript(VIDEO_SOURCE_SCAN_SCRIPT) { encodedResult ->
+            if (isFinishing || isDestroyed) return@evaluateJavascript
+            val sources = runCatching {
+                val decoded = JSONTokener(encodedResult).nextValue() as? String
+                    ?: throw IllegalArgumentException("Invalid video detection response.")
+                val payload = JSONArray(decoded)
+                buildList {
+                    for (index in 0 until payload.length()) {
+                        val item = payload.optJSONObject(index) ?: continue
+                        val url = item.optString("src").trim()
+                        val declaredMime = item.optString("type")
+                            .substringBefore(';')
+                            .trim()
+                            .lowercase()
+                        val detectedMime = directVideoMime(url, declaredMime) ?: continue
+                        val videoIndex = item.optInt("videoIndex", -1)
+                        if (videoIndex < 0) continue
+                        add(
+                            DetectedVideoSource(
+                                url = url,
+                                title = item.optString("title").trim().ifBlank { pageTitle },
+                                mimeType = detectedMime,
+                                videoIndex = videoIndex,
+                                width = item.optString("width").toIntOrNull()?.takeIf { it > 0 } ?: 0,
+                                height = item.optString("height").toIntOrNull()?.takeIf { it > 0 } ?: 0,
+                                qualityLabel = item.optString("quality").trim().take(80)
+                            )
+                        )
+                    }
+                }.distinctBy { it.url }
+            }.getOrElse {
+                Toast.makeText(this, "ไม่สามารถอ่านข้อมูลวิดีโอจากหน้านี้ได้", Toast.LENGTH_SHORT).show()
+                return@evaluateJavascript
+            }
+
+            val hlsUrls = hlsPlaylistRegistries[webView]?.snapshot().orEmpty()
+            if (sources.isEmpty() && hlsUrls.isEmpty()) {
+                Toast.makeText(
+                    this,
+                    "ไม่พบวิดีโอหรือ HLS Playlist ที่รองรับในหน้านี้",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@evaluateJavascript
+            }
+
+            val options = buildList {
+                sources.forEach { source ->
+                    val dimensions = if (source.width > 0 && source.height > 0) {
+                        "${source.width}×${source.height}"
+                    } else {
+                        source.qualityLabel.ifBlank { "ไม่ทราบความละเอียด" }
+                    }
+                    add(
+                        DetectedMediaOption(
+                            label = "MP4/WebM · ${source.title} · $dimensions\n${source.url}",
+                            directSource = source
+                        )
+                    )
+                }
+                hlsUrls.forEach { url ->
+                    val host = Uri.parse(url).host.orEmpty()
+                    add(
+                        DetectedMediaOption(
+                            label = "HLS Playlist · $host\n$url",
+                            hlsUrl = url
+                        )
+                    )
+                }
+            }
+
+            AlertDialog.Builder(this)
+                .setTitle("เลือกแหล่งวิดีโอหรือ HLS Playlist")
+                .setItems(options.map { it.label }.toTypedArray()) { _, which ->
+                    options.getOrNull(which)?.let { selected ->
+                        selected.directSource?.let { showVideoDownloadConfirmation(it, webView) }
+                        selected.hlsUrl?.let { showHlsDownloadConfirmation(it, pageTitle) }
+                    }
+                }
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show()
+        }
+    }
+
+    private fun showHlsDownloadConfirmation(url: String, pageTitle: String) {
+        AlertDialog.Builder(this)
+            .setTitle("ยืนยันสิทธิ์ในการดาวน์โหลด HLS")
+            .setMessage(
+                "โปรดยืนยันว่าคุณมีสิทธิ์ดาวน์โหลด Playlist นี้ RAIN จะดึง Playlist หลังจากคุณเลือกเท่านั้น " +
+                    "โดยไม่ส่ง Cookie, Authorization หรือ Referer จากเว็บไซต์"
+            )
+            .setPositiveButton("ยืนยันและตรวจสอบ Playlist") { _, _ ->
+                fetchAndParseHlsPlaylist(url, pageTitle)
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun fetchAndParseHlsPlaylist(url: String, pageTitle: String) {
+        val progress = AlertDialog.Builder(this)
+            .setTitle("กำลังตรวจสอบ HLS Playlist")
+            .setMessage("กำลังดึง Playlist โดยไม่ใช้ข้อมูลเข้าสู่ระบบจากเว็บไซต์")
+            .setCancelable(false)
+            .create()
+        progress.show()
+        hlsExecutor.execute {
+            val result = runCatching {
+                val playlist = HlsPlaylistFetcher.fetch(url)
+                playlist to HlsPlaylistParser.parse(playlist.finalUrl, playlist.content)
+            }
+            runOnUiThread {
+                progress.dismiss()
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (playlist, parsed) ->
+                    when (parsed) {
+                        is HlsParsedPlaylist.Master -> showHlsVariantOptions(parsed.variants, pageTitle)
+                        is HlsParsedPlaylist.Media -> showHlsMediaPlaylistSummary(
+                            playlist.finalUrl,
+                            pageTitle,
+                            parsed
+                        )
+                    }
+                }.onFailure { error ->
+                    AlertDialog.Builder(this)
+                        .setTitle("ไม่สามารถอ่าน HLS Playlist ได้")
+                        .setMessage(error.message ?: "ไม่สามารถตรวจสอบ Playlist นี้ได้")
+                        .setPositiveButton(R.string.dialog_close, null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun showHlsVariantOptions(variants: List<HlsVariant>, pageTitle: String) {
+        val labels = variants.mapIndexed { index, variant ->
+            "${index + 1}. ${variant.label}\n${variant.url}"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("เลือกคุณภาพ HLS")
+            .setItems(labels) { _, which ->
+                variants.getOrNull(which)?.let { fetchAndParseHlsPlaylist(it.url, pageTitle) }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun showHlsMediaPlaylistSummary(
+        playlistUrl: String,
+        pageTitle: String,
+        playlist: HlsParsedPlaylist.Media
+    ) {
+        val totalDuration = playlist.segments.sumOf { it.durationSeconds }
+        val encryptedSegments = playlist.segments.count { it.key?.method == "AES-128" }
+        val initializationSegments = playlist.segments.count { it.initializationMap != null }
+        val details = buildString {
+            appendLine("หน้า: $pageTitle")
+            appendLine("Playlist: $playlistUrl")
+            appendLine("Segments: ${playlist.segments.size}")
+            appendLine("ระยะเวลารวม: ${String.format(java.util.Locale.ROOT, "%.1f", totalDuration)} วินาที")
+            appendLine("AES-128: $encryptedSegments segments")
+            appendLine("fMP4 initialization map: $initializationSegments segments")
+            appendLine()
+            append("ตรวจสอบโครงสร้าง HLS สำเร็จ พร้อมเริ่มดาวน์โหลดหลังยืนยัน")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("HLS Playlist พร้อมดาวน์โหลด")
+            .setMessage(details)
+            .setPositiveButton("ยืนยันและดาวน์โหลด") { _, _ ->
+                val repository = videoRepository
+                if (repository == null) {
+                    Toast.makeText(this, "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                storageExecutor.execute {
+                    val created = runCatching {
+                        repository.enqueue(
+                            url = playlistUrl,
+                            title = pageTitle.ifBlank { "HLS Video" },
+                            mimeType = HLS_MEDIA_MIME_TYPE,
+                            userConfirmedPermission = true
+                        )
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        created.onSuccess { record ->
+                            runCatching { HlsDownloadService.start(this, record.id) }
+                                .onSuccess {
+                                    Toast.makeText(this, "เพิ่ม HLS ลงในคิวดาวน์โหลดแล้ว", Toast.LENGTH_LONG).show()
+                                    launchVideoLibrary()
+                                }
+                                .onFailure { error ->
+                                    repository.markFailed(record.id, error.message ?: "ไม่สามารถเริ่ม HLS download service ได้")
+                                    Toast.makeText(this, "เริ่มดาวน์โหลด HLS ไม่สำเร็จ", Toast.LENGTH_LONG).show()
+                                }
+                        }.onFailure { error ->
+                            Toast.makeText(
+                                this,
+                                error.message ?: "ไม่สามารถเพิ่ม HLS ลงในคิวดาวน์โหลดได้",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun showVideoSourceOptions(
+        candidates: List<DetectedVideoSource>,
+        webView: WebView
+    ) {
+        val sources = candidates.distinctBy { it.url }
+        if (sources.size == 1) {
+            showVideoDownloadConfirmation(sources.first(), webView)
+            return
+        }
+
+        val hasDistinctQualityVariants =
+            sources.map { it.qualityLabel.lowercase() }.filter { it.isNotBlank() }.distinct().size > 1 ||
+                sources.map { it.width to it.height }.filter { it.first > 0 && it.second > 0 }.distinct().size > 1
+        val labels = sources.mapIndexed { index, source ->
+            val dimensions = if (source.width > 0 && source.height > 0) {
+                "${source.width}×${source.height}"
+            } else {
+                "ไม่ทราบความละเอียด"
+            }
+            val quality = source.qualityLabel.ifBlank { dimensions }
+            "${index + 1}. ${quality} · ${source.mimeType.removePrefix("video/")}\n${source.url}"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(
+                if (hasDistinctQualityVariants) "เลือกคุณภาพวิดีโอ"
+                else "เลือกแหล่งวิดีโอ"
+            )
+            .setItems(labels) { _, which ->
+                sources.getOrNull(which)?.let {
+                    showVideoDownloadConfirmation(it, webView)
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun directVideoMime(rawUrl: String, declaredMime: String): String? {
+        val uri = Uri.parse(rawUrl)
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") return null
+        if (uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null) return null
+
+        val path = uri.path.orEmpty()
+        val isMp4 = path.endsWith(".mp4", ignoreCase = true) || declaredMime == "video/mp4"
+        val isWebM = path.endsWith(".webm", ignoreCase = true) || declaredMime == "video/webm"
+        if (isMp4 == isWebM) return null
+
+        return if (isWebM) "video/webm" else "video/mp4"
+    }
+
+    private fun showVideoDownloadConfirmation(
+        source: DetectedVideoSource,
+        webView: WebView
+    ) {
+        AlertDialog.Builder(this)
+            .setTitle("ยืนยันสิทธิ์ในการดาวน์โหลด")
+            .setMessage(
+                "โปรดยืนยันว่าคุณมีสิทธิ์ดาวน์โหลดและเก็บวิดีโอนี้ไว้ใช้งาน " +
+                    "RAIN จะตรวจสอบแหล่ง MP4/WebM โดยตรงก่อนเริ่มดาวน์โหลด และจะไม่ใช้ Cookie หรือข้อมูลเข้าสู่ระบบจากเว็บไซต์"
+            )
+            .setPositiveButton("ยืนยันและดาวน์โหลด") { _, _ ->
+                val repository = videoRepository
+                val coordinator = videoDownloadCoordinator
+                if (repository == null || coordinator == null) {
+                    Toast.makeText(
+                        this,
+                        "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setPositiveButton
+                }
+
+                val userAgent = runCatching { webView.settings.userAgentString }.getOrDefault("")
+                val pending = PendingVideoDownload(
+                    url = source.url,
+                    title = source.title,
+                    mimeType = source.mimeType,
+                    userAgent = userAgent
+                )
+                val notificationPermissionAsked = getSharedPreferences(
+                    VIDEO_NOTIFICATION_PREFS,
+                    MODE_PRIVATE
+                ).getBoolean(VIDEO_NOTIFICATION_PERMISSION_ASKED, false)
+                if (!isRuntimePermissionGranted(Manifest.permission.POST_NOTIFICATIONS) &&
+                    !notificationPermissionAsked
+                ) {
+                    pendingVideoDownload = pending
+                    getSharedPreferences(VIDEO_NOTIFICATION_PREFS, MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(VIDEO_NOTIFICATION_PERMISSION_ASKED, true)
+                        .apply()
+                    requestPermissions(
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        REQUEST_VIDEO_NOTIFICATION
+                    )
+                } else {
+                    startConfirmedVideoDownload(pending)
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun startConfirmedVideoDownload(pending: PendingVideoDownload) {
+        val repository = videoRepository ?: return
+        val coordinator = videoDownloadCoordinator ?: return
+        storageExecutor.execute {
+            try {
+                val record = repository.enqueue(
+                    url = pending.url,
+                    title = pending.title,
+                    mimeType = pending.mimeType,
+                    userConfirmedPermission = true
+                )
+                coordinator.enqueue(record, pending.userAgent)
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(
+                            this,
+                            "เพิ่มวิดีโอลงในรายการดาวน์โหลดแล้ว",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        AlertDialog.Builder(this)
+                            .setTitle("ไม่สามารถเริ่มดาวน์โหลดได้")
+                            .setMessage(error.message ?: "แหล่งวิดีโอไม่ผ่านการตรวจสอบ")
+                            .setPositiveButton(R.string.dialog_close, null)
+                            .show()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleVideoNotificationIntent(source: Intent?) {
+        if (source?.getBooleanExtra(EXTRA_SHOW_VIDEO_DOWNLOADS, false) != true) return
+        source.removeExtra(EXTRA_SHOW_VIDEO_DOWNLOADS)
+        if (this::tabManager.isInitialized && !isFinishing && !isDestroyed) {
+            launchVideoLibrary()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleVideoNotificationIntent(intent)
+    }
+
+    private fun launchVideoLibrary() {
+        startActivity(Intent(this, VideoLibraryActivity::class.java))
+    }
+
     private fun showBrowserMenu() {
         val popupMenu = PopupMenu(this, findViewById(R.id.menu_button))
         val activeTab = tabManager.activeTab
@@ -280,8 +715,24 @@ class MainActivity : Activity(), WebViewCallbacks {
         actions.forEachIndexed { order, action ->
             popupMenu.menu.add(android.view.Menu.NONE, action.first, order, action.second)
         }
+        popupMenu.menu.add(
+            android.view.Menu.NONE,
+            MENU_DETECT_VIDEO,
+            actions.size,
+            "ตรวจหาวิดีโอเพื่อดาวน์โหลด"
+        )
+        popupMenu.menu.add(
+            android.view.Menu.NONE,
+            MENU_VIDEO_DOWNLOADS,
+            actions.size + 1,
+            "รายการดาวน์โหลดวิดีโอ"
+        )
         popupMenu.setOnMenuItemClickListener { item ->
-            findViewById<View>(item.itemId).performClick()
+            when (item.itemId) {
+                MENU_DETECT_VIDEO -> detectVideosOnCurrentPage()
+                MENU_VIDEO_DOWNLOADS -> launchVideoLibrary()
+                else -> findViewById<View>(item.itemId).performClick()
+            }
             true
         }
         popupMenu.show()
@@ -295,7 +746,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
 
         savedTabs.forEach { savedTab ->
-            val webView = webViewFactory.create(this)
+            val webView = createTrackedWebView()
             val tab = tabManager.add(webView)
             tab.title = savedTab.getString(STATE_TITLE).orEmpty().ifBlank { "New Tab" }
             tab.url = savedTab.getString(STATE_URL).orEmpty()
@@ -318,7 +769,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             return
         }
         entries.forEach { entry ->
-            val webView = webViewFactory.create(this)
+            val webView = createTrackedWebView()
             val tab = tabManager.add(webView)
             tab.title = entry.title.ifBlank { entry.url }
             tab.url = entry.url
@@ -328,8 +779,14 @@ class MainActivity : Activity(), WebViewCallbacks {
         showActiveTab()
     }
 
-    private fun createTab() {
+    private fun createTrackedWebView(): WebView {
         val webView = webViewFactory.create(this)
+        hlsPlaylistRegistries[webView] = HlsPlaylistRegistry()
+        return webView
+    }
+
+    private fun createTab() {
+        val webView = createTrackedWebView()
         val tab = tabManager.add(webView)
         showActiveTab()
         showWelcomePage(tab.webView)
@@ -1363,6 +1820,11 @@ class MainActivity : Activity(), WebViewCallbacks {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
+            REQUEST_VIDEO_NOTIFICATION -> {
+                val pending = pendingVideoDownload
+                pendingVideoDownload = null
+                pending?.let(::startConfirmedVideoDownload)
+            }
             REQUEST_SITE_PERMISSION -> completeWebPermissionRequest(
                 permissions.isNotEmpty() && permissions.all(::isRuntimePermissionGranted)
             )
@@ -1470,7 +1932,12 @@ class MainActivity : Activity(), WebViewCallbacks {
             .show()
     }
 
+    override fun onHlsPlaylistCandidate(view: WebView, url: String) {
+        hlsPlaylistRegistries[view]?.add(url)
+    }
+
     override fun onPageStarted(view: WebView, url: String) {
+        hlsPlaylistRegistries[view]?.clear()
         runOnUiThread {
             val tab = tabManager.findByWebView(view) ?: return@runOnUiThread
             tab.isLoading = true
@@ -1643,11 +2110,15 @@ class MainActivity : Activity(), WebViewCallbacks {
         exitVideoFullscreen(notifyWebView = true)
         onBackInvokedDispatcher.unregisterOnBackInvokedCallback(systemBackCallback)
         tabManager.clear().forEach { destroyWebView(it.webView) }
+        hlsPlaylistRegistries.values.forEach(HlsPlaylistRegistry::clear)
+        hlsPlaylistRegistries.clear()
+        hlsExecutor.shutdownNow()
         storageExecutor.shutdown()
         super.onDestroy()
     }
 
     private fun destroyWebView(webView: WebView) {
+        hlsPlaylistRegistries.remove(webView)?.clear()
         (webView.parent as? android.view.ViewGroup)?.removeView(webView)
         webView.stopLoading()
         webView.webChromeClient = null
@@ -1667,12 +2138,94 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val REQUEST_GEOLOCATION = 4102
         const val REQUEST_VOICE_SEARCH = 4103
         const val REQUEST_IMAGE_PICKER = 4104
+        const val REQUEST_VIDEO_NOTIFICATION = 4105
+        const val EXTRA_SHOW_VIDEO_DOWNLOADS = "rain_extra_show_video_downloads"
         const val HISTORY_DAY_MILLIS = 24L * 60 * 60 * 1000
         const val GOOGLE_HOME_URL = "https://www.google.com/"
         const val HOME_SHORTCUTS_PREFS = "rain_home_shortcuts"
         const val VIDEO_DISPLAY_PREFS = "rain_video_display_preferences"
+        const val VIDEO_NOTIFICATION_PREFS = "rain_video_notification_preferences"
+        const val VIDEO_NOTIFICATION_PERMISSION_ASKED = "permission_asked"
         const val VIDEO_DISPLAY_KEY = "video_fit_mode"
         const val HOME_SHORTCUTS_KEY = "items"
+        const val MENU_DETECT_VIDEO = 5_201
+        const val MENU_VIDEO_DOWNLOADS = 5_202
+        const val VIDEO_DOWNLOAD_REFRESH_INTERVAL_MS = 1_500L
+
+        val VIDEO_SOURCE_SCAN_SCRIPT = """
+            (function () {
+                function isResolvedHttpUrl(value) {
+                    if (typeof value !== 'string' || !value.trim()) return false;
+                    var candidate = value.trim();
+                    if (/^(blob:|data:|mediastream:)/i.test(candidate)) return false;
+                    try {
+                        var parsed = new URL(candidate, document.baseURI);
+                        return (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+                            !!parsed.hostname;
+                    } catch (error) {
+                        return false;
+                    }
+                }
+
+                return JSON.stringify(Array.from(document.querySelectorAll('video')).flatMap(function (video, videoIndex) {
+                    if (video.srcObject) return [];
+
+                    var rect = video.getBoundingClientRect();
+                    var style = window.getComputedStyle(video);
+                    var visible = !!(rect.width && rect.height) &&
+                        style.display !== 'none' && style.visibility !== 'hidden';
+                    if (!visible) return [];
+
+                    var sources = [];
+                    function addSource(url, type, width, height, quality) {
+                        if (!isResolvedHttpUrl(url)) return;
+                        sources.push({
+                            src: url.trim(),
+                            type: type || '',
+                            width: width || '',
+                            height: height || '',
+                            quality: quality || ''
+                        });
+                    }
+
+                    addSource(
+                        video.currentSrc,
+                        video.getAttribute('type'),
+                        String(video.videoWidth || video.getAttribute('width') || ''),
+                        String(video.videoHeight || video.getAttribute('height') || ''),
+                        video.getAttribute('data-quality') || ''
+                    );
+                    addSource(
+                        video.src,
+                        video.getAttribute('type'),
+                        String(video.videoWidth || video.getAttribute('width') || ''),
+                        String(video.videoHeight || video.getAttribute('height') || ''),
+                        video.getAttribute('data-quality') || ''
+                    );
+                    video.querySelectorAll('source[src]').forEach(function (source) {
+                        addSource(
+                            source.src,
+                            source.getAttribute('type'),
+                            source.getAttribute('data-width') || source.getAttribute('width') || '',
+                            source.getAttribute('data-height') || source.getAttribute('height') || '',
+                            source.getAttribute('label') || source.getAttribute('data-quality') || ''
+                        );
+                    });
+
+                    return sources.map(function (source) {
+                        return {
+                            src: source.src,
+                            type: source.type,
+                            title: document.title || '',
+                            videoIndex: videoIndex,
+                            width: source.width,
+                            height: source.height,
+                            quality: source.quality
+                        };
+                    });
+                }));
+            })();
+        """.trimIndent()
 
         const val WELCOME_PAGE = """
             <!doctype html>
