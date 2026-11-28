@@ -24,6 +24,7 @@ import com.rain.browser.data.SqliteStorage
 import com.rain.browser.data.VideoRecord
 import com.rain.browser.data.VideoRepository
 import com.rain.browser.data.VideoStatus
+import com.rain.browser.downloads.ManagedVideoPathPolicy
 import com.rain.browser.downloads.VideoDownloadCoordinator
 import com.rain.browser.player.VideoPlayerActivity
 import java.io.File
@@ -224,15 +225,16 @@ class VideoLibraryActivity : Activity() {
                 val heart = Button(this).apply {
                     text = if (record.isLiked) "♥" else "♡"
                     textSize = 20f
-                    isEnabled = !record.isLiked
-                    contentDescription = if (record.isLiked) "ถูกใจแล้ว" else "เพิ่มรายการถูกใจ"
+                    contentDescription = if (record.isLiked) "นำออกจากรายการถูกใจ" else "เพิ่มรายการถูกใจ"
                     setOnClickListener {
                         isEnabled = false
                         worker.execute {
-                            val liked = runCatching { repository.like(record.id) }.getOrNull()
+                            val updated = runCatching {
+                                if (record.isLiked) repository.unlike(record.id) else repository.like(record.id)
+                            }.getOrNull()
                             runOnUiThread {
                                 if (!isFinishing && !isDestroyed) {
-                                    if (liked == null) isEnabled = true
+                                    if (updated == null) isEnabled = true
                                     handler.removeCallbacks(refreshTask)
                                     handler.post(refreshTask)
                                 }
@@ -242,6 +244,12 @@ class VideoLibraryActivity : Activity() {
                 }
                 row.addView(heart)
             }
+            val deleteButton = Button(this).apply {
+                text = "ลบ"
+                textSize = 11f
+                setOnClickListener { confirmDelete(record) }
+            }
+            row.addView(deleteButton)
             if (record.status == VideoStatus.READY) {
                 row.isClickable = true
                 row.setOnClickListener { openReadyVideo(record) }
@@ -310,6 +318,55 @@ class VideoLibraryActivity : Activity() {
             putExtra(VideoPlayerActivity.EXTRA_TITLE, record.title)
             putExtra(VideoPlayerActivity.EXTRA_VIDEO_ID, record.id)
         })
+    }
+
+    private fun confirmDelete(record: VideoRecord) {
+        AlertDialog.Builder(this)
+            .setTitle("ลบวิดีโอ")
+            .setMessage("ต้องการลบ \"${record.title}\" พร้อมไฟล์ที่จัดเก็บใน RAIN ใช่หรือไม่?")
+            .setNegativeButton("ยกเลิก", null)
+            .setPositiveButton("ลบ") { _, _ -> deleteVideo(record) }
+            .show()
+    }
+
+    private fun deleteVideo(record: VideoRecord) {
+        worker.execute {
+            val result = runCatching {
+                val current = repository.get(record.id)
+                    ?: throw IllegalStateException("ไม่พบรายการวิดีโอ")
+                if (current.status in ACTIVE_STATUSES && !coordinator.cancel(current.id)) {
+                    throw IllegalStateException("ไม่สามารถยกเลิกการดาวน์โหลดได้")
+                }
+                val latest = repository.get(record.id)
+                    ?: throw IllegalStateException("ไม่พบรายการวิดีโอ")
+                if (latest.filePath.isNotBlank()) {
+                    val file = File(latest.filePath)
+                    if (file.exists()) {
+                        val movies = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+                            ?: throw IllegalStateException("พื้นที่จัดเก็บวิดีโอไม่พร้อมใช้งาน")
+                        check(ManagedVideoPathPolicy.isManagedFile(File(movies, "RAIN"), file)) {
+                            "ไฟล์อยู่นอกพื้นที่จัดเก็บของ RAIN จึงไม่ลบไฟล์นี้"
+                        }
+                        check(file.delete()) { "ไม่สามารถลบไฟล์วิดีโอได้" }
+                    }
+                }
+                check(repository.removeMetadata(latest.id)) { "ไม่สามารถลบข้อมูลวิดีโอได้" }
+            }
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) {
+                    result.onSuccess {
+                        handler.removeCallbacks(refreshTask)
+                        handler.post(refreshTask)
+                    }.onFailure { error ->
+                        AlertDialog.Builder(this)
+                            .setTitle("ลบวิดีโอไม่สำเร็จ")
+                            .setMessage(error.message ?: "เกิดข้อผิดพลาดระหว่างลบวิดีโอ")
+                            .setPositiveButton("ตกลง", null)
+                            .show()
+                    }
+                }
+            }
+        }
     }
 
     private fun showDetails(record: VideoRecord) {

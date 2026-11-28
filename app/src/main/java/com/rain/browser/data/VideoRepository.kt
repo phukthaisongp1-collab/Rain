@@ -184,6 +184,18 @@ class VideoRepository(
         ).also(::persist)
     }
 
+    fun unlike(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY || !current.isLiked) return null
+        return current.copy(
+            isLiked = false,
+            unlikedAt = now,
+            expiresAt = now + VIDEO_RETENTION_MILLIS,
+            updatedAt = now
+        ).also(::persist)
+    }
+
     fun updatePlaybackState(
         id: String,
         positionMs: Long,
