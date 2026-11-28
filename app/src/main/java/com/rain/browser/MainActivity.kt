@@ -530,6 +530,8 @@ class MainActivity : Activity(), WebViewCallbacks {
             .create()
         val handler = Handler(Looper.getMainLooper())
 
+        val waitingForNetworkIds = mutableSetOf<String>()
+
         fun render(records: List<com.rain.browser.data.VideoRecord>) {
             content.removeAllViews()
             if (records.isEmpty()) {
@@ -549,7 +551,9 @@ class MainActivity : Activity(), WebViewCallbacks {
                     textSize = 16f
                     maxLines = 2
                 })
-                val statusLabel = when (record.status) {
+                val statusLabel = if (record.id in waitingForNetworkIds) {
+                    "รอเครือข่าย"
+                } else when (record.status) {
                     com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
                     com.rain.browser.data.VideoStatus.DOWNLOADING -> "กำลังดาวน์โหลด"
                     com.rain.browser.data.VideoStatus.VERIFYING -> "กำลังตรวจสอบไฟล์"
@@ -653,12 +657,18 @@ class MainActivity : Activity(), WebViewCallbacks {
                 if (!dialog.isShowing || isFinishing || isDestroyed) return
                 storageExecutor.execute {
                     val current = repository.list()
+                    waitingForNetworkIds.clear()
                     current.filter {
                         it.status in setOf(
                             com.rain.browser.data.VideoStatus.QUEUED,
                             com.rain.browser.data.VideoStatus.DOWNLOADING
                         ) && it.downloadId != null
-                    }.forEach { record -> runCatching { coordinator.refresh(record.id) } }
+                    }.forEach { record ->
+                        val snapshot = runCatching { coordinator.refresh(record.id) }.getOrNull()
+                        if (snapshot?.reason == "WAITING_FOR_NETWORK") {
+                            waitingForNetworkIds.add(record.id)
+                        }
+                    }
                     val refreshed = repository.list()
                     runOnUiThread {
                         if (dialog.isShowing && !isFinishing && !isDestroyed) {

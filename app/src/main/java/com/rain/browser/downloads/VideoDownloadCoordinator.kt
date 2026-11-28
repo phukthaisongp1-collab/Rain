@@ -158,11 +158,17 @@ class VideoDownloadCoordinator(
                     totalBytes = snapshot.totalBytes,
                     now = System.currentTimeMillis()
                 )
+                val waitingForNetwork = snapshot.status == DownloadManager.STATUS_PAUSED &&
+                    snapshot.reason in setOf(
+                        DownloadManager.PAUSED_WAITING_FOR_NETWORK,
+                        DownloadManager.PAUSED_QUEUED_FOR_WIFI
+                    )
                 return TransferSnapshot(
                     VideoStatus.DOWNLOADING,
                     snapshot.bytesDownloaded,
                     snapshot.totalBytes,
-                    "Android DownloadManager failed (reason: ${snapshot.reason})."
+                    if (waitingForNetwork) WAITING_FOR_NETWORK
+                    else "Android DownloadManager paused or running (reason: ${snapshot.reason})."
                 )
             }
 
@@ -366,6 +372,7 @@ class VideoDownloadCoordinator(
     )
 
     private companion object {
+        const val WAITING_FOR_NETWORK = "WAITING_FOR_NETWORK"
         const val MAX_USER_AGENT_LENGTH = 512
         const val MAX_VALIDATOR_HEADER_LENGTH = 1_024
         val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
