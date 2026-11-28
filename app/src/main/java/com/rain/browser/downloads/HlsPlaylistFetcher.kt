@@ -40,10 +40,10 @@ object HlsPlaylistFetcher {
         val isDash = normalizedType.contains("dash+xml") ||
             MPD_TAG.containsMatchIn(sample)
         if (isDash) return "ไม่รองรับ DASH (MPD) สำหรับการดาวน์โหลดวิดีโอออฟไลน์"
-        if (CLOUDFLARE_MARKERS.any(sample::contains)) {
+        if (CLOUDFLARE_MARKERS.any { marker -> sample.contains(marker) }) {
             return "เว็บนี้แสดง Cloudflare Challenge หรือหน้าป้องกันอัตโนมัติ RAIN ไม่สามารถข้ามได้"
         }
-        if (isHtml && LOGIN_MARKERS.any(sample::contains) && PASSWORD_INPUT.containsMatchIn(sample)) {
+        if (isHtml && LOGIN_MARKERS.any { marker -> sample.contains(marker) } && PASSWORD_INPUT.containsMatchIn(sample)) {
             return "เว็บนี้ต้องเข้าสู่ระบบ RAIN ไม่รองรับการใช้ Cookie หรือข้อมูลเข้าสู่ระบบจากเว็บไซต์"
         }
         if (isHtml) {
