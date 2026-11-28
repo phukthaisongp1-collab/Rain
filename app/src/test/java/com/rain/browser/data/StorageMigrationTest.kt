@@ -73,23 +73,27 @@ class StorageMigrationTest {
             val settings = storage.query("settings")
 
             assertEquals(1, bookmarks.size)
+            assertEquals("bookmark-1", bookmarks.single()["id"])
             assertEquals("https://example.com", bookmarks.single()["url"])
             assertEquals("Example", bookmarks.single()["title"])
             assertEquals("Work", bookmarks.single()["folder"])
             assertEquals("101", bookmarks.single()["created_at"])
 
             assertEquals(1, history.size)
+            assertEquals("history-1", history.single()["id"])
             assertEquals("https://example.org", history.single()["url"])
             assertEquals("History", history.single()["title"])
             assertEquals("202", history.single()["visited_at"])
 
             assertEquals(1, resume.size)
+            assertEquals("resume-1", resume.single()["id"])
             assertEquals("https://example.net", resume.single()["url"])
             assertEquals("Resume", resume.single()["title"])
             assertEquals("303", resume.single()["position_ms"])
             assertEquals("404", resume.single()["updated_at"])
 
             assertEquals(1, settings.size)
+            assertEquals("setting-1", settings.single()["id"])
             assertEquals("dark", settings.single()["value"])
 
             assertTrue("videos table must exist after migration", storage.query("videos").isEmpty())
