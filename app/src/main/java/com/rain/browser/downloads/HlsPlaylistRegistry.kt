@@ -1,6 +1,7 @@
 package com.rain.browser.downloads
 
 import android.net.Uri
+import java.net.URI
 import java.util.LinkedHashMap
 import java.util.Locale
 
