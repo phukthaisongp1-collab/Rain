@@ -141,7 +141,35 @@ class VideoLibraryActivity : Activity() {
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
         ))
         setContentView(root)
+        worker.execute { cleanupExpiredVideos() }
         handler.post(refreshTask)
+    }
+
+    private fun cleanupExpiredVideos() {
+        val now = System.currentTimeMillis()
+        val movies = getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: return
+        val managedDirectory = File(movies, "RAIN")
+        repository.list().asSequence()
+            .filter {
+                it.status == VideoStatus.READY &&
+                    !it.isLiked &&
+                    it.expiresAt != null &&
+                    it.expiresAt <= now
+            }
+            .forEach { record ->
+                runCatching {
+                    if (record.filePath.isNotBlank()) {
+                        val file = File(record.filePath)
+                        if (file.exists()) {
+                            if (!ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
+                                return@forEach
+                            }
+                            if (!file.delete()) return@forEach
+                        }
+                    }
+                    repository.removeMetadata(record.id)
+                }
+            }
     }
 
     private fun render() {
