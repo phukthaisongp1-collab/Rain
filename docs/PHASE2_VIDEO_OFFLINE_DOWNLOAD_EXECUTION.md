@@ -177,3 +177,11 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 - กำหนดให้ตาราง `videos` รองรับข้อมูลที่จำเป็นต่อ Day 9 และ Day 19–30 ใน Migration ครั้งเดียว; Day 20 เป็นการบันทึกข้อมูล Library เท่านั้น
 - กำหนดให้คัดเฉพาะไฟล์ที่จำเป็นจาก PR #40 ลง Branch ใหม่ที่แตกจาก `phase2/video-detection-poc`; ห้าม Merge PR #40 ทั้งก้อน
 - คงข้อจำกัดด้านความปลอดภัย การรักษาข้อมูลเดิม และการรักษา Signing Certificate
+
+
+## 9. ข้อจำกัดด้านความปลอดภัยที่กำหนดวันดำเนินการ
+
+- **Day 27 — SHA-256:** Schema มีช่อง `checksum_sha256` สำหรับจัดเก็บค่า แต่การคำนวณ SHA-256 จริงและการตรวจเทียบค่าไฟล์ยังไม่ได้ดำเนินการใน Day 9 และต้องทำใน Day 27
+- **Day 28 — DNS Rebinding / Redirect:** Source Preflight ตรวจ URL, DNS และ Redirect ก่อนส่งงานให้ Android DownloadManager เท่านั้น ยังไม่สามารถยืนยันปลายทาง DNS หรือควบคุม Redirect ที่ DownloadManager ติดตามหลัง Preflight ได้ ความเสี่ยง DNS Rebinding และ Post-Preflight Redirect ยังเปิดอยู่และต้องประเมิน/แก้ไขใน Day 28
+
+ห้ามอ้างว่า RAIN ป้องกัน DNS Rebinding หรือ Redirect หลัง Preflight ได้แล้ว และห้ามอ้างว่ามีการคำนวณ/ตรวจ SHA-256 จริงจนกว่าจะมี Implementation และหลักฐานทดสอบใน Day 27/28 ตามลำดับ
