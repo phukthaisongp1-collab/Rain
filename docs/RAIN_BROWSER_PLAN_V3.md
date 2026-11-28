@@ -1,7 +1,7 @@
-# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.2
+# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.4
 
 > สถานะ: Development Specification — ฉบับหลักแทน v3  
-> เวอร์ชันแผน: **v3.3**  
+> เวอร์ชันแผน: **v3.4**  
 > เวอร์ชันแอปเริ่มต้น: **0.1.0**  
 > Android applicationId: **com.rain.browser**  
 > แพลตฟอร์ม: **Android เท่านั้น**
@@ -770,10 +770,10 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 
 ---
 
-## 10. ประวัติการเปลี่ยนแปลงจาก v3 เป็น v3.1
+## 10. ประวัติการเปลี่ยนแปลง
 
 - 2026-11-28: ยกระดับ Real-World Continuous Testing เป็นมาตรฐานบังคับของโครงการทุก Phase/รอบ/Milestone สำหรับงานที่ยังไม่เริ่มและงานใหม่; เพิ่มวงจร Issue-to-Improvement ระยะยาวโดยไม่มีวันสิ้นสุด; ระบุขอบเขตใช้งานจริง หลักฐาน/ความปลอดภัย และกติกาไม่ย้อนหลังสำหรับงานที่ปิดแล้ว.
-- เปลี่ยนแพลตฟอร์มจาก Electron Desktop เป็น Android App
+- 2026-11-28: เพิ่มข้อกำหนด RAIN Auto Update ผ่าน GitHub Releases; กำหนด in-app version check, user-confirmed APK download/install, SHA-256 และ Signing Certificate verification, versionCode monotonicity, signed Release metadata และการคงข้อมูลผู้ใช้; เพิ่ม Real-World Gate สำหรับ update-over-install ทุก Phase โดยไม่บังคับทดสอบย้อนหลัง.\n- เปลี่ยนแพลตฟอร์มจาก Electron Desktop เป็น Android App
 - เปลี่ยนสถาปัตยกรรมเป็น Kotlin + Android SDK + Gradle + Android WebView
 - เปลี่ยน appId เป็น Android applicationId โดยคงค่า com.rain.browser
 - เปลี่ยน Build เป็น Android Build ผ่าน GitHub Actions
