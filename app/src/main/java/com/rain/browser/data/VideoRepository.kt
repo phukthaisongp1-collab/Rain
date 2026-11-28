@@ -172,6 +172,40 @@ class VideoRepository(
         return updated
     }
 
+    fun updatePlaybackState(
+        id: String,
+        positionMs: Long,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (positionMs < 0L || now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        val safePosition = if (current.durationMs > 0L) {
+            positionMs.coerceAtMost(current.durationMs)
+        } else {
+            positionMs
+        }
+        return current.copy(
+            playbackPositionMs = safePosition,
+            lastOpenedAt = now,
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun markPlaybackCompleted(
+        id: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            playbackPositionMs = 0L,
+            lastOpenedAt = now,
+            updatedAt = now
+        ).also(::persist)
+    }
+
     fun markCorrupted(
         id: String,
         file: File,

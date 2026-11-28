@@ -286,6 +286,7 @@ class VideoLibraryActivity : Activity() {
         startActivity(Intent(this, VideoPlayerActivity::class.java).apply {
             putExtra(VideoPlayerActivity.EXTRA_PATH, file.absolutePath)
             putExtra(VideoPlayerActivity.EXTRA_TITLE, record.title)
+            putExtra(VideoPlayerActivity.EXTRA_VIDEO_ID, record.id)
         })
     }
 

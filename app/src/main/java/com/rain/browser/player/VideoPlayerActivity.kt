@@ -18,6 +18,7 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Environment
 import android.os.Looper
 import android.util.LruCache
 import android.util.Rational
@@ -36,6 +37,9 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import java.io.File
+import com.rain.browser.data.SqliteStorage
+import com.rain.browser.data.VideoRepository
+import java.util.concurrent.Executors
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -55,6 +59,10 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
     private lateinit var audio: AudioManager
     private var engine: PlayerEngine? = null
     private var path = ""
+    private var videoId = ""
+    private var resumePositionMs = 0L
+    private var repository: VideoRepository? = null
+    private val persistenceWorker = Executors.newSingleThreadExecutor()
     private var title = "วิดีโอ"
     private var ready = false
     private var seeking = false
@@ -90,6 +98,12 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
             main.postDelayed(this, 500L)
         }
     }
+    private val persistTask = object : Runnable {
+        override fun run() {
+            persistPlaybackPosition()
+            main.postDelayed(this, 5_000L)
+        }
+    }
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) pauseVideo()
@@ -100,11 +114,18 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
         super.onCreate(savedInstanceState)
         path = intent.getStringExtra(EXTRA_PATH).orEmpty()
         title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "วิดีโอ" }
+        videoId = intent.getStringExtra(EXTRA_VIDEO_ID).orEmpty()
         val file = File(path)
         if (!file.isFile || file.length() <= 0L) {
             Toast.makeText(this, "ไม่พบไฟล์วิดีโอในเครื่อง", Toast.LENGTH_LONG).show()
             finish()
             return
+        }
+        val moviesDirectory = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+        if (videoId.isNotBlank() && moviesDirectory != null) {
+            repository = VideoRepository(SqliteStorage(this), File(moviesDirectory, "RAIN"))
+            resumePositionMs = runCatching { repository?.get(videoId)?.playbackPositionMs ?: 0L }
+                .getOrDefault(0L)
         }
         audio = getSystemService(AUDIO_SERVICE) as AudioManager
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -273,9 +294,14 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
                 ready = true
                 runOnUiThread {
                     seek.isEnabled = true
-                    total.text = timeText(engine?.duration() ?: 0L)
+                    val duration = engine?.duration() ?: 0L
+                    total.text = timeText(duration)
+                    if (resumePositionMs in 1 until duration) engine?.seekTo(resumePositionMs)
                     updatePlayIcon(true)
                     engine?.play()
+                    persistPlaybackPosition()
+                    main.removeCallbacks(persistTask)
+                    main.postDelayed(persistTask, 5_000L)
                     updatePipActions()
                     scheduleHide()
                 }
@@ -283,6 +309,7 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
             onCompleted = {
                 runOnUiThread {
                     updatePlayIcon(false)
+                    if (videoId.isNotBlank()) persistenceWorker.execute { repository?.markPlaybackCompleted(videoId) }
                     showMessage("เล่นจบแล้ว")
                     showControls(true)
                 }
@@ -445,6 +472,15 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
         main.postDelayed(messageTask, 900L)
     }
 
+    private fun persistPlaybackPosition() {
+        val id = videoId
+        val position = engine?.position() ?: return
+        if (id.isBlank() || !ready) return
+        persistenceWorker.execute {
+            repository?.updatePlaybackState(id, position)
+        }
+    }
+
     private fun requestFocusRelease() {
         focusRequest?.let { audio.abandonAudioFocusRequest(it) }
         focusRequest = null
@@ -497,14 +533,17 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     override fun onPause() {
+        persistPlaybackPosition()
         super.onPause()
         if (!isInPictureInPictureMode) pauseVideo()
     }
 
     override fun onDestroy() {
+        persistPlaybackPosition()
         main.removeCallbacksAndMessages(null)
         previewToken.incrementAndGet()
         previewExecutor.shutdownNow()
+        persistenceWorker.shutdown()
         engine?.release()
         engine = null
         requestFocusRelease()
@@ -516,6 +555,7 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
     companion object {
         const val EXTRA_PATH = "com.rain.browser.player.FILE_PATH"
         const val EXTRA_TITLE = "com.rain.browser.player.TITLE"
+        const val EXTRA_VIDEO_ID = "com.rain.browser.player.VIDEO_ID"
         private const val ACTION_PLAY = "com.rain.browser.player.PIP_PLAY"
         private const val ACTION_PAUSE = "com.rain.browser.player.PIP_PAUSE"
         private const val PLAY_TAG = "rain_player_play"
