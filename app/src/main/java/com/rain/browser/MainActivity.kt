@@ -563,7 +563,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         popupMenu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 MENU_DETECT_VIDEO -> detectVideosOnCurrentPage()
-                MENU_VIDEO_DOWNLOADS -> showVideoDownloadsDialog()
+                MENU_VIDEO_DOWNLOADS -> showVideoLibraryScreen()
                 else -> findViewById<View>(item.itemId).performClick()
             }
             true
