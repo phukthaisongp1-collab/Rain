@@ -55,6 +55,11 @@ class VideoDownloadCoordinator(
         }
         val source = sourceAndMime.first
         val mime = sourceAndMime.second
+        val preflightSize = validatedSource?.contentLength ?: -1L
+        if (preflightSize > MAX_VIDEO_SIZE_BYTES) {
+            repository.markFailed(record.id, "วิดีโอมีขนาดเกินขีดจำกัด 4 GB")
+            throw IllegalArgumentException("Video exceeds the 4 GB download limit.")
+        }
         val extension = if (mime == "video/webm") "webm" else "mp4"
         val fileName = "rain-video-${record.id}.$extension"
 
@@ -158,6 +163,20 @@ class VideoDownloadCoordinator(
             DownloadManager.STATUS_PENDING,
             DownloadManager.STATUS_RUNNING,
             DownloadManager.STATUS_PAUSED -> {
+                val downloadedBytes = snapshot.bytesDownloaded.coerceAtLeast(0L)
+                val reportedTotal = snapshot.totalBytes
+                if (downloadedBytes > MAX_VIDEO_SIZE_BYTES || reportedTotal > MAX_VIDEO_SIZE_BYTES) {
+                    downloadManager.remove(requestId)
+                    val partial = record.filePath.takeIf { it.isNotBlank() }?.let(::File)
+                    if (partial != null && partial.exists() &&
+                        ManagedVideoPathPolicy.isManagedFile(managedDirectory, partial)
+                    ) {
+                        runCatching { partial.delete() }
+                    }
+                    repository.markFailed(recordId, "วิดีโอมีขนาดเกินขีดจำกัด 4 GB")
+                    return TransferSnapshot(VideoStatus.FAILED, downloadedBytes, reportedTotal,
+                        "วิดีโอมีขนาดเกินขีดจำกัด 4 GB")
+                }
                 repository.updateTransfer(
                     id = recordId,
                     downloadId = requestId,
@@ -435,8 +454,9 @@ class VideoDownloadCoordinator(
         val totalBytes: Long
     )
 
-    private companion object {
-        const val WAITING_FOR_NETWORK = "WAITING_FOR_NETWORK"
+    companion object {
+        const val MAX_VIDEO_SIZE_BYTES = 4L * 1024L * 1024L * 1024L
+        private const val WAITING_FOR_NETWORK = "WAITING_FOR_NETWORK"
         const val MAX_USER_AGENT_LENGTH = 512
         const val MAX_VALIDATOR_HEADER_LENGTH = 1_024
         val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
