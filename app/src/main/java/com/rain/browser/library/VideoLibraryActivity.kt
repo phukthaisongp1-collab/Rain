@@ -112,7 +112,7 @@ class VideoLibraryActivity : Activity() {
 
         searchInput = EditText(this).apply {
             hint = "ค้นหาชื่อวิดีโอ"
-            singleLine = true
+            setSingleLine(true)
             setTextColor(Color.BLACK)
             setPadding(dp(16), dp(8), dp(16), dp(8))
             addTextChangedListener(object : android.text.TextWatcher {
