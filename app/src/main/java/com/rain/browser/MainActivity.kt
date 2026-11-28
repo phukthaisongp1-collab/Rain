@@ -64,6 +64,7 @@ import com.rain.browser.data.HistoryRepository
 import com.rain.browser.data.SettingsRepository
 import com.rain.browser.data.ResumeRepository
 import com.rain.browser.data.VideoRepository
+import com.rain.browser.library.VideoLibraryActivity
 import com.rain.browser.downloads.VideoDownloadCoordinator
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
@@ -502,7 +503,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         if (source?.getBooleanExtra(EXTRA_SHOW_VIDEO_DOWNLOADS, false) != true) return
         source.removeExtra(EXTRA_SHOW_VIDEO_DOWNLOADS)
         if (this::tabManager.isInitialized && !isFinishing && !isDestroyed) {
-            showVideoDownloadsDialog()
+            launchVideoLibrary()
         }
     }
 
@@ -510,6 +511,10 @@ class MainActivity : Activity(), WebViewCallbacks {
         super.onNewIntent(intent)
         setIntent(intent)
         handleVideoNotificationIntent(intent)
+    }
+
+    private fun launchVideoLibrary() {
+        startActivity(Intent(this, VideoLibraryActivity::class.java))
     }
 
     private fun showBrowserMenu() {
@@ -559,7 +564,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         popupMenu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 MENU_DETECT_VIDEO -> detectVideosOnCurrentPage()
-                MENU_VIDEO_DOWNLOADS -> showVideoDownloadsDialog()
+                MENU_VIDEO_DOWNLOADS -> launchVideoLibrary()
                 else -> findViewById<View>(item.itemId).performClick()
             }
             true
@@ -567,181 +572,6 @@ class MainActivity : Activity(), WebViewCallbacks {
         popupMenu.show()
     }
 
-    // Day 19 replaces this temporary dialog with the Video Library experience.
-    private fun showVideoDownloadsDialog() {
-        val repository = videoRepository
-        val coordinator = videoDownloadCoordinator
-        if (repository == null || coordinator == null) {
-            Toast.makeText(this, "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        val density = resources.displayMetrics.density
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((20 * density).toInt(), (8 * density).toInt(), (20 * density).toInt(), 0)
-        }
-        val scrollView = android.widget.ScrollView(this).apply { addView(content) }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("รายการดาวน์โหลดวิดีโอ")
-            .setView(scrollView)
-            .setPositiveButton(R.string.dialog_close, null)
-            .create()
-        val handler = Handler(Looper.getMainLooper())
-
-        val waitingForNetworkIds = mutableSetOf<String>()
-
-        fun render(records: List<com.rain.browser.data.VideoRecord>) {
-            content.removeAllViews()
-            if (records.isEmpty()) {
-                content.addView(TextView(this).apply {
-                    text = "ยังไม่มีรายการดาวน์โหลดวิดีโอ"
-                    setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
-                })
-                return
-            }
-            records.forEach { record ->
-                val row = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
-                }
-                row.addView(TextView(this).apply {
-                    text = record.title
-                    textSize = 16f
-                    maxLines = 2
-                })
-                val statusLabel = if (record.id in waitingForNetworkIds) {
-                    "รอเครือข่าย"
-                } else when (record.status) {
-                    com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
-                    com.rain.browser.data.VideoStatus.DOWNLOADING -> "กำลังดาวน์โหลด"
-                    com.rain.browser.data.VideoStatus.VERIFYING -> "กำลังตรวจสอบไฟล์"
-                    com.rain.browser.data.VideoStatus.READY -> "ดาวน์โหลดเสร็จแล้ว"
-                    com.rain.browser.data.VideoStatus.FAILED -> "ดาวน์โหลดไม่สำเร็จ"
-                    com.rain.browser.data.VideoStatus.FAILED_CORRUPTED -> "ไฟล์ไม่สมบูรณ์"
-                    com.rain.browser.data.VideoStatus.CANCELED -> "ยกเลิกแล้ว"
-                }
-                val total = record.sizeBytes
-                val downloaded = record.bytesDownloaded.coerceAtLeast(0L)
-                val percent = if (total > 0L) {
-                    ((downloaded * 100L) / total).coerceIn(0L, 100L).toInt()
-                } else if (record.status == com.rain.browser.data.VideoStatus.READY) 100 else 0
-                row.addView(TextView(this).apply {
-                    text = if (total > 0L) {
-                        statusLabel + " · " + percent + "% (" + (downloaded / 1_048_576) + " / " + (total / 1_048_576) + " MB)"
-                    } else {
-                        statusLabel + " · " + (downloaded / 1_048_576) + " MB"
-                    }
-                    textSize = 13f
-                })
-                row.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-                    max = 100
-                    progress = percent
-                    isIndeterminate = total <= 0L && record.status in setOf(
-                        com.rain.browser.data.VideoStatus.QUEUED,
-                        com.rain.browser.data.VideoStatus.DOWNLOADING
-                    )
-                })
-
-                val actionRow = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                }
-                when (record.status) {
-                    com.rain.browser.data.VideoStatus.QUEUED,
-                    com.rain.browser.data.VideoStatus.DOWNLOADING -> {
-                        actionRow.addView(Button(this).apply {
-                            text = "ยกเลิก"
-                            setOnClickListener { button ->
-                                button.isEnabled = false
-                                storageExecutor.execute {
-                                    val canceled = runCatching { coordinator.cancel(record.id) }.getOrDefault(false)
-                                    runOnUiThread {
-                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
-                                            Toast.makeText(
-                                                this@MainActivity,
-                                                if (canceled) "ยกเลิกการดาวน์โหลดแล้ว" else "ไม่สามารถยกเลิกการดาวน์โหลดได้",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                }
-                            }
-                        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                    }
-                    com.rain.browser.data.VideoStatus.FAILED,
-                    com.rain.browser.data.VideoStatus.FAILED_CORRUPTED,
-                    com.rain.browser.data.VideoStatus.CANCELED -> {
-                        actionRow.addView(Button(this).apply {
-                            text = "ดาวน์โหลดใหม่"
-                            setOnClickListener { button ->
-                                button.isEnabled = false
-                                val userAgent = runCatching {
-                                    tabManager.activeTab?.webView?.settings?.userAgentString.orEmpty()
-                                }.getOrDefault("")
-                                storageExecutor.execute {
-                                    val retryResult = runCatching {
-                                        coordinator.retry(record.id, userAgent)
-                                    }
-                                    runOnUiThread {
-                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
-                                            val message = if (retryResult.isSuccess) {
-                                                "เริ่มดาวน์โหลดวิดีโอใหม่แล้ว"
-                                            } else {
-                                                retryResult.exceptionOrNull()?.message
-                                                    ?: "ไม่สามารถเริ่มดาวน์โหลดใหม่ได้"
-                                            }
-                                            Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            }
-                        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                    }
-                    else -> Unit
-                }
-                if (actionRow.childCount > 0) row.addView(actionRow)
-                content.addView(row)
-                content.addView(View(this).apply {
-                    setBackgroundColor(Color.LTGRAY)
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        (1 * density).toInt()
-                    )
-                })
-            }
-        }
-
-        val pollRunnable = object : Runnable {
-            override fun run() {
-                if (!dialog.isShowing || isFinishing || isDestroyed) return
-                storageExecutor.execute {
-                    val current = repository.list()
-                    waitingForNetworkIds.clear()
-                    current.filter {
-                        it.status in setOf(
-                            com.rain.browser.data.VideoStatus.QUEUED,
-                            com.rain.browser.data.VideoStatus.DOWNLOADING
-                        ) && it.downloadId != null
-                    }.forEach { record ->
-                        val snapshot = runCatching { coordinator.refresh(record.id) }.getOrNull()
-                        if (snapshot?.reason == "WAITING_FOR_NETWORK") {
-                            waitingForNetworkIds.add(record.id)
-                        }
-                    }
-                    val refreshed = repository.list()
-                    runOnUiThread {
-                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
-                            render(refreshed)
-                            handler.postDelayed(this, VIDEO_DOWNLOAD_REFRESH_INTERVAL_MS)
-                        }
-                    }
-                }
-            }
-        }
-        dialog.setOnDismissListener { handler.removeCallbacks(pollRunnable) }
-        dialog.show()
-        handler.post(pollRunnable)
-    }
     private fun restoreTabs(savedInstanceState: Bundle?) {
         val savedTabs = savedInstanceState?.getParcelableArrayList<Bundle>(STATE_TABS)
         if (savedTabs.isNullOrEmpty()) {
