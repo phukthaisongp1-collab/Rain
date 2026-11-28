@@ -1,5 +1,7 @@
 package com.rain.browser.update
 
+import com.rain.browser.MainActivity
+
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
