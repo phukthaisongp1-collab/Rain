@@ -54,7 +54,7 @@ RAIN ต้องรวมความสามารถหลักของ Go
 
 ### 1.4.1 RAIN Auto Update — ข้อกำหนดผลิตภัณฑ์
 - ช่องทางอัปเดตหลักเป็น **In-App Update ผ่าน GitHub Releases**; GitHub เป็นระบบเผยแพร่เบื้องหลัง ผู้ใช้ไม่ต้องเปิด GitHub หรือดาวน์โหลด APK ด้วยตนเอง
-- แอปตรวจสอบ Release ล่าสุดจาก Repository ทางการ `phukthaisongp1-collab/Rain` เมื่อเริ่มใช้งานและเมื่อผู้ใช้สั่งตรวจสอบจากเมนู/Settings โดยต้องไม่บล็อกการเปิด Browser หากเครือข่ายล้มเหลว
+- แอปตรวจสอบ Release ล่าสุดจาก Repository ทางการ `phukthaisongp1-collab/Rain` เมื่อเริ่มใช้งานแอป (ไม่บล็อกการเปิด Browser เกินเวลารอที่กำหนด) โดยต้องไม่บล็อกการเปิด Browser หากเครือข่ายล้มเหลว
 - เมื่อพบรุ่นใหม่ ให้แสดง versionName และ release notes พร้อมตัวเลือก “อัปเดต” หรือ “ภายหลัง”; ห้ามดาวน์โหลดหรือติดตั้งโดยไม่แจ้งผู้ใช้
 - เมื่อผู้ใช้เลือกอัปเดต RAIN ดาวน์โหลด APK ผ่าน HTTPS เอง ตรวจ SHA-256 ตาม metadata ของ Release และตรวจ packageName, versionCode และ Signing Certificate fingerprint ก่อนส่งไฟล์ให้ Android Package Installer
 - ต้องตรงกับ applicationId `com.rain.browser`, versionCode ต้องมากกว่ารุ่นที่ติดตั้ง และ Signing Certificate SHA-256 ต้องตรงกับค่าที่กำหนดใน Release policy; ห้ามติดตั้งไฟล์ที่ตรวจสอบไม่ผ่าน
