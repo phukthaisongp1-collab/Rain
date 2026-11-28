@@ -117,7 +117,7 @@ class VideoRepository(
     ): VideoRecord? {
         if (downloadId < 0L || bytesDownloaded < 0L || totalBytes < -1L || now < 0L) return null
         val current = get(id) ?: return null
-        if (current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING)) return null
+        if (current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)) return null
         val updated = current.copy(
             downloadId = downloadId,
             bytesDownloaded = bytesDownloaded,
