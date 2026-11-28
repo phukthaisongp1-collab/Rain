@@ -2,6 +2,7 @@ package com.rain.browser.library
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.MediaMetadataRetriever
@@ -24,6 +25,7 @@ import com.rain.browser.data.VideoRecord
 import com.rain.browser.data.VideoRepository
 import com.rain.browser.data.VideoStatus
 import com.rain.browser.downloads.VideoDownloadCoordinator
+import com.rain.browser.player.VideoPlayerActivity
 import java.io.File
 import java.net.URI
 import java.text.DateFormat
@@ -218,6 +220,10 @@ class VideoLibraryActivity : Activity() {
             }
             row.addView(details)
             row.addView(info)
+            if (record.status == VideoStatus.READY) {
+                row.isClickable = true
+                row.setOnClickListener { openReadyVideo(record) }
+            }
             content.addView(row)
             content.addView(View(this).apply {
                 setBackgroundColor(Color.LTGRAY)
@@ -265,6 +271,22 @@ class VideoLibraryActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun openReadyVideo(record: VideoRecord) {
+        val file = File(record.filePath)
+        if (!file.isFile || file.length() <= 0L || file.length() != record.sizeBytes) {
+            AlertDialog.Builder(this)
+                .setTitle("ไฟล์วิดีโอเสียหายหรือไม่สมบูรณ์")
+                .setMessage("ไม่สามารถเปิดวิดีโอนี้ได้ เนื่องจากไม่พบไฟล์หรือขนาดไฟล์ไม่ตรงกับข้อมูลที่บันทึกไว้")
+                .setPositiveButton("ตกลง", null)
+                .show()
+            return
+        }
+        startActivity(Intent(this, VideoPlayerActivity::class.java).apply {
+            putExtra(VideoPlayerActivity.EXTRA_PATH, file.absolutePath)
+            putExtra(VideoPlayerActivity.EXTRA_TITLE, record.title)
+        })
     }
 
     private fun showDetails(record: VideoRecord) {
