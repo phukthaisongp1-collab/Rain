@@ -5,6 +5,8 @@ import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -124,6 +126,104 @@ object HlsHttpClient {
             }
         }
         throw IllegalArgumentException("ไม่สามารถตรวจสอบ HLS Redirect ได้")
+    }
+
+
+    data class StreamedResponse(
+        val finalUrl: String,
+        val statusCode: Int,
+        val contentType: String,
+        val bytesWritten: Long
+    )
+
+    /**
+     * Streams one checked HLS resource to a managed temporary file without
+     * buffering the media body in memory. onBytesRead may reject a transfer.
+     */
+    fun downloadToFile(
+        rawUrl: String,
+        destination: File,
+        maximumBytes: Long,
+        onBytesRead: (Long) -> Unit = {}
+    ): StreamedResponse {
+        require(maximumBytes > 0L)
+        var currentUrl = HlsPlaylistUrlPolicy.validateHttpUrl(rawUrl)
+        destination.parentFile?.let { parent ->
+            require(parent.isDirectory || parent.mkdirs()) {
+                "ไม่สามารถสร้างโฟลเดอร์ชั่วคราวสำหรับ HLS ได้"
+            }
+        }
+
+        try {
+            repeat(MAX_REDIRECTS + 1) { redirectCount ->
+                val request = Request.Builder()
+                    .url(currentUrl)
+                    .get()
+                    .header("User-Agent", USER_AGENT)
+                    .header("Accept", "*/*")
+                    .header("Accept-Encoding", "identity")
+                    .header("Connection", "close")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.code == 401 || response.code == 403) {
+                        throw IllegalArgumentException("เว็บนี้จำกัดการดาวน์โหลด ไม่รองรับ")
+                    }
+
+                    if (response.code in REDIRECT_CODES) {
+                        require(redirectCount < MAX_REDIRECTS) {
+                            "HLS URL เปลี่ยนเส้นทางเกิน 5 ครั้ง"
+                        }
+                        val location = response.header("Location")
+                            ?: throw IllegalArgumentException("HLS Redirect ไม่มี URL ปลายทาง")
+                        val redirected = URI(currentUrl).resolve(URI(location)).toString()
+                        val nextUrl = HlsPlaylistUrlPolicy.validateHttpUrl(redirected)
+                        require(
+                            !currentUrl.startsWith("https://", ignoreCase = true) ||
+                                nextUrl.startsWith("https://", ignoreCase = true)
+                        ) { "ไม่อนุญาตให้ HLS Redirect ลดระดับจาก HTTPS เป็น HTTP" }
+                        currentUrl = nextUrl
+                    } else {
+                        require(response.code == 200) {
+                            "ไม่สามารถดึง HLS resource ได้ (HTTP ${response.code})"
+                        }
+                        val body = response.body
+                            ?: throw IllegalArgumentException("HLS response ไม่มีข้อมูล")
+                        val declaredLength = body.contentLength()
+                        require(declaredLength < 0L || declaredLength <= maximumBytes) {
+                            "HLS resource มีขนาดเกินขีดจำกัด 4 GB"
+                        }
+                        var total = 0L
+                        FileOutputStream(destination, false).use { output ->
+                            body.byteStream().use { input ->
+                                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                                while (true) {
+                                    val count = input.read(buffer)
+                                    if (count < 0) break
+                                    require(count.toLong() <= maximumBytes - total) {
+                                        "HLS resource มีขนาดเกินขีดจำกัด 4 GB"
+                                    }
+                                    onBytesRead(count.toLong())
+                                    output.write(buffer, 0, count)
+                                    total += count
+                                }
+                            }
+                            output.fd.sync()
+                        }
+                        return StreamedResponse(
+                            finalUrl = currentUrl,
+                            statusCode = response.code,
+                            contentType = body.contentType()?.toString().orEmpty(),
+                            bytesWritten = total
+                        )
+                    }
+                }
+            }
+            throw IllegalArgumentException("ไม่สามารถตรวจสอบ HLS Redirect ได้")
+        } catch (error: Exception) {
+            runCatching { destination.delete() }
+            throw error
+        }
     }
 
     private fun requirePublicAddress(address: InetAddress) {
