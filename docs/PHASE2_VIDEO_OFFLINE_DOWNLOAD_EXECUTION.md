@@ -32,8 +32,15 @@
 |---|---|---|
 | 1–7 | WebView/Media Callbacks, Download Policy, Storage, ตรวจจับ HTML5 Video, สัญญาณโฆษณา, Direct MP4 | เสร็จ |
 | 8 | ปิด Detection Feasibility Gate ตามเงื่อนไขใหม่ (หัวข้อ 3) | ปิดตามเงื่อนไขใหม่ |
-| 9 | Download Core Foundation + SQLite Schema v2 → v3 (เพิ่มตาราง `videos` แบบ additive-only และออกแบบคอลัมน์ให้รองรับ Day 19–30 ครบในครั้งเดียว) | เริ่มตามแผนใหม่; ยังไม่ผ่าน Acceptance |
-| 10 | Direct MP4 Download | ยังไม่เริ่ม/รอพัฒนาตามลำดับ |
+| 9 | Download Core Foundation + SQLite Schema v2 → v3 (เพิ่มตาราง `videos` แบบ additive-only และออกแบบคอลัมน์ให้รองรับ Day 19–30 ครบในครั้งเดียว) | ปิดแล้ว — CI 97/97 ผ่าน รวม `StorageMigrationTest` |
+| 10 | Direct MP4 Download + รวม Detection Hook ขั้นต่ำ (ผู้ใช้สั่งเอง) | กำลังดำเนินการ |
+### 2.4 ข้อจำกัดของ Detection Hook ขั้นต่ำ
+
+- รองรับเฉพาะ URL วิดีโอ MP4/WebM แบบ Direct ที่เปิดเผยจากองค์ประกอบ `<video>` หรือ `<source>` และต้องผ่านการตรวจ MIME/container จาก Source Validator ก่อนดาวน์โหลด
+- ไม่มีการแยกโฆษณาอัตโนมัติ และไม่รับประกันว่าวิดีโอที่ตรวจพบเป็นเนื้อหาหลักของหน้า
+- ไม่รองรับ `blob:`, `data:`, Media Source Extensions (MSE), stream segments หรือแหล่งที่ไม่สามารถตรวจสอบ URL โดยตรงได้
+- ไม่รับประกันการตรวจจับหรือดาวน์โหลดได้จากทุกเว็บไซต์ โดยการตรวจจับเกิดขึ้นเมื่อผู้ใช้สั่งจากเมนูเท่านั้น ไม่มี Popup อัตโนมัติเมื่อพบหรือเล่นวิดีโอ
+
 | 11 | Direct WebM Download | ยังไม่เริ่ม/รอพัฒนาตามลำดับ |
 | 12 | ตัวเลือกคุณภาพวิดีโอตาม Source จริง | ยังไม่เริ่ม/รอพัฒนาตามลำดับ |
 | 13 | ความคืบหน้าและสถานะดาวน์โหลด | ยังไม่เริ่ม/รอพัฒนาตามลำดับ |

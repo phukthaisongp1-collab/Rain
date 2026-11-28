@@ -28,6 +28,8 @@ import android.speech.RecognizerIntent
 import android.widget.LinearLayout
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
+import java.io.File
 import android.content.Intent
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
@@ -59,6 +61,8 @@ import com.rain.browser.data.BookmarkRepository
 import com.rain.browser.data.HistoryRepository
 import com.rain.browser.data.SettingsRepository
 import com.rain.browser.data.ResumeRepository
+import com.rain.browser.data.VideoRepository
+import com.rain.browser.downloads.VideoDownloadCoordinator
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
 import androidx.core.view.WindowCompat
@@ -83,6 +87,8 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var historyRepository: HistoryRepository
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var resumeRepository: ResumeRepository
+    private var videoRepository: VideoRepository? = null
+    private var videoDownloadCoordinator: VideoDownloadCoordinator? = null
     private val storageExecutor = Executors.newSingleThreadExecutor()
     private val systemBackCallback = OnBackInvokedCallback { handleSystemBack() }
     private var fullscreenCustomView: View? = null
@@ -113,6 +119,12 @@ class MainActivity : Activity(), WebViewCallbacks {
 
     private data class HomeShortcut(val name: String, val url: String)
 
+    private data class DetectedVideoSource(
+        val url: String,
+        val title: String,
+        val mimeType: String
+    )
+
     private enum class VideoFitMode { FIT, CROP }
 
     private var videoFitMode = VideoFitMode.FIT
@@ -137,6 +149,15 @@ class MainActivity : Activity(), WebViewCallbacks {
         historyRepository = HistoryRepository(storage)
         settingsRepository = SettingsRepository(storage)
         resumeRepository = ResumeRepository(storage)
+        getExternalFilesDir(Environment.DIRECTORY_MOVIES)?.let { moviesDirectory ->
+            val managedVideoDirectory = File(moviesDirectory, "RAIN")
+            videoRepository = VideoRepository(storage, managedVideoDirectory)
+            videoDownloadCoordinator = VideoDownloadCoordinator(
+                this,
+                videoRepository!!,
+                managedVideoDirectory
+            )
+        }
         videoFitMode = runCatching {
             VideoFitMode.valueOf(
                 getSharedPreferences(VIDEO_DISPLAY_PREFS, MODE_PRIVATE)
@@ -248,6 +269,135 @@ class MainActivity : Activity(), WebViewCallbacks {
         ViewCompat.requestApplyInsets(root)
     }
 
+    private fun detectVideosOnCurrentPage() {
+        val tab = tabManager.activeTab ?: return
+        val webView = tab.webView
+        val pageTitle = tab.title.ifBlank { tab.url }
+        webView.evaluateJavascript(VIDEO_SOURCE_SCAN_SCRIPT) { encodedResult ->
+            if (isFinishing || isDestroyed) return@evaluateJavascript
+            val sources = runCatching {
+                val decoded = JSONTokener(encodedResult).nextValue() as? String
+                    ?: throw IllegalArgumentException("Invalid video detection response.")
+                val payload = JSONArray(decoded)
+                buildList {
+                    for (index in 0 until payload.length()) {
+                        val item = payload.optJSONObject(index) ?: continue
+                        val url = item.optString("src").trim()
+                        val declaredMime = item.optString("type")
+                            .substringBefore(';')
+                            .trim()
+                            .lowercase()
+                        if (!isDirectMp4Source(url, declaredMime)) continue
+                        add(
+                            DetectedVideoSource(
+                                url = url,
+                                title = item.optString("title").trim().ifBlank { pageTitle },
+                                mimeType = "video/mp4"
+                            )
+                        )
+                    }
+                }.distinctBy { it.url }
+            }.getOrElse {
+                Toast.makeText(this, "ไม่สามารถอ่านข้อมูลวิดีโอจากหน้านี้ได้", Toast.LENGTH_SHORT).show()
+                return@evaluateJavascript
+            }
+
+            if (sources.isEmpty()) {
+                Toast.makeText(
+                    this,
+                    "ไม่พบวิดีโอที่ดาวน์โหลดได้โดยตรงในหน้านี้",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@evaluateJavascript
+            }
+
+            if (sources.size == 1) {
+                showVideoDownloadConfirmation(sources.first(), webView)
+            } else {
+                val labels = sources.mapIndexed { index, source ->
+                    "${index + 1}. ${source.title}\n${source.url}"
+                }.toTypedArray()
+                AlertDialog.Builder(this)
+                    .setTitle("เลือกวิดีโอที่ต้องการดาวน์โหลด")
+                    .setItems(labels) { _, which ->
+                        sources.getOrNull(which)?.let {
+                            showVideoDownloadConfirmation(it, webView)
+                        }
+                    }
+                    .setNegativeButton(R.string.dialog_cancel, null)
+                    .show()
+            }
+        }
+    }
+
+    private fun isDirectMp4Source(rawUrl: String, declaredMime: String): Boolean {
+        val uri = Uri.parse(rawUrl)
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") return false
+        if (uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null) return false
+        val path = uri.path.orEmpty()
+        if (path.endsWith(".webm", ignoreCase = true) || declaredMime == "video/webm") return false
+        return path.endsWith(".mp4", ignoreCase = true) || declaredMime == "video/mp4"
+    }
+
+    private fun showVideoDownloadConfirmation(
+        source: DetectedVideoSource,
+        webView: WebView
+    ) {
+        AlertDialog.Builder(this)
+            .setTitle("ยืนยันสิทธิ์ในการดาวน์โหลด")
+            .setMessage(
+                "โปรดยืนยันว่าคุณมีสิทธิ์ดาวน์โหลดและเก็บวิดีโอนี้ไว้ใช้งาน " +
+                    "RAIN จะตรวจสอบแหล่ง MP4 โดยตรงก่อนเริ่มดาวน์โหลด และจะไม่ใช้ Cookie หรือข้อมูลเข้าสู่ระบบจากเว็บไซต์"
+            )
+            .setPositiveButton("ยืนยันและดาวน์โหลด") { _, _ ->
+                val repository = videoRepository
+                val coordinator = videoDownloadCoordinator
+                if (repository == null || coordinator == null) {
+                    Toast.makeText(
+                        this,
+                        "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setPositiveButton
+                }
+
+                val userAgent = runCatching { webView.settings.userAgentString }.getOrDefault("")
+                storageExecutor.execute {
+                    try {
+                        val record = repository.enqueue(
+                            url = source.url,
+                            title = source.title,
+                            mimeType = source.mimeType,
+                            userConfirmedPermission = true
+                        )
+                        coordinator.enqueue(record, userAgent)
+                        runOnUiThread {
+                            if (!isFinishing && !isDestroyed) {
+                                Toast.makeText(
+                                    this,
+                                    "เพิ่มวิดีโอลงในรายการดาวน์โหลดแล้ว",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    } catch (error: Exception) {
+                        runOnUiThread {
+                            if (!isFinishing && !isDestroyed) {
+                                AlertDialog.Builder(this)
+                                    .setTitle("ไม่สามารถเริ่มดาวน์โหลดได้")
+                                    .setMessage(error.message ?: "แหล่งวิดีโอไม่ผ่านการตรวจสอบ")
+                                    .setPositiveButton(R.string.dialog_close, null)
+                                    .show()
+                            }
+                        }
+                    }
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
     private fun showBrowserMenu() {
         val popupMenu = PopupMenu(this, findViewById(R.id.menu_button))
         val activeTab = tabManager.activeTab
@@ -280,8 +430,18 @@ class MainActivity : Activity(), WebViewCallbacks {
         actions.forEachIndexed { order, action ->
             popupMenu.menu.add(android.view.Menu.NONE, action.first, order, action.second)
         }
+        popupMenu.menu.add(
+            android.view.Menu.NONE,
+            MENU_DETECT_VIDEO,
+            actions.size,
+            "ตรวจหาวิดีโอเพื่อดาวน์โหลด"
+        )
         popupMenu.setOnMenuItemClickListener { item ->
-            findViewById<View>(item.itemId).performClick()
+            if (item.itemId == MENU_DETECT_VIDEO) {
+                detectVideosOnCurrentPage()
+            } else {
+                findViewById<View>(item.itemId).performClick()
+            }
             true
         }
         popupMenu.show()
@@ -1673,6 +1833,48 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val VIDEO_DISPLAY_PREFS = "rain_video_display_preferences"
         const val VIDEO_DISPLAY_KEY = "video_fit_mode"
         const val HOME_SHORTCUTS_KEY = "items"
+        const val MENU_DETECT_VIDEO = 5_201
+
+        val VIDEO_SOURCE_SCAN_SCRIPT = """
+            (function () {
+                return JSON.stringify(Array.from(document.querySelectorAll('video')).flatMap(function (video) {
+                    var rect = video.getBoundingClientRect();
+                    var style = window.getComputedStyle(video);
+                    var visible = !!(rect.width && rect.height) &&
+                        style.display !== 'none' && style.visibility !== 'hidden';
+                    var sources = [];
+                    var directSource = video.getAttribute('src');
+                    if (directSource) {
+                        sources.push({
+                            src: video.src || directSource,
+                            type: video.getAttribute('type') || ''
+                        });
+                    }
+                    video.querySelectorAll('source[src]').forEach(function (source) {
+                        sources.push({
+                            src: source.src || source.getAttribute('src'),
+                            type: source.getAttribute('type') || ''
+                        });
+                    });
+                    return sources.filter(function (source) {
+                        return visible && !!source.src;
+                    }).map(function (source) {
+                        return {
+                            src: source.src,
+                            type: source.type,
+                            title: document.title || '',
+                            poster: video.poster || '',
+                            width: String(video.videoWidth || video.getAttribute('width') || ''),
+                            height: String(video.videoHeight || video.getAttribute('height') || ''),
+                            duration: Number.isFinite(video.duration) ? video.duration : null,
+                            paused: video.paused,
+                            readyState: video.readyState,
+                            networkState: video.networkState
+                        };
+                    });
+                }));
+            })();
+        """.trimIndent()
 
         const val WELCOME_PAGE = """
             <!doctype html>
