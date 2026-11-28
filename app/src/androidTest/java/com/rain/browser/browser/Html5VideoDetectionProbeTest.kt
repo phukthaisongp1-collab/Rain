@@ -1,0 +1,557 @@
+package com.rain.browser.browser
+
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONArray
+import org.json.JSONObject
+import org.json.JSONTokener
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.ByteArrayInputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+
+/**
+ * Feasibility probe only: verifies which HTML5 video metadata the Android WebView DOM exposes.
+ * It does not decide whether a resource is downloadable or permitted by its source website.
+ */
+@RunWith(AndroidJUnit4::class)
+class Html5VideoDetectionProbeTest {
+    @Test
+    fun readsSourceAndPlayerMetadataForHtml5VideoElements() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html>
+              <head><title>RAIN video probe fixture</title></head>
+              <body>
+                <video id="primary" controls width="640" height="360"
+                    poster="https://media.example.invalid/poster.jpg"
+                    src="https://media.example.invalid/primary.mp4"></video>
+                <video id="secondary" controls
+                    src="https://media.example.invalid/secondary.webm"></video>
+              </body>
+            </html>
+            """.trimIndent()
+        )
+
+        assertEquals(2, signals.length())
+        val primary = signals.getJSONObject(0)
+        assertEquals("https://media.example.invalid/primary.mp4", primary.getString("src"))
+        assertEquals("https://media.example.invalid/poster.jpg", primary.getString("poster"))
+        assertEquals("640", primary.getString("width"))
+        assertEquals("360", primary.getString("height"))
+        assertTrue(primary.has("paused"))
+        assertTrue(primary.has("readyState"))
+        assertTrue(primary.has("networkState"))
+
+        val secondary = signals.getJSONObject(1)
+        assertEquals("https://media.example.invalid/secondary.webm", secondary.getString("src"))
+        assertEquals("", secondary.getString("poster"))
+    }
+
+    @Test
+    fun doesNotInventASourceWhenVideoHasNoExposedSource() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body><video id="opaque" controls></video></body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        assertEquals("", signals.getJSONObject(0).getString("src"))
+        assertFalse(signals.getJSONObject(0).getBoolean("hasExposedSource"))
+    }
+
+
+
+    @Test
+    fun collectsExplicitAdUiMarkersWhenThePlayerExposesThem() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html>
+              <body>
+                <div id="player">
+                  <div role="status" aria-label="Advertisement">Advertisement</div>
+                  <button type="button" aria-label="Skip Ad">Skip Ad</button>
+                  <video controls src="https://media.example.invalid/ad.mp4"></video>
+                </div>
+              </body>
+            </html>
+            """.trimIndent()
+        )
+
+        val indicators = signals.getJSONObject(0).getJSONArray("adIndicators")
+        val labels = (0 until indicators.length()).map {
+            indicators.getJSONObject(it).getString("label")
+        }
+        assertTrue(labels.contains("Advertisement"))
+        assertTrue(labels.contains("Skip Ad"))
+        assertFalse(signals.getJSONObject(0).has("isAd"))
+    }
+
+    @Test
+    fun doesNotTreatAbsenceOfAdMarkersAsProofOfMainContent() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <video id="unmarked" controls
+                src="https://media.example.invalid/content.mp4"></video>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val signal = signals.getJSONObject(0)
+        assertEquals("https://media.example.invalid/content.mp4", signal.getString("src"))
+        assertEquals(0, signal.getJSONArray("adIndicators").length())
+        // No visible ad marker is inconclusive; this must never be promoted to isAd=false.
+        assertFalse(signal.has("isAd"))
+        assertFalse(signal.has("isMainContent"))
+    }
+
+    @Test
+    fun keepsAdAndDownloadDecisionsOutOfDomSignalPayload() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <div role="status" aria-label="Advertisement">Advertisement</div>
+              <video id="ad" controls
+                src="https://media.example.invalid/segment.mp4"></video>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val signal = signals.getJSONObject(0)
+        assertTrue(signal.getJSONArray("adIndicators").length() > 0)
+        assertTrue(signal.has("src"))
+        assertFalse(signal.has("isAd"))
+        assertFalse(signal.has("isMainContent"))
+        assertFalse(signal.has("downloadAllowed"))
+        assertFalse(signal.has("isDownloadable"))
+    }
+
+    @Test
+    fun webViewClientObservesOneDirectMp4ResourceRequest() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val requestObserved = CountDownLatch(1)
+        val pageFinished = CountDownLatch(1)
+        val webViewRef = AtomicReference<WebView>()
+        val html = """
+            <!doctype html>
+            <html>
+              <body>
+                <video autoplay muted playsinline preload="auto"
+                    src="$SAMPLE_MP4_URL"></video>
+              </body>
+            </html>
+        """.trimIndent()
+
+        instrumentation.runOnMainSync {
+            val webView = WebView(instrumentation.targetContext)
+            webView.settings.javaScriptEnabled = true
+            webView.settings.mediaPlaybackRequiresUserGesture = false
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? {
+                    if (request.url.toString() == SAMPLE_MP4_URL) {
+                        requestObserved.countDown()
+                    }
+                    return null
+                }
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(
+                        "(function () { var video = document.querySelector('video'); " +
+                            "if (video) { video.muted = true; video.play().catch(function () {}); } })();",
+                        null
+                    )
+                    pageFinished.countDown()
+                }
+            }
+            webViewRef.set(webView)
+            webView.loadDataWithBaseURL(
+                "https://fixture.example.invalid/",
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
+
+        try {
+            assertTrue("WebView fixture did not finish loading", pageFinished.await(10, TimeUnit.SECONDS))
+            assertTrue(
+                "WebViewClient did not observe the direct MP4 request",
+                requestObserved.await(20, TimeUnit.SECONDS)
+            )
+        } finally {
+            instrumentation.runOnMainSync {
+                webViewRef.getAndSet(null)?.apply {
+                    stopLoading()
+                    webChromeClient = null
+                    destroy()
+                }
+            }
+        }
+    }
+
+    @Test
+    fun observesWebmResourceRequestWithoutClaimingDownloadPermission() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val requestObserved = CountDownLatch(1)
+        val pageFinished = CountDownLatch(1)
+        val webViewRef = AtomicReference<WebView>()
+        val resourceUrl = "https://fixture.example.invalid/media/sample.webm"
+        val html = """
+            <!doctype html>
+            <html>
+              <body>
+                <video id="webm" autoplay muted playsinline preload="auto" controls>
+                  <source src="$resourceUrl" type="video/webm">
+                </video>
+              </body>
+            </html>
+        """.trimIndent()
+
+        instrumentation.runOnMainSync {
+            val webView = WebView(instrumentation.targetContext)
+            webView.settings.javaScriptEnabled = true
+            webView.settings.mediaPlaybackRequiresUserGesture = false
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? {
+                    if (request.url.toString() == resourceUrl) {
+                        requestObserved.countDown()
+                        // A tiny synthetic response is sufficient to verify request visibility.
+                        // It is not a playable asset and does not represent site download permission.
+                        return WebResourceResponse(
+                            "video/webm",
+                            "binary",
+                            ByteArrayInputStream(
+                                byteArrayOf(0x1A.toByte(), 0x45.toByte(), 0xDF.toByte(), 0xA3.toByte())
+                            )
+                        )
+                    }
+                    return null
+                }
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(
+                        "var video = document.getElementById('webm'); " +
+                            "if (video) { video.load(); video.play().catch(function () {}); }",
+                        null
+                    )
+                    pageFinished.countDown()
+                }
+            }
+            webViewRef.set(webView)
+            webView.loadDataWithBaseURL(
+                "https://fixture.example.invalid/",
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
+
+        try {
+            assertTrue("WebView fixture did not finish loading", pageFinished.await(10, TimeUnit.SECONDS))
+            assertTrue(
+                "WebViewClient did not observe the synthetic WebM request",
+                requestObserved.await(20, TimeUnit.SECONDS)
+            )
+        } finally {
+            instrumentation.runOnMainSync {
+                webViewRef.getAndSet(null)?.apply {
+                    stopLoading()
+                    webChromeClient = null
+                    destroy()
+                }
+            }
+        }
+    }
+
+    @Test
+    fun observesPreRollAdToMainVideoTransitionWithoutClassifyingMainContent() {
+        val snapshots = loadSignalSnapshots(
+            """
+            <!doctype html>
+            <html><body>
+              <div id="player">
+                <div id="ad-marker" role="status" aria-label="Advertisement">Advertisement</div>
+                <video id="video" controls src="https://media.example.invalid/preroll.mp4"></video>
+              </div>
+            </body></html>
+            """.trimIndent(),
+            """
+            document.getElementById('ad-marker').remove();
+            document.getElementById('video').src =
+                'https://media.example.invalid/main-content.mp4';
+            """
+        )
+
+        val before = snapshots.first.getJSONObject(0)
+        val after = snapshots.second.getJSONObject(0)
+        assertTrue(before.getJSONArray("adIndicators").length() > 0)
+        assertEquals("https://media.example.invalid/preroll.mp4", before.getString("src"))
+        assertEquals(0, after.getJSONArray("adIndicators").length())
+        assertEquals("https://media.example.invalid/main-content.mp4", after.getString("src"))
+        // Losing an ad marker is not proof that the new source is permitted or is main content.
+        assertFalse(after.has("isAd"))
+        assertFalse(after.has("isMainContent"))
+        assertFalse(after.has("downloadAllowed"))
+    }
+
+    @Test
+    fun observesMidRollAdMarkerAppearingWithoutChangingDownloadDecision() {
+        val snapshots = loadSignalSnapshots(
+            """
+            <!doctype html>
+            <html><body>
+              <div id="player">
+                <video id="video" controls
+                  src="https://media.example.invalid/main-content.mp4"></video>
+              </div>
+            </body></html>
+            """.trimIndent(),
+            """
+            var marker = document.createElement('div');
+            marker.setAttribute('role', 'status');
+            marker.setAttribute('aria-label', 'Advertisement');
+            marker.textContent = 'Advertisement';
+            document.getElementById('player').appendChild(marker);
+            """
+        )
+
+        val before = snapshots.first.getJSONObject(0)
+        val during = snapshots.second.getJSONObject(0)
+        assertEquals(0, before.getJSONArray("adIndicators").length())
+        assertTrue(during.getJSONArray("adIndicators").length() > 0)
+        assertEquals(before.getString("src"), during.getString("src"))
+        assertFalse(during.has("isAd"))
+        assertFalse(during.has("isMainContent"))
+        assertFalse(during.has("downloadAllowed"))
+    }
+
+    private fun loadSignalSnapshots(html: String, mutationScript: String): Pair<JSONArray, JSONArray> {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val snapshots = AtomicReference<Pair<String, String>>()
+        val completed = CountDownLatch(1)
+        val webViewRef = AtomicReference<WebView>()
+
+        instrumentation.runOnMainSync {
+            val webView = WebView(instrumentation.targetContext)
+            webView.settings.javaScriptEnabled = true
+            webView.webChromeClient = WebChromeClient()
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(VIDEO_SIGNAL_SCRIPT) { beforeValue ->
+                        view.evaluateJavascript(mutationScript) {
+                            view.evaluateJavascript(VIDEO_SIGNAL_SCRIPT) { afterValue ->
+                                if (snapshots.compareAndSet(null, beforeValue to afterValue)) {
+                                    completed.countDown()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            webViewRef.set(webView)
+            webView.loadDataWithBaseURL(
+                "https://fixture.example.invalid/",
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
+
+        try {
+            assertTrue("WebView signal snapshots did not complete", completed.await(10, TimeUnit.SECONDS))
+            val values = snapshots.get() ?: error("WebView returned no signal snapshots")
+            fun decode(value: String): JSONArray {
+                val decoded = JSONTokener(value).nextValue() as? String
+                    ?: error("WebView returned an invalid JSON string")
+                return JSONArray(decoded)
+            }
+            return decode(values.first) to decode(values.second)
+        } finally {
+            instrumentation.runOnMainSync {
+                webViewRef.getAndSet(null)?.apply {
+                    stopLoading()
+                    webChromeClient = null
+                    destroy()
+                }
+            }
+        }
+    }
+
+    private fun loadSignals(html: String): JSONArray {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val result = AtomicReference<String>()
+        val completed = CountDownLatch(1)
+        val webViewRef = AtomicReference<WebView>()
+
+        instrumentation.runOnMainSync {
+            val webView = WebView(instrumentation.targetContext)
+            webView.settings.javaScriptEnabled = true
+            webView.webChromeClient = WebChromeClient()
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(VIDEO_SIGNAL_SCRIPT) { value ->
+                        if (result.compareAndSet(null, value)) completed.countDown()
+                    }
+                }
+            }
+            webViewRef.set(webView)
+            webView.loadDataWithBaseURL(
+                "https://fixture.example.invalid/",
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
+
+        try {
+            assertTrue("WebView fixture did not finish loading", completed.await(10, TimeUnit.SECONDS))
+            val encoded = result.get() ?: error("WebView returned no video signal payload")
+            val decoded = JSONTokener(encoded).nextValue() as? String
+                ?: error("WebView returned an invalid JSON string")
+            return JSONArray(decoded)
+        } finally {
+            instrumentation.runOnMainSync {
+                webViewRef.getAndSet(null)?.apply {
+                    stopLoading()
+                    webChromeClient = null
+                    destroy()
+                }
+            }
+        }
+    }
+
+
+    @Test
+    fun observesSourceChangesWithoutTreatingTheNewSourceAsDownloadable() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <video id="changing" src="https://media.example.invalid/first.mp4"></video>
+              <script>
+                document.getElementById('changing').setAttribute(
+                  'src', 'https://cdn.example.invalid/second.webm'
+                );
+              </script>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val signal = signals.getJSONObject(0)
+        assertEquals("https://cdn.example.invalid/second.webm", signal.getString("src"))
+        assertTrue(signal.getBoolean("hasExposedSource"))
+        // A visible URL is only a DOM signal, not proof of permission or successful download.
+    }
+
+    @Test
+    fun identifiesBlobUrlAsOpaqueSourceRatherThanDirectFileUrl() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <video id="opaque" controls></video>
+              <script>
+                var bytes = new Uint8Array([0, 0, 0, 0]);
+                var blob = new Blob([bytes], { type: 'video/mp4' });
+                document.getElementById('opaque').src = URL.createObjectURL(blob);
+              </script>
+            </body></html>
+            """.trimIndent()
+        )
+
+        assertEquals(1, signals.length())
+        val source = signals.getJSONObject(0).getString("src")
+        assertTrue(source.startsWith("blob:"))
+        // Blob URLs are not accepted as ordinary network download URLs.
+    }
+
+    @Test
+    fun doesNotMistakeAnIframeVideoForATopLevelVideoElement() {
+        val signals = loadSignals(
+            """
+            <!doctype html>
+            <html><body>
+              <iframe title="embedded player"
+                srcdoc="<video controls src='https://media.example.invalid/frame.mp4'></video>">
+              </iframe>
+            </body></html>
+            """.trimIndent()
+        )
+
+        // The current probe reads only the current document. Cross-origin iframe inspection
+        // is intentionally not attempted and requires a separate, permission-safe design.
+        assertEquals(0, signals.length())
+    }
+
+    private companion object {
+        const val SAMPLE_MP4_URL = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+        val VIDEO_SIGNAL_SCRIPT = """
+            (function () {
+                return JSON.stringify(Array.from(document.querySelectorAll('video')).map(function (video) {
+                    var rect = video.getBoundingClientRect();
+                    var style = window.getComputedStyle(video);
+                    var source = video.currentSrc || video.src || '';
+                    var adIndicators = [];
+                    var ancestor = video;
+                    for (var depth = 0; ancestor && depth < 4; depth++, ancestor = ancestor.parentElement) {
+                        ancestor.querySelectorAll('[aria-label], button, [role="status"], [data-ad]').forEach(function (node) {
+                            var label = (node.getAttribute('aria-label') || '').trim();
+                            var text = (node.innerText || node.textContent || '').trim();
+                            if (/\b(advertisement|sponsored|skip ad|skip advertisement)\b/i.test(label + ' ' + text)) {
+                                adIndicators.push({
+                                    label: label,
+                                    text: text.slice(0, 80),
+                                    role: node.getAttribute('role') || ''
+                                });
+                            }
+                        });
+                    }
+                    return {
+                        src: source,
+                        hasExposedSource: source.length > 0,
+                        poster: video.poster || '',
+                        width: String(video.videoWidth || video.getAttribute('width') || ''),
+                        height: String(video.videoHeight || video.getAttribute('height') || ''),
+                        duration: Number.isFinite(video.duration) ? video.duration : null,
+                        paused: video.paused,
+                        readyState: video.readyState,
+                        networkState: video.networkState,
+                        visible: !!(rect.width && rect.height) &&
+                            style.display !== 'none' && style.visibility !== 'hidden',
+                        adIndicators: adIndicators
+                    };
+                }));
+            })();
+        """.trimIndent()
+    }
+}
