@@ -98,6 +98,32 @@ class HlsDownloadService : Service() {
             initial.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
         ) return
 
+        val finalOutput = File(managedDirectory, "rain-video-$recordId.mp4")
+        if (initial.status == VideoStatus.VERIFYING && finalOutput.isFile &&
+            ManagedVideoPathPolicy.isManagedFile(managedDirectory, finalOutput)
+        ) {
+            val recovered = runCatching {
+                val duration = VideoMediaInspector.inspect(finalOutput).durationMs
+                repository.markReady(recordId, finalOutput, duration)
+            }.getOrNull()
+            if (recovered?.status == VideoStatus.READY) {
+                val checksum = runCatching { VideoChecksum.sha256(finalOutput) }.getOrNull()
+                if (checksum != null && repository.updateChecksumSha256(recordId, checksum) != null) {
+                    publishRecordState(recordId)
+                    return
+                }
+                repository.markReadyCorrupted(recordId, "ไม่สามารถกู้คืน SHA-256 ของไฟล์ HLS ได้")
+                if (ManagedVideoPathPolicy.isManagedFile(managedDirectory, finalOutput)) finalOutput.delete()
+                publishRecordState(recordId)
+                return
+            }
+            if (repository.get(recordId)?.status == VideoStatus.FAILED_CORRUPTED) {
+                if (ManagedVideoPathPolicy.isManagedFile(managedDirectory, finalOutput)) finalOutput.delete()
+                publishRecordState(recordId)
+                return
+            }
+        }
+
         val record = repository.startHlsTransfer(recordId) ?: return
         val cancellation = HlsDownloadCancellation()
         cancellations[recordId] = cancellation
@@ -153,6 +179,12 @@ class HlsDownloadService : Service() {
                 repository.markCanceled(recordId)
             } else {
                 repository.markFailed(recordId, safeError(error))
+            }
+            if (finalOutput.exists() &&
+                ManagedVideoPathPolicy.isManagedFile(managedDirectory, finalOutput) &&
+                repository.get(recordId)?.status != VideoStatus.READY
+            ) {
+                runCatching { finalOutput.delete() }
             }
             publishRecordState(recordId)
         } finally {
