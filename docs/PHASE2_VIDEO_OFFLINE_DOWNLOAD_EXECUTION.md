@@ -256,3 +256,11 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - The existing direct MP4/WebM DOM scan and intercepted HLS candidates appear in one user selection list. HLS is fetched only after the user selects it and confirms authorization.
 - The selected playlist is fetched by RAIN using a separate `HttpURLConnection` request with only a generic User-Agent, no page credentials, no automatic redirects, and a 1 MiB response limit. The content must begin with `#EXTM3U`; Content-Type is not used as a substitute for playlist validation.
 - **Accepted discovery limitation:** HLS playlists whose URL path and query-parameter values do not contain `.m3u8` are not detected. The selected-fetch implementation currently rejects redirects; controlled redirect handling is added in the later HLS network-hardening day.
+
+### Day 33 — HLS Master/Media playlist parsing
+
+- Master playlists parse `EXT-X-STREAM-INF`, bandwidth, resolution, codecs, and relative variant URLs. The UI presents available variants for explicit quality selection, then fetches and parses the selected media playlist.
+- Media playlists parse `EXTINF`, media sequence, `EXT-X-ENDLIST`, `EXT-X-MAP`, and `EXT-X-KEY` with `METHOD=NONE` or identity `AES-128`. AES-128 key URI and all segment/map/variant URIs must resolve to HTTP(S) URLs without embedded credentials, fragments, local hostnames, or sensitive token/auth query parameter names.
+- AES-128 IV is validated as 128-bit hexadecimal when supplied. Actual key retrieval and decryption are implemented in the segment-download stage.
+- The parser rejects playlists with more than 20,000 segments, live playlists without `EXT-X-ENDLIST`, `SAMPLE-AES`, non-identity DRM key formats, HLS session keys, unsupported byte ranges, separate audio renditions, I-frame playlists, Low-Latency/delta playlist tags, content steering, variable substitution, and segment gaps.
+- This day parses and summarizes the selected playlist; it does not yet download media segments or decrypt AES-128. Network redirect and connected-IP enforcement is completed in Day 34.
