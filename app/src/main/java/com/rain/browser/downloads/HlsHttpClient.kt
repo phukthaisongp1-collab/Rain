@@ -9,7 +9,6 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URI
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
@@ -26,12 +25,14 @@ object HlsHttpClient {
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .dns(Dns { hostname ->
-                Dns.SYSTEM.lookup(hostname).also { addresses ->
-                    require(addresses.isNotEmpty()) {
-                        "ไม่สามารถค้นหา IP ของ HLS Host ได้"
+            .dns(object : Dns {
+                override fun lookup(hostname: String): List<InetAddress> {
+                    return Dns.SYSTEM.lookup(hostname).also { addresses ->
+                        require(addresses.isNotEmpty()) {
+                            "ไม่สามารถค้นหา IP ของ HLS Host ได้"
+                        }
+                        addresses.forEach(::requirePublicAddress)
                     }
-                    addresses.forEach(::requirePublicAddress)
                 }
             })
             .addNetworkInterceptor { chain ->
@@ -88,39 +89,38 @@ object HlsHttpClient {
                             nextUrl.startsWith("https://", ignoreCase = true)
                     ) { "ไม่อนุญาตให้ HLS Redirect ลดระดับจาก HTTPS เป็น HTTP" }
                     currentUrl = nextUrl
-                    return@use null
-                }
-
-                require(response.code == 200) {
-                    "ไม่สามารถดึง HLS resource ได้ (HTTP ${response.code})"
-                }
-                val body = response.body
-                    ?: throw IllegalArgumentException("HLS response ไม่มีข้อมูล")
-                val declaredLength = body.contentLength()
-                require(declaredLength < 0L || declaredLength <= maximumBytes.toLong()) {
-                    "HLS resource มีขนาดเกินขีดจำกัดที่รองรับ"
-                }
-                val bytes = body.byteStream().use { input ->
-                    val output = ByteArrayOutputStream(minOf(maximumBytes, 64 * 1024))
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var total = 0
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        require(count <= maximumBytes - total) {
-                            "HLS resource มีขนาดเกินขีดจำกัดที่รองรับ"
-                        }
-                        total += count
-                        output.write(buffer, 0, count)
+                } else {
+                    require(response.code == 200) {
+                        "ไม่สามารถดึง HLS resource ได้ (HTTP ${response.code})"
                     }
-                    output.toByteArray()
+                    val body = response.body
+                        ?: throw IllegalArgumentException("HLS response ไม่มีข้อมูล")
+                    val declaredLength = body.contentLength()
+                    require(declaredLength < 0L || declaredLength <= maximumBytes.toLong()) {
+                        "HLS resource มีขนาดเกินขีดจำกัดที่รองรับ"
+                    }
+                    val bytes = body.byteStream().use { input ->
+                        val output = ByteArrayOutputStream(minOf(maximumBytes, 64 * 1024))
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var total = 0
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            require(count <= maximumBytes - total) {
+                                "HLS resource มีขนาดเกินขีดจำกัดที่รองรับ"
+                            }
+                            total += count
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    }
+                    return FetchedResponse(
+                        finalUrl = currentUrl,
+                        statusCode = response.code,
+                        contentType = body.contentType()?.toString().orEmpty(),
+                        body = bytes
+                    )
                 }
-                return FetchedResponse(
-                    finalUrl = currentUrl,
-                    statusCode = response.code,
-                    contentType = body.contentType()?.toString().orEmpty(),
-                    body = bytes
-                )
             }
         }
         throw IllegalArgumentException("ไม่สามารถตรวจสอบ HLS Redirect ได้")
