@@ -157,19 +157,19 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 | Day 36 | TS/fMP4 assembly, MediaExtractor/MediaMuxer remux และ output validation | เสร็จ; Push/PR CI ผ่าน |
 | Day 37 | HLS repository lifecycle, dataSync Foreground Service, Library, notifications และ recovery | เสร็จ; Push/PR CI ผ่าน |
 | Day 38 | HLS security review และข้อความปฏิเสธ DRM/token/login/Cloudflare/DASH/live | เสร็จ; Push/PR CI ผ่าน |
-| Day 39 | Stabilization และปรับ execution plan/ข้อจำกัดให้ตรงโค้ดจริง | แก้เอกสารแล้ว; Push ผ่าน, PR CI ยังทำงาน |
-| Day 40–41 | Integration + Regression รอบเดียว รวม Direct/HLS และ browser/download regression | ยังไม่เริ่ม — รอ Day 39 CI ผ่านทั้งคู่ |
-| Day 42 | Targeted fixes จากผล Day 40–41 เท่านั้น | ยังไม่เริ่ม |
-| Day 43 | Pre-Acceptance CI, manifest/schema/signing/docs audit | ยังไม่เริ่ม |
+| Day 39 | Stabilization และปรับ execution plan/ข้อจำกัดให้ตรงโค้ดจริง | เสร็จ — Push/PR CI ผ่าน |
+| Day 40–41 | Integration + Regression รอบเดียว รวม Direct/HLS และ browser/download regression | เพิ่ม regression suite ครอบคลุม HLS parser/URL registry, managed paths, media container และ VideoRepository lifecycle; รอ CI รอบรวม |
+| Day 42 | Targeted fixes จากผล Day 40–41 เท่านั้น | ตรวจทานเส้นทางหลักและข้อจำกัดแล้ว; ยังไม่พบ defect ที่ยืนยันได้จาก static review; รอผล regression CI |
+| Day 43 | Pre-Acceptance CI, manifest/schema/signing/docs audit | ตรวจ static audit และอัปเดต checklist แล้ว; รอ CI รอบรวม; ลายเซ็น APK จริงคงตรวจใน Day44 |
 | Day 44 | ทดสอบบนโทรศัพท์ Android 16 เครื่องจริงและ Final Acceptance | ยังไม่เริ่ม |
 
 ### 6.2 หลักฐาน CI ล่าสุด
 
-- Day 39 progress-tracker commit: `da9006935bcba6282fc4db0f8988c960e6af1e39`
-- Push #46134189635: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134189635 — **Queued ณ เวลาปรับปรุงเอกสาร**
-- PR #46134193747: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134193747 — **In progress ณ เวลาปรับปรุงเอกสาร**
+- Day 39 progress-tracker commit: `b3caac4bccb502ac9204b4a7cb3ae64dd037fe1e`
+- Push #46134224256: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134224256 — **Success**
+- PR #46134229190: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134229190 — **Success**
 - PR #45: Draft, ยังไม่ Merge
-- Day 39 จะถือว่าปิดได้ต่อเมื่อ Push และ PR CI ของ commit ล่าสุดผ่านทั้งคู่เท่านั้น
+- Day 39 ปิดแล้ว
 
 ### หลักฐาน CI สำหรับ Day 8
 
@@ -178,6 +178,33 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 - Real-site probe บันทึกว่า 037-hdd.com และ nunghd4k.com โหลดหน้าเริ่มต้นได้แต่ไม่พบ Video DOM; fwip-tv.com/visionquest แสดง Cloudflare Challenge
 - ผลดังกล่าวเป็นข้อจำกัดของการตรวจเว็บจริงในสถานะเริ่มต้น ไม่ใช่ข้อสรุปว่าเว็บไซต์ไม่มีวิดีโอ และไม่มีการพยายามข้าม Challenge
 - CI ผ่านตามเกณฑ์ทดสอบที่ควบคุมได้และบันทึกข้อจำกัดครบตามเงื่อนไขใหม่ ไม่ใช่การรับประกันการตรวจจับหรือดาวน์โหลดสื่อทุกประเภทจากทุกเว็บไซต์
+
+### 6.3 งานรวม Day 40–43 และ Pre-Acceptance Checklist
+
+ดำเนิน Day 40–43 เป็นชุดงานเดียวและใช้ CI รอบรวมเพียงครั้งเดียวตามคำสั่งเจ้าของโครงการ โดยยังต้องให้ Push และ PR workflow ของ commit เดียวกันผ่านทั้งคู่ก่อนปิดช่วงงาน
+
+**Regression suite ที่เพิ่ม:** `app/src/test/java/com/rain/browser/downloads/HlsOfflineRegressionTest.kt`
+
+- Master playlist: variants, bandwidth/resolution, codecs และ relative URL resolution
+- Media playlist: media sequence, segment duration, ENDLIST, AES-128 key/IV และ EXT-X-MAP
+- Fail-closed: live playlist, SAMPLE-AES/DRM key format, byte-range, invalid IV, separate audio rendition, Low-Latency parts และเกิน 20,000 segments
+- URL policy: credential/token/local-network rejection และ HTTP(S) candidate detection จาก path/query โดยไม่จับ MP4 หรือ blob URL
+- Registry: deduplication, maximum entries และ clear เมื่อเปลี่ยนหน้า
+- File safety: managed path containment และ MP4/WebM container signature
+- Repository lifecycle: HLS queue/download/verify/READY, progress แบบ monotonic, shared 4 GiB cap, checksum, Like/Unlike/expiry, playback resume/completion และ cancel/retry
+- Migration regression เดิมยังคงอยู่ใน `StorageMigrationTest` เพื่อยืนยันข้อมูล bookmarks/history/resume/settings และการสร้าง videos table
+
+**Static Pre-Acceptance audit:**
+
+- Application ID ยังคงเป็น `com.rain.browser`; compile/target SDK 36 และ Java toolchain ตาม baseline
+- Manifest มี HLS service แบบ `exported=false` และ `foregroundServiceType=dataSync`; permissions Foreground Service ที่อนุมัติยังคงเป็น `FOREGROUND_SERVICE` และ `FOREGROUND_SERVICE_DATA_SYNC`
+- Database ยังคง Schema Version 3; HLS ใช้ `videos` table เดิม ไม่มี migration/table เพิ่ม และ migration เดิมเป็น additive-only
+- Release signing configuration ยังคงรับค่าจาก environment variables; fingerprint ที่ต้องรักษายังคงบันทึกไว้ในเอกสาร
+- Workflow CI ปัจจุบันรัน `lint`, `testDebugUnitTest` และ `assembleDebug`; ไม่ได้สร้าง Release APK ด้วย signing secrets ดังนั้นยังไม่อ้างว่าตรวจลายเซ็น APK จริงแล้ว ต้องตรวจ artifact/signature ใน Day44 ก่อน Final Acceptance
+- ไม่มีการทดสอบบนโทรศัพท์จริงในช่วงนี้; การทำงานเบื้องหลัง, codec/device compatibility, notification behavior และการติดตั้งทับบนเครื่องจริงยังเป็น Day44
+- ไม่เพิ่ม dependency, permission, Media3, schema migration, network credential forwarding หรือ DRM/token bypass
+
+**สถานะก่อน CI:** เพิ่ม tests และ checklist แล้ว; ยังไม่ถือว่า Day 40–43 ปิดจนกว่า CI รอบรวม Push และ PR จะผ่านทั้งคู่
 
 ## 7. เงื่อนไขการปิดโครงการ
 
