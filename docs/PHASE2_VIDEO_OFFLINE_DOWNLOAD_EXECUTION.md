@@ -26,45 +26,36 @@
 - ไม่แสดง Popup ดาวน์โหลดเพียงเพราะตรวจพบหรือเล่นวิดีโอได้
 - แอปควรแจ้งผู้ใช้ให้ดาวน์โหลดเฉพาะสื่อที่ตนมีสิทธิ์ใช้งาน
 
-## 2. แผนดำเนินงาน 35 วัน
+## 2. แผนดำเนินงาน 44 วัน (ฉบับปัจจุบัน)
 
 | วัน | งานที่ต้องดำเนินการ | สถานะ |
 |---|---|---|
-| 1–7 | WebView/Media Callbacks, Download Policy, Storage, ตรวจจับ HTML5 Video, สัญญาณโฆษณา, Direct MP4 | เสร็จ |
-| 8 | ปิด Detection Feasibility Gate ตามเงื่อนไขใหม่ (หัวข้อ 3) | ปิดตามเงื่อนไขใหม่ |
-| 9 | Download Core Foundation + SQLite Schema v2 → v3 (เพิ่มตาราง `videos` แบบ additive-only และออกแบบคอลัมน์ให้รองรับ Day 19–30 ครบในครั้งเดียว) | ปิดแล้ว — CI 97/97 ผ่าน รวม `StorageMigrationTest` |
-| 10 | Direct MP4 Download + รวม Detection Hook ขั้นต่ำ (ผู้ใช้สั่งเอง) | ปิดแล้ว — CI Build/Lint ผ่าน |
+| 1–7 | WebView/Media callbacks, Download Policy, Storage, HTML5 Video detection, ad signals, Direct MP4 foundation | เสร็จตามเกณฑ์ Day 8 ที่ปรับปรุง |
+| 8 | Detection feasibility gate และบันทึกข้อจำกัดเว็บไซต์จริง | ปิดตามเงื่อนไขใหม่ |
+| 9 | Download Core Foundation และ SQLite Schema v3 แบบ additive-only | ปิดแล้ว |
+| 10–18 | Direct MP4/WebM detection, validation, DownloadManager lifecycle, notifications และ recovery | ปิดแล้ว |
+| 19–31 | Video Library, offline player, metadata, Like/Unlike, expiry, checksum, storage cap และ DownloadManager recovery | ปิดแล้ว |
+| 32 | ตรวจจับ HLS จาก URL ใน shouldInterceptRequest และรวมรายการกับ DOM scan | ปิดแล้ว — CI Push/PR ผ่าน |
+| 33 | Parse Master/Media playlist และปฏิเสธรูปแบบที่ไม่รองรับ | ปิดแล้ว — CI Push/PR ผ่าน |
+| 34 | HLS transport, DNS/connected-IP validation และ redirect controls | ปิดแล้ว — CI Push/PR ผ่าน |
+| 35 | ดาวน์โหลด segments, AES-128, retry และ resumable chunks | ปิดแล้ว — CI Push/PR ผ่าน |
+| 36 | ประกอบ TS/fMP4, remux MP4 และตรวจสอบ output | ปิดแล้ว — CI Push/PR ผ่าน |
+| 37 | HLS lifecycle, foreground service, Library, notifications และ process recovery | ปิดแล้ว — CI Push/PR ผ่าน |
+| 38 | Security review และ unsupported-source behavior | ปิดแล้ว — CI Push/PR ผ่าน |
+| 39 | Stabilization, ตรวจความสอดคล้องของเอกสาร และ Pre-Regression handoff | กำลังดำเนินการ |
+| 40–41 | Integration + Regression รอบเดียว ครอบคลุม Direct/HLS, lifecycle, recovery, security และ regression ของ browser/download เดิม | ยังไม่เริ่ม |
+| 42 | แก้ไขเฉพาะปัญหาที่พบจาก Day 40–41 และรันทดสอบซ้ำเฉพาะส่วนที่แก้ | ยังไม่เริ่ม |
+| 43 | Pre-Acceptance CI, ตรวจหลักฐาน build/lint, manifest, schema, signing และเอกสารข้อจำกัด | ยังไม่เริ่ม |
+| 44 | ทดสอบบนโทรศัพท์ Android 16 เครื่องจริงและ Final Acceptance | รอทดสอบ |
+
+กติกา CI: ทุกวันต้องให้ Push และ PR CI ผ่านทั้งคู่ก่อนเริ่มวันถัดไป; จำกัดรอบซ่อม CI ไม่เกิน 2 รอบต่อวัน; PR #45 คงสถานะ Draft และห้าม Merge จนกว่าจะได้รับอนุมัติอย่างชัดเจน
+
 ### 2.4 ข้อจำกัดของ Detection Hook ขั้นต่ำ
 
 - รองรับเฉพาะ URL วิดีโอ MP4/WebM แบบ Direct ที่เปิดเผยจากองค์ประกอบ `<video>` หรือ `<source>` และต้องผ่านการตรวจ MIME/container จาก Source Validator ก่อนดาวน์โหลด
 - ไม่มีการแยกโฆษณาอัตโนมัติ และไม่รับประกันว่าวิดีโอที่ตรวจพบเป็นเนื้อหาหลักของหน้า
 - ไม่รองรับ `blob:`, `data:`, Media Source Extensions (MSE), stream segments หรือแหล่งที่ไม่สามารถตรวจสอบ URL โดยตรงได้
 - ไม่รับประกันการตรวจจับหรือดาวน์โหลดได้จากทุกเว็บไซต์ โดยการตรวจจับเกิดขึ้นเมื่อผู้ใช้สั่งจากเมนูเท่านั้น ไม่มี Popup อัตโนมัติเมื่อพบหรือเล่นวิดีโอ
-
-| 11 | Direct WebM Download ผ่าน Detection Hook และ Download Core เดิม โดยตรวจ MIME/container จริง | ปิดแล้ว — CI Build/Lint ผ่าน |
-| 12 | เลือกคุณภาพเฉพาะเมื่อ Source เดียวกันมีหลาย variant ที่ระบุคุณภาพ/ความละเอียดได้จริง | ปิดแล้ว — CI Build/Lint ผ่าน |
-| 13 | Dialog รายการดาวน์โหลดวิดีโอ แสดงชื่อ สถานะ และเปอร์เซ็นต์ พร้อม refresh ทุก 1.5 วินาทีขณะเปิด | ปิดแล้ว — CI Run #46099702278 ผ่าน |
-| 14 | ยกเลิกงานที่ยังทำงาน และดาวน์โหลดใหม่สำหรับรายการล้มเหลว/ถูกยกเลิก โดยตรวจสอบและลบเฉพาะไฟล์เดิมใน RAIN | กำลังดำเนินการ |
-| 15 | ใช้ Android DownloadManager ทำงานต่อเบื้องหลังโดยไม่เพิ่ม Foreground Service หรือ Permission ใหม่ | ปิดแล้ว — CI Run #46100166799 ผ่าน |
-| 16 | แสดงสถานะรอเครือข่ายจาก DownloadManager; ใช้ If-Match/If-Unmodified-Since จาก ETag/Last-Modified และเมื่อ Source เปลี่ยนให้การ Resume ถูกปฏิเสธ จากนั้น Retry จะลบ partial ใน RAIN และตรวจ Source ใหม่ก่อนเริ่มจากต้น | ปิดแล้ว — CI Run #46100436441 ผ่าน |
-| 17 | เมื่อเริ่มแอปให้เทียบรายการใน `videos` กับ DownloadManager ผ่าน `download_id`; งานที่ไม่มี system request จะถูกทำเครื่องหมาย FAILED และลบ partial เฉพาะใน RAIN; orphan DownloadManager request จะถูกลบเฉพาะเมื่อยืนยัน local path อยู่ใน RAIN (ตำแหน่งไม่ทราบจะไม่แตะต้อง) | ปิดแล้ว — CI Run #46100857529 ผ่าน |
-| 18 | ขอสิทธิ์ `POST_NOTIFICATIONS` ในการดาวน์โหลดครั้งแรก; รับ `ACTION_DOWNLOAD_COMPLETE` แล้วตรวจผลผ่าน Download Core ก่อนส่งการแจ้งเตือนสำเร็จ/ล้มเหลว โดยใช้การแจ้งเตือนของ DownloadManager เฉพาะระหว่างดาวน์โหลดเพื่อไม่ให้แจ้งเตือนเสร็จซ้ำ; แตะการแจ้งเตือนเพื่อเปิด Dialog รายการดาวน์โหลดเดิม | กำลังดำเนินการ |\n\nหมายเหตุ Dialog ดาวน์โหลดวิดีโอใน Day 13–18 เป็น UI ชั่วคราว เปิดจากเมนูเบราว์เซอร์เดิมหรือแตะการแจ้งเตือนของ RAIN เท่านั้น ไม่มี Activity ใหม่ และจะถูกแทนที่ใน Day 19 เมื่อเริ่ม Video Library; หากผู้ใช้ปฏิเสธ/ปิดสิทธิ์การแจ้งเตือน ระบบยังดาวน์โหลดต่อได้ แต่ Android จะไม่แสดงการแจ้งเตือนจาก RAIN\n
-| 19 | สร้าง Video Library | ยังไม่เริ่ม |
-| 20 | บันทึกและอัปเดตข้อมูลวิดีโอใน Library โดยใช้ตาราง `videos` ที่สร้างใน Day 9 (ไม่มี Migration เพิ่ม) | ยังไม่เริ่ม |
-| 21 | แสดงรายการวิดีโอและรายละเอียด | ยังไม่เริ่ม |
-| 22 | เล่นวิดีโอแบบ Offline | ยังไม่เริ่ม |
-| 23 | จัดการสถานะและการเล่นวิดีโอ | ยังไม่เริ่ม |
-| 24 | ระบบ Like | ยังไม่เริ่ม |
-| 25 | ระบบ Unlike | ยังไม่เริ่ม |
-| 26 | ลบวิดีโอเก่าอัตโนมัติ 30 วัน | ยังไม่เริ่ม |
-| 27 | ตรวจสอบความสมบูรณ์ของไฟล์ | ยังไม่เริ่ม |
-| 28 | ตรวจสอบความปลอดภัยของไฟล์และ Source | ยังไม่เริ่ม |
-| 29 | จัดการพื้นที่จัดเก็บ | ยังไม่เริ่ม |
-| 30 | กู้คืนข้อมูลและ Storage Recovery | ยังไม่เริ่ม |
-| 31–32 | Integration + Regression Test (รอบเดียวรวมกัน) | ยังไม่เริ่ม |
-| 33 | แก้ไขปัญหาที่พบและทดสอบซ้ำเฉพาะส่วนที่แก้ | ยังไม่เริ่ม |
-| 34 | Pre-Acceptance CI และตรวจหลักฐาน | ยังไม่เริ่ม |
-| 35 | ทดสอบบนโทรศัพท์ Android 16 เครื่องจริงและ Final Acceptance | รอทดสอบ |
 
 ### 2.1 ขอบเขตการทำงาน Day 9 และการนำโค้ดจาก PR #40 มาใช้
 
@@ -254,7 +245,7 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - A candidate is recorded when the HTTP(S) URL path or a decoded query-parameter value contains `.m3u8`, case-insensitively. Candidate URLs are deduplicated and held in a thread-safe per-WebView registry capped at 200 entries. The registry is cleared on each main-frame page start and when the tab/WebView is destroyed.
 - Only URL strings are retained; Cookie, Authorization, Referer, and request headers are not stored.
 - The existing direct MP4/WebM DOM scan and intercepted HLS candidates appear in one user selection list. HLS is fetched only after the user selects it and confirms authorization.
-- The selected playlist is fetched by RAIN using a separate `HttpURLConnection` request with only a generic User-Agent, no page credentials, no automatic redirects, and a 1 MiB response limit. The content must begin with `#EXTM3U`; Content-Type is not used as a substitute for playlist validation.
+- The selected playlist is fetched by RAIN through the HLS-only `HlsHttpClient` transport, with a generic User-Agent, no page credentials, manual validated redirects, actual connected-IP checks, and a 1 MiB response limit. The content must begin with `#EXTM3U`; Content-Type is not used as a substitute for playlist validation.
 - **Accepted discovery limitation:** HLS playlists whose URL path and query-parameter values do not contain `.m3u8` are not detected. The selected-fetch implementation currently rejects redirects; controlled redirect handling is added in the later HLS network-hardening day.
 
 ### Day 33 — HLS Master/Media playlist parsing
@@ -270,7 +261,7 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - Added OkHttp 4.12.0 as the approved HLS-only transport dependency. It is a stable release from 2023 and is older than the required two-week minimum. Direct MP4/WebM DownloadManager networking remains unchanged.
 - `HlsHttpClient` screens every DNS answer before connecting and, in an OkHttp network interceptor, checks the actual connected socket's remote IP address before the HTTP request is sent. Private, loopback, link-local, shared-address, documentation, benchmark, multicast, and other non-public ranges are rejected; IPv6 is restricted to screened global-unicast space.
 - Redirects are followed manually, at most five times. Every redirect target is revalidated and HTTPS-to-HTTP downgrade is rejected. Automatic redirects and connection retry are disabled.
-- Playlist fetches now use this transport. Segment and AES key requests in the next day must use the same `HlsHttpClient` entry point so each actual socket destination is checked.
+- Playlist, segment, initialization-map, and AES key requests all use this transport, so each actual socket destination is checked.
 - Requests contain only a generic RAIN User-Agent, Accept, identity encoding, and Connection headers. No WebView Cookie, Authorization, Referer, or other page headers are copied; no cookie jar is configured.
 - HTTP 401/403 fails with the exact user message: `เว็บนี้จำกัดการดาวน์โหลด ไม่รองรับ`.
 
@@ -326,3 +317,14 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - The accepted DNS-rebinding limitation is removed for the HLS transport path by validating DNS answers and the actual connected socket for every new request, including redirects. This does not change the direct MP4/WebM Android DownloadManager path: its post-preflight DNS/redirect limitation remains explicitly accepted and documented.
 - Cloudflare challenges, login pages, paywalls, DRM, and authentication requirements are not bypassed. The HLS URL discovery limitation remains: a playlist whose URL path and query values do not contain `.m3u8` is not discovered by the approved interception rule.
 - No new permissions, dependencies, schema migrations, tests, or changes to the generic browser DownloadManager pipeline were introduced for this security review. Regression fixtures and negative security tests remain scheduled for Days 40–41.
+
+### Day 39 — stabilization and Pre-Regression handoff
+
+- Reconciled the execution schedule to the approved 44-day plan. Days 32–38 are recorded as completed only after both Push and PR CI passed; Day 39 is documentation/stabilization, Days 40–41 are the single planned Integration + Regression window, Day 42 is evidence-driven fixes, Day 43 is Pre-Acceptance, and Day 44 is physical-device acceptance.
+- Corrected historical Day 32/34 transport notes so they describe the final implementation: all selected playlist, key, initialization-map, and segment network requests use the HLS-only `HlsHttpClient`, not the earlier `HttpURLConnection` prototype.
+- No new database table, migration, permission, network credential flow, Media3 dependency, WorkManager dependency, or generic DownloadManager pipeline change is part of Day 39.
+- HLS support is intentionally limited to finite VOD playlists with `EXT-X-ENDLIST`, clear media or identity AES-128, supported TS or one stable fMP4 initialization map, and codecs accepted by the Android platform extractor/muxer. Multiple or changing initialization maps, mixed mapped/unmapped segments, separate audio renditions, byte-range forms, SAMPLE-AES/DRM, live HLS, DASH/MPD, and unsupported codecs are not supported.
+- HLS discovery remains URL-based: only HTTP(S) requests whose path or decoded query-parameter value contains `.m3u8` are candidates; no content-type probing or extra preselection request is made. Blob/MSE playback and URLs that hide the playlist endpoint remain outside the detection contract.
+- Direct MP4/WebM continues to use Android DownloadManager. Its previously accepted DNS/redirect and app-closed 4 GiB polling-enforcement limitations remain; the stricter DNS answer and connected-socket validation applies only to the HLS-owned transport.
+- The CI pipeline verifies Android lint and debug assembly, not actual codec compatibility, foreground-service timing, notification delivery, or real-world HLS media behavior. Those runtime and media-fixture checks are explicitly deferred to Days 40–41; physical Android 16 validation remains Day 44.
+- PR #45 remains Draft and unmerged. No release signing, version bump, or physical-device acceptance is claimed by Day 39.
