@@ -37,6 +37,8 @@ data class VideoRecord(
     val lastModified: String,
     val checksumSha256: String,
     val authorizationConfirmed: Boolean,
+    val lastOpenedAt: Long?,
+    val playbackPositionMs: Long,
     val createdAt: Long,
     val updatedAt: Long
 )
@@ -85,6 +87,8 @@ class VideoRepository(
             lastModified = "",
             checksumSha256 = "",
             authorizationConfirmed = true,
+            lastOpenedAt = null,
+            playbackPositionMs = 0L,
             createdAt = now,
             updatedAt = now
         )
@@ -271,6 +275,8 @@ class VideoRepository(
             "last_modified" to record.lastModified,
             "checksum_sha256" to record.checksumSha256.take(64),
             "authorization_confirmed" to if (record.authorizationConfirmed) "1" else "0",
+            "last_opened_at" to record.lastOpenedAt?.toString().orEmpty(),
+            "playback_position_ms" to record.playbackPositionMs.toString(),
             "created_at" to record.createdAt.toString(),
             "updated_at" to record.updatedAt.toString()
         ))
@@ -298,6 +304,8 @@ class VideoRepository(
             lastModified = getValue("last_modified"),
             checksumSha256 = getValue("checksum_sha256"),
             authorizationConfirmed = getValue("authorization_confirmed") == "1",
+            lastOpenedAt = get("last_opened_at")?.toLongOrNull(),
+            playbackPositionMs = getValue("playback_position_ms").toLong(),
             createdAt = getValue("created_at").toLong(),
             updatedAt = getValue("updated_at").toLong()
         )
