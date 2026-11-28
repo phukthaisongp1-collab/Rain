@@ -164,7 +164,7 @@ class VideoRepository(
             bytesDownloaded = file.length(),
             status = VideoStatus.READY,
             downloadedAt = now,
-            expiresAt = null,
+            expiresAt = if (current.isLiked) null else now + VIDEO_RETENTION_MILLIS,
             lastError = "",
             updatedAt = now
         )
@@ -324,5 +324,6 @@ class VideoRepository(
         const val MAX_HEADER_LENGTH = 1024
         const val MAX_ERROR_LENGTH = 512
         const val CONTAINER_PREFIX_BYTES = 32
+        const val VIDEO_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1000L
     }
 }
