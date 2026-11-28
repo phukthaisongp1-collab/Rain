@@ -264,3 +264,12 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - AES-128 IV is validated as 128-bit hexadecimal when supplied. Actual key retrieval and decryption are implemented in the segment-download stage.
 - The parser rejects playlists with more than 20,000 segments, live playlists without `EXT-X-ENDLIST`, `SAMPLE-AES`, non-identity DRM key formats, HLS session keys, unsupported byte ranges, separate audio renditions, I-frame playlists, Low-Latency/delta playlist tags, content steering, variable substitution, and segment gaps.
 - This day parses and summarizes the selected playlist; it does not yet download media segments or decrypt AES-128. Network redirect and connected-IP enforcement is completed in Day 34.
+
+### Day 34 — HLS request validation and redirect controls
+
+- Added OkHttp 4.12.0 as the approved HLS-only transport dependency. It is a stable release from 2023 and is older than the required two-week minimum. Direct MP4/WebM DownloadManager networking remains unchanged.
+- `HlsHttpClient` screens every DNS answer before connecting and, in an OkHttp network interceptor, checks the actual connected socket's remote IP address before the HTTP request is sent. Private, loopback, link-local, shared-address, documentation, benchmark, multicast, and other non-public ranges are rejected; IPv6 is restricted to screened global-unicast space.
+- Redirects are followed manually, at most five times. Every redirect target is revalidated and HTTPS-to-HTTP downgrade is rejected. Automatic redirects and connection retry are disabled.
+- Playlist fetches now use this transport. Segment and AES key requests in the next day must use the same `HlsHttpClient` entry point so each actual socket destination is checked.
+- Requests contain only a generic RAIN User-Agent, Accept, identity encoding, and Connection headers. No WebView Cookie, Authorization, Referer, or other page headers are copied; no cookie jar is configured.
+- HTTP 401/403 fails with the exact user message: `เว็บนี้จำกัดการดาวน์โหลด ไม่รองรับ`.
