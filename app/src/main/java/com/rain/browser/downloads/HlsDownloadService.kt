@@ -95,7 +95,7 @@ class HlsDownloadService : Service() {
     private fun processRecord(recordId: String) {
         val initial = repository.get(recordId) ?: return
         if (initial.mimeType != HLS_MEDIA_MIME_TYPE ||
-            initial.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING)
+            initial.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
         ) return
 
         val record = repository.startHlsTransfer(recordId) ?: return
