@@ -147,6 +147,7 @@ class VideoRepository(
     }
 
     /** Persists HLS progress while keeping the byte total unknown until remux completes. */
+    @Synchronized
     fun updateHlsProgress(
         id: String,
         bytesDownloaded: Long,
@@ -156,7 +157,7 @@ class VideoRepository(
         val current = get(id) ?: return null
         if (current.mimeType != HLS_MEDIA_MIME_TYPE || current.status != VideoStatus.DOWNLOADING) return null
         return current.copy(
-            bytesDownloaded = bytesDownloaded,
+            bytesDownloaded = maxOf(current.bytesDownloaded, bytesDownloaded),
             updatedAt = now
         ).also(::persist)
     }
