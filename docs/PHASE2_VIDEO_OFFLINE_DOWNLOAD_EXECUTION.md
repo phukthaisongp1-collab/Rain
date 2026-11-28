@@ -232,3 +232,11 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - Captions, HLS playback and quality selection: intentionally not implemented.
 - Runtime acceptance/performance on physical Android 16 device remains pending Day 44.
 
+### Day 30 — Storage capacity and recurring 4 GB enforcement
+
+- Before enqueue, RAIN checks usable space in the RAIN-managed Movies directory. A known Content-Length requires that amount plus a 100 MiB safety margin; an unknown Content-Length reserves the full 4 GiB cap plus the same margin.
+- The same 4 GiB constant remains shared with HLS. The storage preflight is a disk-space guard, not a guarantee that Android DownloadManager cannot temporarily exceed the limit.
+- On app startup, the coordinator reconciles all active direct downloads and checks the latest DownloadManager byte count and reported total against 4 GiB. The Library refresh loop repeats the check for every active record, including records whose Preflight did not report a size.
+- When an active request is observed above the cap, RAIN removes the DownloadManager request, deletes the partial file only after ManagedVideoPathPolicy confirms it is inside RAIN storage, and marks the record FAILED.
+- The Library displays the aggregate size of all READY local videos.
+- **Accepted limitation:** Direct DownloadManager enforcement depends on RAIN's app refresh/recovery cycles. While the app is closed, Android DownloadManager can continue transferring independently, so a file may temporarily exceed 4 GiB before RAIN next runs and observes the excess. This is not a hard byte-level network cutoff.
