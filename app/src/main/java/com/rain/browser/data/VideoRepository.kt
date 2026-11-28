@@ -13,7 +13,8 @@ enum class VideoStatus {
     READY,
     FAILED,
     FAILED_CORRUPTED,
-    CANCELED
+    CANCELED,
+    MISSING
 }
 
 data class VideoRecord(
@@ -270,6 +271,21 @@ class VideoRepository(
             return null
         }
         return failCorrupted(current, reason.trim().take(MAX_ERROR_LENGTH), now, file)
+    }
+
+    fun markMissing(
+        id: String,
+        reason: String = "Video file is missing from RAIN storage.",
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            status = VideoStatus.MISSING,
+            lastError = reason.trim().take(MAX_ERROR_LENGTH),
+            updatedAt = now
+        ).also(::persist)
     }
 
     fun markFailed(id: String, reason: String, now: Long = System.currentTimeMillis()): VideoRecord? {
