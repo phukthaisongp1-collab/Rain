@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.WindowManager
 import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -45,10 +44,17 @@ class UpdateGateActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        )
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            setPadding(32, 32, 32, 32)
+            addView(ProgressBar(this@UpdateGateActivity))
+            addView(TextView(this@UpdateGateActivity).apply {
+                text = "กำลังตรวจสอบการอัปเดต RAIN"
+                setPadding(0, 20, 0, 0)
+            })
+        }
+        setContentView(content)
         checkForUpdate()
     }
 
