@@ -64,7 +64,16 @@ import com.rain.browser.data.HistoryRepository
 import com.rain.browser.data.SettingsRepository
 import com.rain.browser.data.ResumeRepository
 import com.rain.browser.data.VideoRepository
+import com.rain.browser.data.HLS_MEDIA_MIME_TYPE
+import com.rain.browser.library.VideoLibraryActivity
 import com.rain.browser.downloads.VideoDownloadCoordinator
+import com.rain.browser.downloads.HlsDownloadService
+import com.rain.browser.downloads.HlsPlaylistRegistry
+import com.rain.browser.downloads.HlsPlaylistFetcher
+import com.rain.browser.downloads.HlsPlaylistParser
+import com.rain.browser.downloads.HlsParsedPlaylist
+import com.rain.browser.downloads.HlsVariant
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
 import androidx.core.view.WindowCompat
@@ -93,6 +102,8 @@ class MainActivity : Activity(), WebViewCallbacks {
     private var videoDownloadCoordinator: VideoDownloadCoordinator? = null
     private var pendingVideoDownload: PendingVideoDownload? = null
     private val storageExecutor = Executors.newSingleThreadExecutor()
+    private val hlsExecutor = Executors.newSingleThreadExecutor()
+    private val hlsPlaylistRegistries = ConcurrentHashMap<WebView, HlsPlaylistRegistry>()
     private val systemBackCallback = OnBackInvokedCallback { handleSystemBack() }
     private var fullscreenCustomView: View? = null
     private var fullscreenCustomViewCallback: WebChromeClient.CustomViewCallback? = null
@@ -139,6 +150,12 @@ class MainActivity : Activity(), WebViewCallbacks {
         val qualityLabel: String
     )
 
+    private data class DetectedMediaOption(
+        val label: String,
+        val directSource: DetectedVideoSource? = null,
+        val hlsUrl: String? = null
+    )
+
     private enum class VideoFitMode { FIT, CROP }
 
     private var videoFitMode = VideoFitMode.FIT
@@ -172,6 +189,20 @@ class MainActivity : Activity(), WebViewCallbacks {
                 managedVideoDirectory
             )
         }
+        videoDownloadCoordinator?.let { coordinator ->
+            storageExecutor.execute {
+                runCatching { coordinator.reconcileAll() }
+                val hasRecoverableHls = videoRepository?.list()?.any {
+                    it.mimeType == HLS_MEDIA_MIME_TYPE &&
+                        it.status in setOf(
+                            com.rain.browser.data.VideoStatus.QUEUED,
+                            com.rain.browser.data.VideoStatus.DOWNLOADING,
+                            com.rain.browser.data.VideoStatus.VERIFYING
+                        )
+                } == true
+                if (hasRecoverableHls) runCatching { HlsDownloadService.recover(this@MainActivity) }
+            }
+        }
         videoFitMode = runCatching {
             VideoFitMode.valueOf(
                 getSharedPreferences(VIDEO_DISPLAY_PREFS, MODE_PRIVATE)
@@ -186,12 +217,6 @@ class MainActivity : Activity(), WebViewCallbacks {
         bindActions()
         restoreTabs(savedInstanceState)
         handleVideoNotificationIntent(intent)
-        // Day 19 replaces the temporary download dialog; keep startup recovery in the Download Core.
-        videoDownloadCoordinator?.let { coordinator ->
-            storageExecutor.execute {
-                runCatching { coordinator.reconcileAll() }
-            }
-        }
         onBackInvokedDispatcher.registerOnBackInvokedCallback(
             OnBackInvokedDispatcher.PRIORITY_DEFAULT,
             systemBackCallback
@@ -329,34 +354,176 @@ class MainActivity : Activity(), WebViewCallbacks {
                 return@evaluateJavascript
             }
 
-            if (sources.isEmpty()) {
+            val hlsUrls = hlsPlaylistRegistries[webView]?.snapshot().orEmpty()
+            if (sources.isEmpty() && hlsUrls.isEmpty()) {
                 Toast.makeText(
                     this,
-                    "ไม่พบวิดีโอที่ดาวน์โหลดได้โดยตรงในหน้านี้",
+                    "ไม่พบวิดีโอหรือ HLS Playlist ที่รองรับในหน้านี้",
                     Toast.LENGTH_LONG
                 ).show()
                 return@evaluateJavascript
             }
 
-            val videoGroups = sources.groupBy { it.videoIndex }.values.toList()
-            if (videoGroups.size == 1) {
-                showVideoSourceOptions(videoGroups.first(), webView)
-            } else {
-                val labels = videoGroups.mapIndexed { index, group ->
-                    val first = group.first()
-                    "${index + 1}. ${first.title} (${group.size} source)"
-                }.toTypedArray()
-                AlertDialog.Builder(this)
-                    .setTitle("เลือกวิดีโอที่ต้องการดาวน์โหลด")
-                    .setItems(labels) { _, which ->
-                        videoGroups.getOrNull(which)?.let { group ->
-                            showVideoSourceOptions(group, webView)
-                        }
+            val options = buildList {
+                sources.forEach { source ->
+                    val dimensions = if (source.width > 0 && source.height > 0) {
+                        "${source.width}×${source.height}"
+                    } else {
+                        source.qualityLabel.ifBlank { "ไม่ทราบความละเอียด" }
                     }
-                    .setNegativeButton(R.string.dialog_cancel, null)
-                    .show()
+                    add(
+                        DetectedMediaOption(
+                            label = "MP4/WebM · ${source.title} · $dimensions\n${source.url}",
+                            directSource = source
+                        )
+                    )
+                }
+                hlsUrls.forEach { url ->
+                    val host = Uri.parse(url).host.orEmpty()
+                    add(
+                        DetectedMediaOption(
+                            label = "HLS Playlist · $host\n$url",
+                            hlsUrl = url
+                        )
+                    )
+                }
+            }
+
+            AlertDialog.Builder(this)
+                .setTitle("เลือกแหล่งวิดีโอหรือ HLS Playlist")
+                .setItems(options.map { it.label }.toTypedArray()) { _, which ->
+                    options.getOrNull(which)?.let { selected ->
+                        selected.directSource?.let { showVideoDownloadConfirmation(it, webView) }
+                        selected.hlsUrl?.let { showHlsDownloadConfirmation(it, pageTitle) }
+                    }
+                }
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show()
+        }
+    }
+
+    private fun showHlsDownloadConfirmation(url: String, pageTitle: String) {
+        AlertDialog.Builder(this)
+            .setTitle("ยืนยันสิทธิ์ในการดาวน์โหลด HLS")
+            .setMessage(
+                "โปรดยืนยันว่าคุณมีสิทธิ์ดาวน์โหลด Playlist นี้ RAIN จะดึง Playlist หลังจากคุณเลือกเท่านั้น " +
+                    "โดยไม่ส่ง Cookie, Authorization หรือ Referer จากเว็บไซต์"
+            )
+            .setPositiveButton("ยืนยันและตรวจสอบ Playlist") { _, _ ->
+                fetchAndParseHlsPlaylist(url, pageTitle)
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun fetchAndParseHlsPlaylist(url: String, pageTitle: String) {
+        val progress = AlertDialog.Builder(this)
+            .setTitle("กำลังตรวจสอบ HLS Playlist")
+            .setMessage("กำลังดึง Playlist โดยไม่ใช้ข้อมูลเข้าสู่ระบบจากเว็บไซต์")
+            .setCancelable(false)
+            .create()
+        progress.show()
+        hlsExecutor.execute {
+            val result = runCatching {
+                val playlist = HlsPlaylistFetcher.fetch(url)
+                playlist to HlsPlaylistParser.parse(playlist.finalUrl, playlist.content)
+            }
+            runOnUiThread {
+                progress.dismiss()
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (playlist, parsed) ->
+                    when (parsed) {
+                        is HlsParsedPlaylist.Master -> showHlsVariantOptions(parsed.variants, pageTitle)
+                        is HlsParsedPlaylist.Media -> showHlsMediaPlaylistSummary(
+                            playlist.finalUrl,
+                            pageTitle,
+                            parsed
+                        )
+                    }
+                }.onFailure { error ->
+                    AlertDialog.Builder(this)
+                        .setTitle("ไม่สามารถอ่าน HLS Playlist ได้")
+                        .setMessage(error.message ?: "ไม่สามารถตรวจสอบ Playlist นี้ได้")
+                        .setPositiveButton(R.string.dialog_close, null)
+                        .show()
+                }
             }
         }
+    }
+
+    private fun showHlsVariantOptions(variants: List<HlsVariant>, pageTitle: String) {
+        val labels = variants.mapIndexed { index, variant ->
+            "${index + 1}. ${variant.label}\n${variant.url}"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("เลือกคุณภาพ HLS")
+            .setItems(labels) { _, which ->
+                variants.getOrNull(which)?.let { fetchAndParseHlsPlaylist(it.url, pageTitle) }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun showHlsMediaPlaylistSummary(
+        playlistUrl: String,
+        pageTitle: String,
+        playlist: HlsParsedPlaylist.Media
+    ) {
+        val totalDuration = playlist.segments.sumOf { it.durationSeconds }
+        val encryptedSegments = playlist.segments.count { it.key?.method == "AES-128" }
+        val initializationSegments = playlist.segments.count { it.initializationMap != null }
+        val details = buildString {
+            appendLine("หน้า: $pageTitle")
+            appendLine("Playlist: $playlistUrl")
+            appendLine("Segments: ${playlist.segments.size}")
+            appendLine("ระยะเวลารวม: ${String.format(java.util.Locale.ROOT, "%.1f", totalDuration)} วินาที")
+            appendLine("AES-128: $encryptedSegments segments")
+            appendLine("fMP4 initialization map: $initializationSegments segments")
+            appendLine()
+            append("ตรวจสอบโครงสร้าง HLS สำเร็จ พร้อมเริ่มดาวน์โหลดหลังยืนยัน")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("HLS Playlist พร้อมดาวน์โหลด")
+            .setMessage(details)
+            .setPositiveButton("ยืนยันและดาวน์โหลด") { _, _ ->
+                val repository = videoRepository
+                if (repository == null) {
+                    Toast.makeText(this, "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                storageExecutor.execute {
+                    val created = runCatching {
+                        repository.enqueue(
+                            url = playlistUrl,
+                            title = pageTitle.ifBlank { "HLS Video" },
+                            mimeType = HLS_MEDIA_MIME_TYPE,
+                            userConfirmedPermission = true
+                        )
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        created.onSuccess { record ->
+                            runCatching { HlsDownloadService.start(this, record.id) }
+                                .onSuccess {
+                                    Toast.makeText(this, "เพิ่ม HLS ลงในคิวดาวน์โหลดแล้ว", Toast.LENGTH_LONG).show()
+                                    launchVideoLibrary()
+                                }
+                                .onFailure { error ->
+                                    repository.markFailed(record.id, error.message ?: "ไม่สามารถเริ่ม HLS download service ได้")
+                                    Toast.makeText(this, "เริ่มดาวน์โหลด HLS ไม่สำเร็จ", Toast.LENGTH_LONG).show()
+                                }
+                        }.onFailure { error ->
+                            Toast.makeText(
+                                this,
+                                error.message ?: "ไม่สามารถเพิ่ม HLS ลงในคิวดาวน์โหลดได้",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
     }
 
     private fun showVideoSourceOptions(
@@ -502,7 +669,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         if (source?.getBooleanExtra(EXTRA_SHOW_VIDEO_DOWNLOADS, false) != true) return
         source.removeExtra(EXTRA_SHOW_VIDEO_DOWNLOADS)
         if (this::tabManager.isInitialized && !isFinishing && !isDestroyed) {
-            showVideoDownloadsDialog()
+            launchVideoLibrary()
         }
     }
 
@@ -510,6 +677,10 @@ class MainActivity : Activity(), WebViewCallbacks {
         super.onNewIntent(intent)
         setIntent(intent)
         handleVideoNotificationIntent(intent)
+    }
+
+    private fun launchVideoLibrary() {
+        startActivity(Intent(this, VideoLibraryActivity::class.java))
     }
 
     private fun showBrowserMenu() {
@@ -559,7 +730,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         popupMenu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 MENU_DETECT_VIDEO -> detectVideosOnCurrentPage()
-                MENU_VIDEO_DOWNLOADS -> showVideoDownloadsDialog()
+                MENU_VIDEO_DOWNLOADS -> launchVideoLibrary()
                 else -> findViewById<View>(item.itemId).performClick()
             }
             true
@@ -567,181 +738,6 @@ class MainActivity : Activity(), WebViewCallbacks {
         popupMenu.show()
     }
 
-    // Day 19 replaces this temporary dialog with the Video Library experience.
-    private fun showVideoDownloadsDialog() {
-        val repository = videoRepository
-        val coordinator = videoDownloadCoordinator
-        if (repository == null || coordinator == null) {
-            Toast.makeText(this, "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        val density = resources.displayMetrics.density
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((20 * density).toInt(), (8 * density).toInt(), (20 * density).toInt(), 0)
-        }
-        val scrollView = android.widget.ScrollView(this).apply { addView(content) }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("รายการดาวน์โหลดวิดีโอ")
-            .setView(scrollView)
-            .setPositiveButton(R.string.dialog_close, null)
-            .create()
-        val handler = Handler(Looper.getMainLooper())
-
-        val waitingForNetworkIds = mutableSetOf<String>()
-
-        fun render(records: List<com.rain.browser.data.VideoRecord>) {
-            content.removeAllViews()
-            if (records.isEmpty()) {
-                content.addView(TextView(this).apply {
-                    text = "ยังไม่มีรายการดาวน์โหลดวิดีโอ"
-                    setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
-                })
-                return
-            }
-            records.forEach { record ->
-                val row = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
-                }
-                row.addView(TextView(this).apply {
-                    text = record.title
-                    textSize = 16f
-                    maxLines = 2
-                })
-                val statusLabel = if (record.id in waitingForNetworkIds) {
-                    "รอเครือข่าย"
-                } else when (record.status) {
-                    com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
-                    com.rain.browser.data.VideoStatus.DOWNLOADING -> "กำลังดาวน์โหลด"
-                    com.rain.browser.data.VideoStatus.VERIFYING -> "กำลังตรวจสอบไฟล์"
-                    com.rain.browser.data.VideoStatus.READY -> "ดาวน์โหลดเสร็จแล้ว"
-                    com.rain.browser.data.VideoStatus.FAILED -> "ดาวน์โหลดไม่สำเร็จ"
-                    com.rain.browser.data.VideoStatus.FAILED_CORRUPTED -> "ไฟล์ไม่สมบูรณ์"
-                    com.rain.browser.data.VideoStatus.CANCELED -> "ยกเลิกแล้ว"
-                }
-                val total = record.sizeBytes
-                val downloaded = record.bytesDownloaded.coerceAtLeast(0L)
-                val percent = if (total > 0L) {
-                    ((downloaded * 100L) / total).coerceIn(0L, 100L).toInt()
-                } else if (record.status == com.rain.browser.data.VideoStatus.READY) 100 else 0
-                row.addView(TextView(this).apply {
-                    text = if (total > 0L) {
-                        statusLabel + " · " + percent + "% (" + (downloaded / 1_048_576) + " / " + (total / 1_048_576) + " MB)"
-                    } else {
-                        statusLabel + " · " + (downloaded / 1_048_576) + " MB"
-                    }
-                    textSize = 13f
-                })
-                row.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-                    max = 100
-                    progress = percent
-                    isIndeterminate = total <= 0L && record.status in setOf(
-                        com.rain.browser.data.VideoStatus.QUEUED,
-                        com.rain.browser.data.VideoStatus.DOWNLOADING
-                    )
-                })
-
-                val actionRow = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                }
-                when (record.status) {
-                    com.rain.browser.data.VideoStatus.QUEUED,
-                    com.rain.browser.data.VideoStatus.DOWNLOADING -> {
-                        actionRow.addView(Button(this).apply {
-                            text = "ยกเลิก"
-                            setOnClickListener { button ->
-                                button.isEnabled = false
-                                storageExecutor.execute {
-                                    val canceled = runCatching { coordinator.cancel(record.id) }.getOrDefault(false)
-                                    runOnUiThread {
-                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
-                                            Toast.makeText(
-                                                this@MainActivity,
-                                                if (canceled) "ยกเลิกการดาวน์โหลดแล้ว" else "ไม่สามารถยกเลิกการดาวน์โหลดได้",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                }
-                            }
-                        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                    }
-                    com.rain.browser.data.VideoStatus.FAILED,
-                    com.rain.browser.data.VideoStatus.FAILED_CORRUPTED,
-                    com.rain.browser.data.VideoStatus.CANCELED -> {
-                        actionRow.addView(Button(this).apply {
-                            text = "ดาวน์โหลดใหม่"
-                            setOnClickListener { button ->
-                                button.isEnabled = false
-                                val userAgent = runCatching {
-                                    tabManager.activeTab?.webView?.settings?.userAgentString.orEmpty()
-                                }.getOrDefault("")
-                                storageExecutor.execute {
-                                    val retryResult = runCatching {
-                                        coordinator.retry(record.id, userAgent)
-                                    }
-                                    runOnUiThread {
-                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
-                                            val message = if (retryResult.isSuccess) {
-                                                "เริ่มดาวน์โหลดวิดีโอใหม่แล้ว"
-                                            } else {
-                                                retryResult.exceptionOrNull()?.message
-                                                    ?: "ไม่สามารถเริ่มดาวน์โหลดใหม่ได้"
-                                            }
-                                            Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            }
-                        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                    }
-                    else -> Unit
-                }
-                if (actionRow.childCount > 0) row.addView(actionRow)
-                content.addView(row)
-                content.addView(View(this).apply {
-                    setBackgroundColor(Color.LTGRAY)
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        (1 * density).toInt()
-                    )
-                })
-            }
-        }
-
-        val pollRunnable = object : Runnable {
-            override fun run() {
-                if (!dialog.isShowing || isFinishing || isDestroyed) return
-                storageExecutor.execute {
-                    val current = repository.list()
-                    waitingForNetworkIds.clear()
-                    current.filter {
-                        it.status in setOf(
-                            com.rain.browser.data.VideoStatus.QUEUED,
-                            com.rain.browser.data.VideoStatus.DOWNLOADING
-                        ) && it.downloadId != null
-                    }.forEach { record ->
-                        val snapshot = runCatching { coordinator.refresh(record.id) }.getOrNull()
-                        if (snapshot?.reason == "WAITING_FOR_NETWORK") {
-                            waitingForNetworkIds.add(record.id)
-                        }
-                    }
-                    val refreshed = repository.list()
-                    runOnUiThread {
-                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
-                            render(refreshed)
-                            handler.postDelayed(this, VIDEO_DOWNLOAD_REFRESH_INTERVAL_MS)
-                        }
-                    }
-                }
-            }
-        }
-        dialog.setOnDismissListener { handler.removeCallbacks(pollRunnable) }
-        dialog.show()
-        handler.post(pollRunnable)
-    }
     private fun restoreTabs(savedInstanceState: Bundle?) {
         val savedTabs = savedInstanceState?.getParcelableArrayList<Bundle>(STATE_TABS)
         if (savedTabs.isNullOrEmpty()) {
@@ -750,7 +746,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
 
         savedTabs.forEach { savedTab ->
-            val webView = webViewFactory.create(this)
+            val webView = createTrackedWebView()
             val tab = tabManager.add(webView)
             tab.title = savedTab.getString(STATE_TITLE).orEmpty().ifBlank { "New Tab" }
             tab.url = savedTab.getString(STATE_URL).orEmpty()
@@ -773,7 +769,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             return
         }
         entries.forEach { entry ->
-            val webView = webViewFactory.create(this)
+            val webView = createTrackedWebView()
             val tab = tabManager.add(webView)
             tab.title = entry.title.ifBlank { entry.url }
             tab.url = entry.url
@@ -783,8 +779,14 @@ class MainActivity : Activity(), WebViewCallbacks {
         showActiveTab()
     }
 
-    private fun createTab() {
+    private fun createTrackedWebView(): WebView {
         val webView = webViewFactory.create(this)
+        hlsPlaylistRegistries[webView] = HlsPlaylistRegistry()
+        return webView
+    }
+
+    private fun createTab() {
+        val webView = createTrackedWebView()
         val tab = tabManager.add(webView)
         showActiveTab()
         showWelcomePage(tab.webView)
@@ -1930,7 +1932,12 @@ class MainActivity : Activity(), WebViewCallbacks {
             .show()
     }
 
+    override fun onHlsPlaylistCandidate(view: WebView, url: String) {
+        hlsPlaylistRegistries[view]?.add(url)
+    }
+
     override fun onPageStarted(view: WebView, url: String) {
+        hlsPlaylistRegistries[view]?.clear()
         runOnUiThread {
             val tab = tabManager.findByWebView(view) ?: return@runOnUiThread
             tab.isLoading = true
@@ -2103,11 +2110,15 @@ class MainActivity : Activity(), WebViewCallbacks {
         exitVideoFullscreen(notifyWebView = true)
         onBackInvokedDispatcher.unregisterOnBackInvokedCallback(systemBackCallback)
         tabManager.clear().forEach { destroyWebView(it.webView) }
+        hlsPlaylistRegistries.values.forEach(HlsPlaylistRegistry::clear)
+        hlsPlaylistRegistries.clear()
+        hlsExecutor.shutdownNow()
         storageExecutor.shutdown()
         super.onDestroy()
     }
 
     private fun destroyWebView(webView: WebView) {
+        hlsPlaylistRegistries.remove(webView)?.clear()
         (webView.parent as? android.view.ViewGroup)?.removeView(webView)
         webView.stopLoading()
         webView.webChromeClient = null
@@ -2157,7 +2168,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                 }
 
                 return JSON.stringify(Array.from(document.querySelectorAll('video')).flatMap(function (video, videoIndex) {
-                    if (video.srcObject !== null) return [];
+                    if (video.srcObject) return [];
 
                     var rect = video.getBoundingClientRect();
                     var style = window.getComputedStyle(video);

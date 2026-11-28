@@ -6,6 +6,8 @@ import java.io.File
 import java.net.URI
 import java.util.UUID
 
+const val HLS_MEDIA_MIME_TYPE = "application/vnd.apple.mpegurl"
+
 enum class VideoStatus {
     QUEUED,
     DOWNLOADING,
@@ -13,7 +15,8 @@ enum class VideoStatus {
     READY,
     FAILED,
     FAILED_CORRUPTED,
-    CANCELED
+    CANCELED,
+    MISSING
 }
 
 data class VideoRecord(
@@ -128,6 +131,37 @@ class VideoRepository(
         return updated
     }
 
+    /** Starts or resumes a persisted HLS transfer without a DownloadManager request ID. */
+    fun startHlsTransfer(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.mimeType != HLS_MEDIA_MIME_TYPE ||
+            current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
+        ) return null
+        return current.copy(
+            downloadId = null,
+            status = VideoStatus.DOWNLOADING,
+            lastError = "",
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    /** Persists HLS progress while keeping the byte total unknown until remux completes. */
+    @Synchronized
+    fun updateHlsProgress(
+        id: String,
+        bytesDownloaded: Long,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (bytesDownloaded < 0L || bytesDownloaded > 4L * 1024L * 1024L * 1024L || now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.mimeType != HLS_MEDIA_MIME_TYPE || current.status != VideoStatus.DOWNLOADING) return null
+        return current.copy(
+            bytesDownloaded = maxOf(current.bytesDownloaded, bytesDownloaded),
+            updatedAt = now
+        ).also(::persist)
+    }
+
     fun markVerifying(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
         val current = get(id) ?: return null
         if (current.status != VideoStatus.DOWNLOADING || now < 0L) return null
@@ -164,12 +198,99 @@ class VideoRepository(
             bytesDownloaded = file.length(),
             status = VideoStatus.READY,
             downloadedAt = now,
-            expiresAt = null,
+            expiresAt = if (current.isLiked) null else now + VIDEO_RETENTION_MILLIS,
             lastError = "",
             updatedAt = now
         )
         persist(updated)
         return updated
+    }
+
+    fun like(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            isLiked = true,
+            unlikedAt = null,
+            expiresAt = null,
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun unlike(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY || !current.isLiked) return null
+        return current.copy(
+            isLiked = false,
+            unlikedAt = now,
+            expiresAt = now + VIDEO_RETENTION_MILLIS,
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun updatePlaybackState(
+        id: String,
+        positionMs: Long,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (positionMs < 0L || now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        val safePosition = if (current.durationMs > 0L) {
+            positionMs.coerceAtMost(current.durationMs)
+        } else {
+            positionMs
+        }
+        return current.copy(
+            playbackPositionMs = safePosition,
+            lastOpenedAt = now,
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun markPlaybackCompleted(
+        id: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            playbackPositionMs = 0L,
+            lastOpenedAt = now,
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun updateChecksumSha256(
+        id: String,
+        checksumSha256: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L || !checksumSha256.matches(SHA256_PATTERN)) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            checksumSha256 = checksumSha256.lowercase(),
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun markReadyCorrupted(
+        id: String,
+        reason: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            status = VideoStatus.FAILED_CORRUPTED,
+            lastError = reason.trim().take(MAX_ERROR_LENGTH),
+            updatedAt = now
+        ).also(::persist)
     }
 
     fun markCorrupted(
@@ -183,6 +304,21 @@ class VideoRepository(
             return null
         }
         return failCorrupted(current, reason.trim().take(MAX_ERROR_LENGTH), now, file)
+    }
+
+    fun markMissing(
+        id: String,
+        reason: String = "Video file is missing from RAIN storage.",
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            status = VideoStatus.MISSING,
+            lastError = reason.trim().take(MAX_ERROR_LENGTH),
+            updatedAt = now
+        ).also(::persist)
     }
 
     fun markFailed(id: String, reason: String, now: Long = System.currentTimeMillis()): VideoRecord? {
@@ -209,6 +345,21 @@ class VideoRepository(
     fun markCanceled(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
         val current = get(id) ?: return null
         if (current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING) || now < 0L) return null
+        return current.copy(
+            status = VideoStatus.CANCELED,
+            downloadId = null,
+            lastError = "",
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    @Synchronized
+    fun markHlsCanceled(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.mimeType != HLS_MEDIA_MIME_TYPE ||
+            current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
+        ) return null
         return current.copy(
             status = VideoStatus.CANCELED,
             downloadId = null,
@@ -324,5 +475,7 @@ class VideoRepository(
         const val MAX_HEADER_LENGTH = 1024
         const val MAX_ERROR_LENGTH = 512
         const val CONTAINER_PREFIX_BYTES = 32
+        const val VIDEO_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1000L
+        val SHA256_PATTERN = Regex("^[a-fA-F0-9]{64}$")
     }
 }

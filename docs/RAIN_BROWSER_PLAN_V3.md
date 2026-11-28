@@ -1,7 +1,7 @@
-# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.2
+# 🌧️ RAIN Browser — แผนพัฒนาและโครงสร้างโค้ด v3.4
 
 > สถานะ: Development Specification — ฉบับหลักแทน v3  
-> เวอร์ชันแผน: **v3.2**  
+> เวอร์ชันแผน: **v3.4**  
 > เวอร์ชันแอปเริ่มต้น: **0.1.0**  
 > Android applicationId: **com.rain.browser**  
 > แพลตฟอร์ม: **Android เท่านั้น**
@@ -52,6 +52,23 @@ RAIN ต้องรวมความสามารถหลักของ Go
 
 ห้ามเปลี่ยน applicationId หรือ Signing Key หลังเผยแพร่รุ่นแรก เพราะจะกระทบการอัปเดตทับแอปเดิมและความต่อเนื่องของข้อมูล
 
+### 1.4.1 RAIN Auto Update — ข้อกำหนดผลิตภัณฑ์
+- ช่องทางอัปเดตหลักเป็น **In-App Update ผ่าน GitHub Releases**; GitHub เป็นระบบเผยแพร่เบื้องหลัง ผู้ใช้ไม่ต้องเปิด GitHub หรือดาวน์โหลด APK ด้วยตนเอง
+- แอปตรวจสอบ Release ล่าสุดจาก Repository ทางการ `phukthaisongp1-collab/Rain` เมื่อเริ่มใช้งานแอป (ไม่บล็อกการเปิด Browser เกินเวลารอที่กำหนด) โดยต้องไม่บล็อกการเปิด Browser หากเครือข่ายล้มเหลว
+- เมื่อพบรุ่นใหม่ ให้แสดง versionName และ release notes พร้อมตัวเลือก “อัปเดต” หรือ “ภายหลัง”; ห้ามดาวน์โหลดหรือติดตั้งโดยไม่แจ้งผู้ใช้
+- เมื่อผู้ใช้เลือกอัปเดต RAIN ดาวน์โหลด APK ผ่าน HTTPS เอง ตรวจ SHA-256 ตาม metadata ของ Release และตรวจ packageName, versionCode และ Signing Certificate fingerprint ก่อนส่งไฟล์ให้ Android Package Installer
+- ต้องตรงกับ applicationId `com.rain.browser`, versionCode ต้องมากกว่ารุ่นที่ติดตั้ง และ Signing Certificate SHA-256 ต้องตรงกับค่าที่กำหนดใน Release policy; ห้ามติดตั้งไฟล์ที่ตรวจสอบไม่ผ่าน
+- Android Package Installer เป็นผู้ตรวจสอบลายเซ็นและดำเนินการติดตั้งจริง ผู้ใช้ต้องยืนยันการติดตั้งในหน้าระบบ Android; **ไม่รองรับ Silent Install** บนอุปกรณ์ทั่วไปที่ไม่ได้เป็น Device Owner/Managed Device
+- หาก Android ขออนุญาต “ติดตั้งแอปที่ไม่รู้จัก” ให้เปิดหน้าตั้งค่าของ RAIN เฉพาะเมื่อผู้ใช้เริ่มอัปเดต และอธิบายเหตุผลก่อน ผู้ใช้ปฏิเสธได้โดยไม่กระทบการใช้งาน Browser
+- APK และ metadata ต้องมาจาก GitHub Release ของ Repository ทางการเท่านั้น; ไม่รับ URL อัปเดตจากเว็บภายนอก, WebView, query parameter หรือข้อมูลที่เว็บไซต์กำหนด
+- Release ต้องแนบ APK และ metadata `rain-update.json` ซึ่งระบุ `versionName`, `versionCode`, ชื่อ asset, SHA-256 และ release notes; metadata ต้องสอดคล้องกับ APK ที่สร้างจาก Source Commit เดียวกัน
+- ทุก Release ใช้ Keystore/alias/certificate เดิม; GitHub Actions ใช้ Secrets ที่มีอยู่ ห้ามนำ Keystore/password ลง Repository, Release asset, Log หรือแชต
+- versionCode เพิ่มขึ้นอย่างเคร่งครัด ห้ามซ้ำ/ลด; การแก้ไขฉุกเฉินต้องออก versionCode ใหม่เสมอ
+- การอัปเดตต้องรักษา application data, SQLite database, bookmarks, history, settings, resume และ videos; ห้ามถอนการติดตั้งหรือล้างข้อมูลเพื่ออัปเดต
+- หากตรวจสอบ Release ไม่ได้, metadata ผิด, checksum/signature/package/version ไม่ตรง หรือดาวน์โหลดไม่สมบูรณ์ ให้ยกเลิกการติดตั้ง ลบไฟล์ชั่วคราวที่ RAIN สร้าง และเปิด Browser รุ่นเดิมต่อได้
+- Release ที่เผยแพร่แล้วต้องคง asset และ metadata ให้ดาวน์โหลดได้; ห้ามลบ/แทนที่ Release ที่เป็นเป้าหมายของผู้ใช้โดยไม่มีแผน migration
+- การปล่อย Release ยังต้องผ่าน CI, Release Signing, Security Review และ Real-World Continuous Testing; การมี Auto Update ไม่ใช่เหตุให้ข้าม Gate
+
 ### 1.5 ธีม
 - Dark Slate: #0F172A
 - Rain Blue: #38BDF8
@@ -62,6 +79,66 @@ RAIN ต้องรวมความสามารถหลักของ Go
 - ไม่มีบัญชีผู้ใช้ RAIN
 - ไม่มี Cloud Sync
 - ไม่มี Extension จากภายนอก
+
+
+### 1.7 มาตรฐานการทดสอบ RAIN — Real-World Continuous Testing (บังคับใช้ทุกเฟส)
+
+**สถานะ:** มาตรฐานโครงการที่เจ้าของโครงการอนุมัติเมื่อ 2026-11-28  
+**ขอบเขตเวลา:** ใช้กับงานที่ยังไม่เริ่ม ณ วันที่อนุมัติ งานใหม่ การแก้ไข/ปรับปรุงในอนาคต และทุก Release ที่เกี่ยวข้อง โดยไม่มีวันสิ้นสุดตายตัว อาจดำเนินต่อเนื่องหลายปี  
+**หลักไม่ย้อนหลัง:** งาน/Phase/Milestone ที่เสร็จและปิดก่อนวันที่อนุมัติให้คงสถานะและหลักฐานเดิม ไม่เปิดงาน ไม่เพิ่มเงื่อนไขย้อนหลัง และไม่ตัดสินใหม่เพียงเพราะมาตรฐานฉบับนี้มีผลภายหลัง เว้นแต่เจ้าของโครงการสั่งตรวจซ้ำเป็นกรณีเฉพาะ
+
+#### 1.7.1 หลักการ
+
+- การทดสอบหลักหลังนำฟังก์ชันไปใช้งานได้คือการใช้งาน RAIN จริงบนอุปกรณ์จริง เว็บไซต์จริง เครือข่ายจริง และสถานการณ์จริง (Real-World Usage) ไม่ใช่จำกัดอยู่เพียง Unit Test, Emulator, CI หรือ Checklist แบบทำครั้งเดียว
+- CI, Unit/Integration/Regression Tests, Static Analysis, Security Review และ Emulator ยังคงเป็นเครื่องมือบังคับตามความเสี่ยงและ Gate ของแต่ละงาน แต่ใช้แทนประสบการณ์ใช้งานจริงไม่ได้
+- เมื่อพบ Bug, ความไม่เสถียร, ปัญหาความเข้ากันได้, UX ที่ใช้งานจริงติดขัด หรือโอกาสปรับปรุง ให้บันทึกเป็น Issue/Improvement แล้ววนรอบวิเคราะห์ → อนุมัติ Spec → แก้ไข → ตรวจสอบ → Build/CI → ใช้งานจริงซ้ำ
+- ไม่มีการกำหนดจำนวนรอบหรือวันสิ้นสุดของการปรับปรุง มาตรฐานนี้ใช้ต่อเนื่องตลอดอายุผลิตภัณฑ์ รวมถึงระยะยาวหลายปี
+- การผ่าน CI หมายถึงผ่านเฉพาะการตรวจที่ CI ทำจริง ไม่ใช่หลักฐานว่าใช้งานได้จริงทุกเว็บไซต์ อุปกรณ์ หรือสถานการณ์
+- ห้ามกล่าวอ้างความสามารถ ความปลอดภัย ประสิทธิภาพ หรือความเข้ากันได้เกินกว่าหลักฐานที่ทดสอบได้จริง
+
+#### 1.7.2 วงจร Issue-to-Improvement
+
+1. เจ้าของโครงการใช้งาน RAIN จริงและแจ้งอาการ/ข้อเสนอปรับปรุง
+2. บันทึก Issue ID, เวอร์ชันแอป/Commit, รุ่นอุปกรณ์, Android/API, เว็บไซต์หรือประเภทงาน, เครือข่าย/เงื่อนไขที่เกี่ยวข้อง, ขั้นตอนทำซ้ำ, ผลที่เกิดขึ้น, ผลที่คาดหวัง และหลักฐาน
+3. ปกปิด Cookie, Authorization, Token, URL query ที่เป็นความลับ, ข้อมูลบัญชี, เนื้อหาส่วนตัว และข้อมูลระบุตัวบุคคลก่อนส่ง Log/Screenshot/Artifact
+4. PM/ผู้มีอำนาจตรวจสอบผลกระทบ จัดลำดับความสำคัญ และกำหนด/อนุมัติ Spec; หากข้อมูลไม่พอหรือข้อกำหนดขัดแย้งให้ถามก่อน
+5. Developer วิเคราะห์ Root Cause จากหลักฐาน แยกข้อเท็จจริงกับสมมติฐาน และแก้เฉพาะขอบเขตที่อนุมัติ
+6. รันการตรวจอัตโนมัติและ CI ที่เกี่ยวข้อง พร้อม Regression Test เฉพาะส่วนที่เปลี่ยนและเส้นทางที่เสี่ยง
+7. นำ Build ที่ตรวจสอบแล้วกลับไปใช้งานจริง และยืนยันว่าอาการเดิมหายไปโดยไม่สร้าง Regression ใหม่
+8. ปิด Issue เมื่อมีหลักฐานยืนยันผลหลังแก้เท่านั้น; หากยังทำซ้ำไม่ได้หรือแก้ไม่ได้ ให้คงสถานะพร้อมระบุข้อจำกัด ไม่ปิดโดยคาดเดา
+
+#### 1.7.3 ขอบเขตการใช้งานจริงที่ต้องครอบคลุม
+
+ใช้ตามความเกี่ยวข้องของฟีเจอร์และความเสี่ยง ไม่จำเป็นต้องทดสอบทุกหมวดในทุกครั้ง:
+- **Browser & Web Compatibility:** เว็บไซต์จริง, navigation, URL/search, tabs, reload/back/forward, desktop/mobile mode, JavaScript-heavy pages, redirects, pop-ups, downloads และการใช้งานต่อเนื่อง
+- **UI/UX & Device:** หน้าจอ/ความละเอียด, แนวตั้ง-แนวนอน, keyboard, touch/gesture, accessibility ที่อยู่ในขอบเขต, app lifecycle และการกลับมาใช้งาน
+- **Data & Persistence:** bookmark, history, resume, settings, local data, migration, update-over-install, retention และการคงข้อมูลหลัง process/app restart
+- **Network & Privacy:** Wi-Fi/mobile data switching, offline/unstable network, TLS/SSL, permission, privacy controls, DoH/Proxy เฉพาะเมื่อมีการยืนยันว่า traffic ผ่านจริง และไม่เก็บ/ส่งข้อมูลเกินที่อนุมัติ
+- **Downloads & Offline Media:** direct downloads, supported HLS flows, progress, cancel/retry/resume, storage shortage, size limits, offline playback, library lifecycle และขอบเขตสื่อที่ไม่รองรับ
+- **Playback & Media:** codec/container/device compatibility, seek, speed, fullscreen, PiP, audio focus, brightness/volume และ playback recovery
+- **Background & Reliability:** foreground service, notification, background execution, process death, low memory/storage, battery constraints, crash/ANR, resource use และ long-running/soak usage
+- **Security & File Safety:** URL/redirect/IP validation ตาม transport ที่เกี่ยวข้อง, path containment, managed files, secret redaction, data isolation และการไม่ bypass DRM/login/Cloudflare หรือมาตรการป้องกันเว็บไซต์
+
+#### 1.7.4 หลักฐานและสถานะ
+
+ทุก Issue ควรเก็บข้อมูลเท่าที่จำเป็นและปลอดภัย:
+- Issue ID และประเภท: Bug / Reliability / Compatibility / UX / Security / Improvement
+- Severity/Priority และสถานะ: Reported → Triaged → Spec Approved → In Progress → CI/Review → Real-World Verify → Closed หรือ Deferred/Unsupported
+- App version, full commit SHA, device model, Android/API และสภาพแวดล้อมที่เกี่ยวข้อง
+- Steps to reproduce, actual result, expected result, frequency และขอบเขตผลกระทบ
+- Screenshot/recording/Logcat/CI URL/Test report เท่าที่จำเป็น โดยปกปิดข้อมูลลับ
+- Root cause, approved change/spec, files/commits, CI result และผลการทดสอบหลังแก้
+- Known limitations, workaround (ถ้ามี) และเหตุผลเมื่อ Deferred/Unsupported
+
+ห้ามใส่ข้อมูลรับรองหรือข้อมูลส่วนตัวใน Issue/Log/Artifact และห้ามใช้ข้อมูลจริงของผู้ใช้รายอื่นโดยไม่มีสิทธิ์/ความยินยอม
+
+#### 1.7.5 เกณฑ์ปล่อย Build และข้อจำกัด
+
+- Build ที่ใช้ทดสอบจริงต้องระบุ Commit/Version ได้ ตรวจสอบที่มาได้ และผ่าน CI/Review Gate ที่กำหนดสำหรับ Change Set นั้น
+- ก่อน Release สู่ผู้ใช้วงกว้าง ต้องผ่าน Release Signing/Certificate Verification, Security/Privacy Review และ Acceptance Gate ที่เกี่ยวข้องตามข้อ 3 และข้อ 9
+- การใช้งานจริงเป็นวงจรปรับปรุงต่อเนื่อง ไม่ได้แปลว่าต้องปล่อย Build ที่ยังไม่ผ่าน Gate หรือให้ผู้ใช้รับความเสี่ยงโดยไม่แจ้ง
+- ใช้เฉพาะเว็บไซต์ บัญชี และสื่อที่เจ้าของมีสิทธิ์ใช้งาน; ห้ามทดสอบด้วยการข้าม DRM, paywall, login, Cloudflare หรือข้อจำกัดการเข้าถึง
+- มาตรฐานนี้ไม่อนุมัติ feature, dependency, permission, architecture change หรือการเก็บ telemetry ใหม่โดยอัตโนมัติ ต้องมี Spec/Approval แยกตามกติกาโครงการ
 
 ---
 
@@ -155,6 +232,14 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 
 หาก Secrets ไม่ครบ หรือ Signing/Verification ไม่ผ่าน Workflow ต้องล้มเหลวและห้ามเผยแพร่ Release
 
+### 3.4 Release Publishing และ Auto Update
+- Workflow สำหรับ Release ต้องสร้าง Signed APK จาก Source Commit/Tag ที่ระบุ, ตรวจ applicationId/versionCode/versionName และตรวจ Signing Certificate SHA-256 เทียบค่าที่อนุมัติ
+- เมื่อทุก Gate ผ่าน ให้เผยแพร่ APK และ `rain-update.json` เป็น GitHub Release ของ Tag เดียวกัน พร้อม release notes; ใช้ `contents: write` เฉพาะ Job ที่เผยแพร่ Release และใช้ `GITHUB_TOKEN` ตาม least privilege
+- Metadata ต้องสร้างจากค่าที่อ่านจาก APK จริง ไม่เชื่อค่าที่กรอกแยกจาก Build; คำนวณ SHA-256 หลัง Build/Sign และตรวจซ้ำก่อน Upload
+- แอปอ่าน Release metadata ผ่าน HTTPS จาก Repository ทางการเท่านั้น และตรวจ versionCode/packageName/certificate/hash ก่อนเริ่ม Android Installer
+- ห้ามเผยแพร่ Release หาก Keystore/Secrets หาย, certificate เปลี่ยน, APK ไม่ผ่าน verify, metadata ไม่ตรง APK, CI ไม่ผ่าน หรือ versionCode ไม่เพิ่ม
+- การเปลี่ยน/หมุน Signing Key ต้องมีแผน Android signing-key upgrade ที่ตรวจสอบ compatibility และได้รับอนุมัติแยกต่างหาก; ห้ามทำในงาน Auto Update ปกติ
+
 ---
 
 ## 4. แผนพัฒนาเฟส 1 — 4 รอบย่อย
@@ -172,6 +257,8 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 8. กำหนด WebView security baseline ก่อนอนุญาตให้โหลดเว็บไซต์
 
 **เกณฑ์ตรวจรับ:** Gradle Build ผ่านบน GitHub Actions, applicationId/version ถูกต้อง, แอปเปิดหน้าจอเริ่มต้นได้, Secrets ไม่รั่วใน log และ Release Signing บังคับใช้ Keystore
+
+**Real-World Gate สำหรับงานที่ยังไม่เริ่ม/การปรับปรุงในอนาคต:** ติดตั้งและเปิดแอปบน Android 16 เครื่องจริง ตรวจ startup/crash, app identity, update-over-install และ signing identity ตามขอบเขต Release โดยไม่เปิดงาน Round (ก) ที่ปิดแล้วกลับมาทำย้อนหลัง
 
 ### รอบ (ข): Browser UI + Tabs + Navigation + Desktop Mode
 1. สร้าง UI แถบเครื่องมือและพื้นที่ WebView ให้เหมาะกับหน้าจอ Android
@@ -194,6 +281,8 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
    - แจ้งว่า Desktop Mode ไม่ได้เปลี่ยนโทรศัพท์เป็นคอมพิวเตอร์ และบางเว็บอาจจำกัดฟังก์ชัน
 6. รองรับการซูมหน้าเว็บและปรับขนาดตัวอักษร โดยไม่ทำให้ UI หลักเสียรูป
 
+**Real-World Gate สำหรับงานที่ยังไม่เริ่ม/การปรับปรุงในอนาคต:** ใช้งาน navigation, tabs, address/search, mobile/desktop mode กับเว็บไซต์จริงทั้งแนวตั้ง/แนวนอน ทดสอบสลับแท็บ/เปิดปิด/Back-Forward/Reload และใช้งานต่อเนื่อง พร้อมบันทึกเว็บหรืออุปกรณ์ที่มีปัญหา
+
 ### รอบ (ค): Privacy Controls + Network Controls (ไม่รวม Private Browsing)
 1. ตรวจสอบและยืนยันนโยบาย HTTPS/SSL error handling; ห้าม bypass certificate errors
 2. กำหนดและตรวจสอบ Mixed Content handling และ Safe Browsing ตามความสามารถของ Android WebView
@@ -213,6 +302,8 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
    - *.outlook.com
 8. หาก Android ทำ DoH/Proxy/Whitelist ได้ไม่ครบ ต้องรายงานข้อจำกัดและเสนอทางเลือกเพื่อขออนุมัติ ห้ามแสดงว่าเปิดใช้งานแล้วหาก traffic ไม่ได้ผ่านระบบนั้นจริง
 
+**Real-World Gate สำหรับงานที่ยังไม่เริ่ม/การปรับปรุงในอนาคต:** ตรวจสอบเว็บไซต์/ใบรับรอง/redirect/external intents และยืนยันเส้นทาง network จริงของ DoH/Proxy ก่อนแสดงสถานะว่าทำงาน; ทดสอบกรณีผิดพลาดโดยไม่ bypass TLS/certificate หรือข้อจำกัดความปลอดภัย
+
 **ขอบเขตที่ย้ายออก:** Private Browsing ทั้งการพัฒนา การแยกข้อมูล การล้างข้อมูล และการทดสอบ ย้ายไป Phase 2 ตามหัวข้อ 7 โดยไม่เป็นเงื่อนไขตรวจรับหรือ blocker ของ Phase 1
 
 ### รอบ (ง): Data Layer + New Tab + Settings + Localization
@@ -228,9 +319,26 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 6. สร้าง Settings ภายในแอป รองรับภาษา Search Engine ค่าเริ่มต้น Mobile/Desktop, Privacy controls และ DoH/Proxy เฉพาะความสามารถที่ผ่านการตรวจสอบจริง
 7. รองรับภาษาไทยและอังกฤษ และสลับภาษาในแอปได้ตามข้อจำกัด Android
 
+**Real-World Gate สำหรับงานที่ยังไม่เริ่ม/การปรับปรุงในอนาคต:** ใช้งานข้อมูลจริงและการตั้งค่าบนอุปกรณ์จริง ตรวจ persistence หลังปิด/เปิดแอป, retention/cleanup, migration/update-over-install, ภาษาและ Settings รวมถึงกรณี process death/พื้นที่จัดเก็บไม่เพียงพอ
+
+---
+
+### 4.5 การทดสอบและ Release Gate ที่ใช้ร่วมกันทุก Phase/Workstream
+มาตรฐาน Real-World Continuous Testing ในข้อ 1.7 ใช้กับทุกงานที่ยังไม่เริ่ม งานใหม่ งานแก้ไข และทุก Release โดยให้แต่ละ Phase เพิ่มการทดสอบเฉพาะความเสี่ยงของตน:
+- **Phase 1 / Core Browser:** Browser navigation, tabs, desktop/mobile mode, WebView, permissions, bookmarks/history/settings และการอัปเดตทับโดยไม่สูญเสียข้อมูล
+- **Phase 1.5 / Home UI & UX:** layout, touch, orientation, shortcuts, search, loading/error/offline states และการกลับจากหน้า Update/Android Installer
+- **Phase 1.6 / Browser Experience:** website compatibility, long sessions, resource usage, network transitions, crash/recovery และ regression ของ Browser
+- **Phase 2 / Offline Media & Private Browsing:** direct/HLS download, queue/resume/cancel, storage, playback, privacy isolation/cleanup และ data integrity ตาม workstream
+- **Phase ถัดไป/Backlog:** ต้องกำหนด Real-World Gate ที่เกี่ยวข้องใน Spec ก่อนเริ่ม ไม่ถือว่าผ่านจาก CI เพียงอย่างเดียว
+- **Auto Update ทุก Phase:** ทดสอบ Release metadata, no-update/current-version, update available, invalid metadata/hash/package/certificate, network interruption, installer cancellation, permission denial, update-over-install และการคงข้อมูลจริงบน Android 16
+- ไม่บังคับย้อนทดสอบหรือรับรอง Phase/Milestone ที่ปิดก่อน 2026-11-28; ใช้ประวัติและหลักฐานเดิมตามข้อ 1.7.1
+- การทดสอบในแต่ละ Release ใช้ชุด Regression ที่สัมพันธ์กับ Change Set และความเสี่ยง ไม่จำเป็นต้องรัน Checklist ทั้งหมดซ้ำทุกครั้ง แต่ Real-World Usage และ Issue feedback ดำเนินต่อเนื่องตลอดอายุผลิตภัณฑ์
+
 ---
 
 ## 5. Android WebView Security Audit
+
+**การทดสอบต่อเนื่อง:** Security Audit และการตรวจสอบ Static/CI ไม่ทดแทนการใช้งานเว็บไซต์จริงและการตรวจสอบบนอุปกรณ์จริงตามข้อ 1.7; ทุกการเปลี่ยน WebView/network/privacy/security ที่ยังไม่เริ่มต้องมี Real-World Verification ที่ตรงกับความเสี่ยง พร้อมหลักฐานและข้อจำกัด โดยไม่ย้อนเปิดรายการที่ปิดก่อนวันที่มาตรฐานมีผล
 
 ### 5.1 Baseline
 - ปิด file access และ content access ที่ไม่จำเป็น
@@ -316,6 +424,8 @@ Developer (ผู้ช่วย) รับผิดชอบ Source Code แล
 
 **สถานะ:** งาน Phase 2 ที่ได้รับมอบหมายให้จัดทำแผนแล้ว; การเริ่มพัฒนายังต้องได้รับคำสั่งอนุมัติแยกต่างหาก  
 **หลักการบังคับ:** Private Browsing เป็น workstream อิสระ ไม่เป็น dependency, acceptance gate หรือ blocker ของ Phase 1 และต้องไม่ดึงกลับไปผูกกับ Round C หรือ Phase 1 โดยอัตโนมัติ
+
+**มาตรฐานทดสอบ:** เมื่อเริ่มงาน Private Browsing ให้ใช้ข้อ 1.7 เพิ่มจาก M0–M4 เดิม โดยทดสอบ isolation/cleanup/lifecycle บน Android 16 จริง, ใช้งาน Normal/Private สลับกันและทำ repeated-session soak, process death/low-memory/provider limitations และตรวจไม่รั่ว URL/metadata/logs; CI/Harness ผ่านเพียงยืนยัน harness/product assertions ที่ทดสอบจริง ไม่ใช่การรับรองความเป็นส่วนตัวทุกระดับ. งานที่ยังไม่เริ่มต้องทำทั้ง automated gates และ real-world verification; ไม่เปิดงานเดิมที่ปิดแล้วกลับมาทดสอบย้อนหลัง.
 
 #### 7.1.1 เป้าหมายและข้อกำหนดคงที่
 
@@ -570,7 +680,11 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 - Build, lint, unit/instrumentation tests ที่เกี่ยวข้องผ่าน; บันทึกผล provider และ real-device test แยกตามหลักฐาน
 - ไม่เปลี่ยนสถาปัตยกรรมหลัก ไม่เพิ่ม RAIN account/cloud sync และไม่ทำให้ฟังก์ชัน browser เดิม regression
 
-#### 7.2.5 ข้อกำหนดก่อนเริ่มพัฒนา
+#### 7.2.5 การทดสอบใช้งานจริงและข้อกำหนดก่อนเริ่มพัฒนา
+
+**Real-World Continuous Testing:** ทุก Milestone M1–M6 ที่ยังไม่เริ่ม/งานปรับปรุงภายหลังต้องตรวจบนอุปกรณ์จริงและข้อมูล/provider จริงตามขอบเขต: responsive/orientation/touch, navigation/shortcuts, weather timestamp/error/offline, voice/image permission และ privacy disclosure, provider availability/rate-limit, persistence หลัง restart และ browser regression. ต้องบันทึก Issue และผลหลังแก้ตามข้อ 1.7; Automated Tests/CI ไม่แทนการทดสอบ workflow จริง. ไม่ย้อนบังคับ Milestone ที่ปิดก่อน 2026-11-28.
+
+#### 7.2.6 ข้อกำหนดก่อนเริ่มพัฒนา
 
 - Phase 2 ต้องได้รับคำสั่งเริ่มงานแยกต่างหาก; การเพิ่มหัวข้อนี้ในแผนไม่ใช่คำสั่งให้เริ่ม implementation
 - ก่อนเลือก Weather/Visual Search provider ให้จัดทำตัวเลือกพร้อมเงื่อนไข API, privacy, cost, quota และข้อจำกัด เพื่อให้เจ้าของโครงการตัดสินใจหากมีผลต่อข้อมูล/ค่าใช้จ่าย/บริการภายนอก
@@ -592,6 +706,8 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 - Rain Stats
 
 ระบบดาวน์โหลด 3 ชั้น, ffmpeg และ Offline Library 7 วันยังเป็นเป้าหมายในเฟสที่เกี่ยวข้อง ไม่ใช่งานรอบ (ก) โดยอัตโนมัติ
+
+**กติกาสำหรับ Backlog ทุกฟีเจอร์:** ก่อนเริ่มแต่ละรายการต้องกำหนด real-world scenarios, supported/unsupported boundaries, evidence และ regression scope ตามข้อ 1.7; หลังนำไปใช้งานจริงให้รับ Issue และปรับปรุงต่อเนื่องโดยไม่กำหนดวันสิ้นสุด. การเพิ่มมาตรฐานนี้ไม่ใช่การอนุมัติให้เริ่ม Backlog หรือเพิ่มฟีเจอร์/Dependency.
 
 เตรียมจุดเชื่อมต่อโดยไม่เพิ่ม dependency หรือพัฒนา feature ล่วงหน้า:
 - Ad-blocker
@@ -630,6 +746,17 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 
 ## 9. กติกาการส่งมอบและตรวจรับ
 
+### 9.1 Real-World Continuous Testing
+
+- ทุก Phase/รอบ/Milestone ที่ยังไม่เริ่มและทุกงานใหม่ต้องกำหนด Automated/CI Gate ควบคู่กับ Real-World Verification ตามข้อ 1.7 โดยปรับชุดสถานการณ์ให้ตรงกับฟีเจอร์และความเสี่ยง
+- เมื่อผู้ใช้รายงานปัญหาจากการใช้งานจริง ให้ใช้วงจร Issue-to-Improvement ตามข้อ 1.7.2 และไม่ปิดปัญหาจนกว่าจะมีหลักฐานยืนยันหลังแก้
+- Day/Milestone ที่ปิดก่อน 2026-11-28 ไม่ถูกเปิดใหม่หรือเพิ่ม Acceptance Criteria ย้อนหลัง; ข้อมูลสถานะ/CI/ผลทดสอบเดิมคงเป็นประวัติ ณ วันที่ทำงาน
+- การผ่าน Final Acceptance หรือ Release Gate เป็นการยืนยัน baseline ของเวอร์ชัน/ขอบเขตนั้น ไม่ได้ยุติการรับ Bug และการปรับปรุงผลิตภัณฑ์ในอนาคต
+- ไม่มีระยะเวลาสิ้นสุดของวงจรปรับปรุง; ดำเนินต่อได้หลายปี แต่ทุก Change ยังคงต้องผ่าน Spec Approval, Security/Privacy, CI และ Release controls ตามความเกี่ยวข้อง
+- ห้าม Merge PR หรือเผยแพร่ Release หากไม่มีการอนุมัติที่จำเป็นตามกติกาปัจจุบัน
+
+
+
 1. ทำเฉพาะขอบเขตงานที่ได้รับมอบหมาย
 2. ทำตามสเปกที่อนุมัติ ห้ามเปลี่ยนสถาปัตยกรรมหรือเพิ่มฟีเจอร์เอง
 3. หากข้อกำหนดคลุมเครือ ขัดแย้ง หรือขาดข้อมูลจำเป็น ให้ถามก่อนลงมือ
@@ -643,9 +770,10 @@ Cleanup Report ต้องรายงานแยกประเภทด้�
 
 ---
 
-## 10. ประวัติการเปลี่ยนแปลงจาก v3 เป็น v3.1
+## 10. ประวัติการเปลี่ยนแปลง
 
-- เปลี่ยนแพลตฟอร์มจาก Electron Desktop เป็น Android App
+- 2026-11-28: ยกระดับ Real-World Continuous Testing เป็นมาตรฐานบังคับของโครงการทุก Phase/รอบ/Milestone สำหรับงานที่ยังไม่เริ่มและงานใหม่; เพิ่มวงจร Issue-to-Improvement ระยะยาวโดยไม่มีวันสิ้นสุด; ระบุขอบเขตใช้งานจริง หลักฐาน/ความปลอดภัย และกติกาไม่ย้อนหลังสำหรับงานที่ปิดแล้ว.
+- 2026-11-28: เพิ่มข้อกำหนด RAIN Auto Update ผ่าน GitHub Releases; กำหนด in-app version check, user-confirmed APK download/install, SHA-256 และ Signing Certificate verification, versionCode monotonicity, signed Release metadata และการคงข้อมูลผู้ใช้; เพิ่ม Real-World Gate สำหรับ update-over-install ทุก Phase โดยไม่บังคับทดสอบย้อนหลัง.\n- เปลี่ยนแพลตฟอร์มจาก Electron Desktop เป็น Android App
 - เปลี่ยนสถาปัตยกรรมเป็น Kotlin + Android SDK + Gradle + Android WebView
 - เปลี่ยน appId เป็น Android applicationId โดยคงค่า com.rain.browser
 - เปลี่ยน Build เป็น Android Build ผ่าน GitHub Actions
