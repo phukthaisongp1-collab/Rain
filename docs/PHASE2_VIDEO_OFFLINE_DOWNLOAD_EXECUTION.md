@@ -282,3 +282,15 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - Segment and initialization-map chunks are written under Movies/RAIN/hls-<record-id>. A per-playlist fingerprint and per-chunk SHA-256/byte-count metadata allow verified completed chunks to be skipped on retry. The metadata stores hashes and counts, not source URLs, cookies, keys, or authorization values. Incomplete .part files are discarded on retry.
 - The existing shared VideoDownloadCoordinator.MAX_VIDEO_SIZE_BYTES constant enforces the aggregate 4 GiB cap across downloaded segment and initialization-map bytes, including concurrent workers. Unknown aggregate size uses the approved 500 MiB minimum free-space precheck. Progress reports completed segments and transferred bytes.
 - This day provides the HLS segment-transfer engine and resumable chunk output. Integration with the videos record lifecycle, foreground service, notifications, Library and playback is reserved for Day 37; final concatenation/remux and container verification are Day 36.
+
+
+### Day 36 — HLS MP4 assembly, remux, and output validation
+
+- Added `HlsMediaRemuxer` using Android `MediaExtractor` and `MediaMuxer`; no Media3 dependency was added.
+- Completed MPEG-TS playlists are assembled in playlist order into one temporary transport-stream input. Fragmented MP4 playlists are assembled as the initialization map followed by media fragments.
+- The implementation accepts a single stable initialization map for the entire fragmented-MP4 playlist. Playlists that change maps, mix mapped and unmapped segments, or contain multiple map configurations are rejected rather than risking a corrupt output.
+- The platform extractor enumerates audio/video tracks, rejects unsupported track types and codec/container combinations, and copies samples into an MP4 muxer while validating non-negative, non-decreasing timestamps per track.
+- The output is limited by the shared 4 GiB constant, must have an MP4 `ftyp` signature, and must pass `VideoMediaInspector` duration and first-frame decoding checks before it is returned.
+- Unsupported codec/media combinations fail with a clear Thai message: `ไม่รองรับ codec สำหรับการรวมไฟล์ออฟไลน์` (or the more general MP4 remux compatibility message when the platform cannot start the muxer).
+- Temporary assembled input is removed in a `finally` block. After successful validation and finalization, the HLS segment/map working directory is removed only through `HlsSegmentDownloader.deleteTemporaryFiles`, which applies the managed-path policy. Failed remuxes retain verified segment chunks for retry and remove only managed output partials.
+- Runtime codec compatibility and representative clear/AES-128 TS/fMP4 media validation remain part of the planned Day 40–41 regression suite; physical-device acceptance remains Day 44.
