@@ -287,12 +287,12 @@ class MainActivity : Activity(), WebViewCallbacks {
                             .substringBefore(';')
                             .trim()
                             .lowercase()
-                        if (!isDirectMp4Source(url, declaredMime)) continue
+                        val detectedMime = directVideoMime(url, declaredMime) ?: continue
                         add(
                             DetectedVideoSource(
                                 url = url,
                                 title = item.optString("title").trim().ifBlank { pageTitle },
-                                mimeType = "video/mp4"
+                                mimeType = detectedMime
                             )
                         )
                     }
@@ -330,14 +330,18 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
     }
 
-    private fun isDirectMp4Source(rawUrl: String, declaredMime: String): Boolean {
+    private fun directVideoMime(rawUrl: String, declaredMime: String): String? {
         val uri = Uri.parse(rawUrl)
         val scheme = uri.scheme?.lowercase()
-        if (scheme != "http" && scheme != "https") return false
-        if (uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null) return false
+        if (scheme != "http" && scheme != "https") return null
+        if (uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null) return null
+
         val path = uri.path.orEmpty()
-        if (path.endsWith(".webm", ignoreCase = true) || declaredMime == "video/webm") return false
-        return path.endsWith(".mp4", ignoreCase = true) || declaredMime == "video/mp4"
+        val isMp4 = path.endsWith(".mp4", ignoreCase = true) || declaredMime == "video/mp4"
+        val isWebM = path.endsWith(".webm", ignoreCase = true) || declaredMime == "video/webm"
+        if (isMp4 == isWebM) return null
+
+        return if (isWebM) "video/webm" else "video/mp4"
     }
 
     private fun showVideoDownloadConfirmation(
@@ -348,7 +352,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             .setTitle("ยืนยันสิทธิ์ในการดาวน์โหลด")
             .setMessage(
                 "โปรดยืนยันว่าคุณมีสิทธิ์ดาวน์โหลดและเก็บวิดีโอนี้ไว้ใช้งาน " +
-                    "RAIN จะตรวจสอบแหล่ง MP4 โดยตรงก่อนเริ่มดาวน์โหลด และจะไม่ใช้ Cookie หรือข้อมูลเข้าสู่ระบบจากเว็บไซต์"
+                    "RAIN จะตรวจสอบแหล่ง MP4/WebM โดยตรงก่อนเริ่มดาวน์โหลด และจะไม่ใช้ Cookie หรือข้อมูลเข้าสู่ระบบจากเว็บไซต์"
             )
             .setPositiveButton("ยืนยันและดาวน์โหลด") { _, _ ->
                 val repository = videoRepository
