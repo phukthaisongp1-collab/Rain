@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.widget.ProgressBar
 import android.widget.LinearLayout
@@ -30,9 +32,9 @@ class UpdateGateActivity : Activity() {
     )
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .callTimeout(5, TimeUnit.MINUTES)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(15, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(false)
         .build()
@@ -41,6 +43,7 @@ class UpdateGateActivity : Activity() {
     private var waitingForInstallPermission = false
     private var waitingForInstaller = false
     private var mainStarted = false
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,10 +79,13 @@ class UpdateGateActivity : Activity() {
     }
 
     private fun checkForUpdate() {
+        mainHandler.postDelayed({
+            if (!mainStarted && pendingUpdate == null) launchBrowser()
+        }, STARTUP_CHECK_DEADLINE_MS)
         Thread {
             val update = runCatching { fetchLatestUpdate() }.getOrNull()
             runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (isFinishing || isDestroyed || mainStarted) return@runOnUiThread
                 if (update == null || update.versionCode <= installedVersionCode()) {
                     launchBrowser()
                 } else {
@@ -338,6 +344,7 @@ class UpdateGateActivity : Activity() {
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
         private const val MAX_APK_BYTES = 512L * 1024L * 1024L
         private const val MAX_RELEASE_NOTES_CHARS = 3000
+        private const val STARTUP_CHECK_DEADLINE_MS = 4000L
         private const val EXPECTED_CERTIFICATE_SHA256 =
             "d1b9587fd636c1e0e92a5718576381aadbc72190f5c927f45e7d4ebe0eadb592"
     }
