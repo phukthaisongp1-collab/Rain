@@ -395,13 +395,21 @@ class VideoDownloadCoordinator(
     }
 
     private fun removeOrphanedManagedFiles() {
-        val knownPaths = repository.list()
+        val records = repository.list()
+        val knownPaths = records
             .mapNotNull { record ->
                 record.filePath.takeIf { it.isNotBlank() }?.let { path ->
                     runCatching { File(path).canonicalPath }.getOrNull()
                 }
             }
-            .toSet()
+            .toMutableSet()
+        records.filter {
+            it.mimeType == HLS_MEDIA_MIME_TYPE && it.status in ACTIVE_STATUSES
+        }.forEach { record ->
+            runCatching {
+                knownPaths += File(managedDirectory, "rain-video-${record.id}.mp4").canonicalPath
+            }
+        }
         val children = managedDirectory.listFiles() ?: return
         children.filter { it.isFile }.forEach { candidate ->
             if (!ManagedVideoPathPolicy.isManagedFile(managedDirectory, candidate)) return@forEach
