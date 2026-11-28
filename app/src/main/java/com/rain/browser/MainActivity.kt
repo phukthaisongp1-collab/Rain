@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.LocaleList
 import android.os.Environment
 import android.provider.Settings
@@ -489,17 +491,130 @@ class MainActivity : Activity(), WebViewCallbacks {
             actions.size,
             "ตรวจหาวิดีโอเพื่อดาวน์โหลด"
         )
+        popupMenu.menu.add(
+            android.view.Menu.NONE,
+            MENU_VIDEO_DOWNLOADS,
+            actions.size + 1,
+            "รายการดาวน์โหลดวิดีโอ"
+        )
         popupMenu.setOnMenuItemClickListener { item ->
-            if (item.itemId == MENU_DETECT_VIDEO) {
-                detectVideosOnCurrentPage()
-            } else {
-                findViewById<View>(item.itemId).performClick()
+            when (item.itemId) {
+                MENU_DETECT_VIDEO -> detectVideosOnCurrentPage()
+                MENU_VIDEO_DOWNLOADS -> showVideoDownloadsDialog()
+                else -> findViewById<View>(item.itemId).performClick()
             }
             true
         }
         popupMenu.show()
     }
 
+    // Day 19 replaces this temporary dialog with the Video Library experience.
+    private fun showVideoDownloadsDialog() {
+        val repository = videoRepository
+        val coordinator = videoDownloadCoordinator
+        if (repository == null || coordinator == null) {
+            Toast.makeText(this, "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val density = resources.displayMetrics.density
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((20 * density).toInt(), (8 * density).toInt(), (20 * density).toInt(), 0)
+        }
+        val scrollView = android.widget.ScrollView(this).apply { addView(content) }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("รายการดาวน์โหลดวิดีโอ")
+            .setView(scrollView)
+            .setPositiveButton(R.string.dialog_close, null)
+            .create()
+        val handler = Handler(Looper.getMainLooper())
+
+        fun render(records: List<com.rain.browser.data.VideoRecord>) {
+            content.removeAllViews()
+            if (records.isEmpty()) {
+                content.addView(TextView(this).apply {
+                    text = "ยังไม่มีรายการดาวน์โหลดวิดีโอ"
+                    setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
+                })
+                return
+            }
+            records.forEach { record ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
+                }
+                row.addView(TextView(this).apply {
+                    text = record.title
+                    textSize = 16f
+                    maxLines = 2
+                })
+                val statusLabel = when (record.status) {
+                    com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
+                    com.rain.browser.data.VideoStatus.DOWNLOADING -> "กำลังดาวน์โหลด"
+                    com.rain.browser.data.VideoStatus.VERIFYING -> "กำลังตรวจสอบไฟล์"
+                    com.rain.browser.data.VideoStatus.READY -> "ดาวน์โหลดเสร็จแล้ว"
+                    com.rain.browser.data.VideoStatus.FAILED -> "ดาวน์โหลดไม่สำเร็จ"
+                    com.rain.browser.data.VideoStatus.FAILED_CORRUPTED -> "ไฟล์ไม่สมบูรณ์"
+                    com.rain.browser.data.VideoStatus.CANCELED -> "ยกเลิกแล้ว"
+                }
+                val total = record.sizeBytes
+                val downloaded = record.bytesDownloaded.coerceAtLeast(0L)
+                val percent = if (total > 0L) {
+                    ((downloaded * 100L) / total).coerceIn(0L, 100L).toInt()
+                } else if (record.status == com.rain.browser.data.VideoStatus.READY) 100 else 0
+                row.addView(TextView(this).apply {
+                    text = if (total > 0L) {
+                        statusLabel + " · " + percent + "% (" + (downloaded / 1_048_576) + " / " + (total / 1_048_576) + " MB)"
+                    } else {
+                        statusLabel + " · " + (downloaded / 1_048_576) + " MB"
+                    }
+                    textSize = 13f
+                })
+                row.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    max = 100
+                    progress = percent
+                    isIndeterminate = total <= 0L && record.status in setOf(
+                        com.rain.browser.data.VideoStatus.QUEUED,
+                        com.rain.browser.data.VideoStatus.DOWNLOADING
+                    )
+                })
+                content.addView(row)
+                content.addView(View(this).apply {
+                    setBackgroundColor(Color.LTGRAY)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        (1 * density).toInt()
+                    )
+                })
+            }
+        }
+
+        val pollRunnable = object : Runnable {
+            override fun run() {
+                if (!dialog.isShowing || isFinishing || isDestroyed) return
+                storageExecutor.execute {
+                    val current = repository.list()
+                    current.filter {
+                        it.status in setOf(
+                            com.rain.browser.data.VideoStatus.QUEUED,
+                            com.rain.browser.data.VideoStatus.DOWNLOADING
+                        ) && it.downloadId != null
+                    }.forEach { record -> runCatching { coordinator.refresh(record.id) } }
+                    val refreshed = repository.list()
+                    runOnUiThread {
+                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
+                            render(refreshed)
+                            handler.postDelayed(this, VIDEO_DOWNLOAD_REFRESH_INTERVAL_MS)
+                        }
+                    }
+                }
+            }
+        }
+        dialog.setOnDismissListener { handler.removeCallbacks(pollRunnable) }
+        dialog.show()
+        handler.post(pollRunnable)
+    }
     private fun restoreTabs(savedInstanceState: Bundle?) {
         val savedTabs = savedInstanceState?.getParcelableArrayList<Bundle>(STATE_TABS)
         if (savedTabs.isNullOrEmpty()) {
@@ -1887,6 +2002,8 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val VIDEO_DISPLAY_KEY = "video_fit_mode"
         const val HOME_SHORTCUTS_KEY = "items"
         const val MENU_DETECT_VIDEO = 5_201
+        const val MENU_VIDEO_DOWNLOADS = 5_202
+        const val VIDEO_DOWNLOAD_REFRESH_INTERVAL_MS = 1_500L
 
         val VIDEO_SOURCE_SCAN_SCRIPT = """
             (function () {
