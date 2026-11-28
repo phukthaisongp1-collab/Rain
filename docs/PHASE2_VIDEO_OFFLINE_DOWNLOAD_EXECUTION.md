@@ -1,139 +1,139 @@
-# RAIN Phase 2 — Video Offline Download Execution Control
+# RAIN Phase 2 — แผนพัฒนาระบบดาวน์โหลดวิดีโอออฟไลน์ (ฉบับปรับปรุง)
 
-> Updated: 2026-11-27
+> Updated: 2026-11-28
 > Repository: `phukthaisongp1-collab/Rain`
-> Current application baseline: `com.rain.browser` / `0.1.4` / `versionCode 5`
+> Application: `com.rain.browser` / `0.1.4` / `versionCode 5`
+> This revision supersedes the previous Phase 2 execution plan.
 
-## 1. Mandatory execution rules
+## 1. เป้าหมายของโครงการ
 
-### 1.1 Physical-device testing is Day 35 only
+พัฒนาระบบดาวน์โหลดวิดีโอสำหรับเบราว์เซอร์ RAIN โดยมีเป้าหมายหลักคือ
 
-- Days 1–34: source review, implementation, unit tests, static analysis, builds, CI and Android emulator tests only.
-- Do not schedule or report any physical-device test during Days 1–34.
-- Day 35 is the single consolidated physical-device test day on the owner's Android 16 device. It covers the complete approved test matrix, update-over-install, data preservation, downloads, background behavior, offline playback and retention.
-- Android emulator instrumentation in GitHub Actions is CI, not a physical-device test, and may run before Day 35.
+- ตรวจจับวิดีโอจากเว็บไซต์ทั่วไป ไม่จำกัดเพียงเว็บไซต์ทดสอบ
+- แยกวิดีโอโฆษณาออกจากเนื้อหาหลักอย่างน่าเชื่อถือ
+- ตรวจสอบแหล่งที่มาของสื่อก่อนอนุญาตให้ดาวน์โหลด
+- รองรับไฟล์ MP4 และ WebM ตามความสามารถที่ตรวจสอบได้
+- แสดงสถานะและความคืบหน้าการดาวน์โหลด
+- รองรับยกเลิก ดาวน์โหลดซ้ำ และกู้คืนเมื่อเครือข่ายขัดข้อง
+- จัดเก็บวิดีโอใน Video Library และเล่นแบบออฟไลน์
+- จัดการ Like, Unlike และลบวิดีโอเก่าอัตโนมัติ
+- ตรวจสอบความสมบูรณ์ ความปลอดภัย และพื้นที่จัดเก็บ
 
-### 1.2 Update-over-install compatibility is a release blocker
+### 1.1 ข้อจำกัดด้านความปลอดภัย (ต้องบังคับใช้ในโค้ด)
 
-Every release must preserve all of the following:
+- ไม่ข้าม DRM, Token, Authentication, Paywall, Cloudflare Challenge หรือข้อจำกัดการดาวน์โหลดของเว็บไซต์
+- หากตรวจสอบสิทธิ์ไม่ได้ ให้ปฏิเสธอย่างปลอดภัย (Fail-closed) และระบุว่าไม่รองรับหรือรองรับบางส่วน
+- ไม่แสดง Popup ดาวน์โหลดเพียงเพราะตรวจพบหรือเล่นวิดีโอได้
+- แอปควรแจ้งผู้ใช้ให้ดาวน์โหลดเฉพาะสื่อที่ตนมีสิทธิ์ใช้งาน
 
-1. `applicationId = com.rain.browser`.
-2. The original Android signing certificate, Keystore, key alias and signing identity. Never generate a replacement key for an ordinary update.
-3. A strictly increasing `versionCode`. The current installed baseline is `versionCode 5`; the next app release must use at least `versionCode 6`.
-4. The existing user data and app-private storage. Never clear app data as an update workaround.
-5. Additive database migrations only. Never drop or recreate existing user tables to introduce Video Library metadata.
-6. Release verification must check application ID, version metadata and the pinned signing certificate before an APK is described as update-compatible.
+## 2. แผนดำเนินงาน 35 วัน
 
-The current signed-release workflow pins the certificate SHA-256 to:
+| วัน | งานที่ต้องดำเนินการ | สถานะ |
+|---|---|---|
+| 1–7 | WebView/Media Callbacks, Download Policy, Storage, ตรวจจับ HTML5 Video, สัญญาณโฆษณา, Direct MP4 | เสร็จ |
+| 8 | ปิด Detection Feasibility Gate ตามเงื่อนไขใหม่ (หัวข้อ 3) | ปิดตามเงื่อนไขใหม่ |
+| 9 | Download Core Foundation | โค้ดอยู่ใน PR #40 ยังไม่ผ่าน Acceptance |
+| 10 | Direct MP4 Download | เช่นเดียวกัน |
+| 11 | Direct WebM Download | เช่นเดียวกัน |
+| 12 | ตัวเลือกคุณภาพวิดีโอตาม Source จริง | เช่นเดียวกัน |
+| 13 | ความคืบหน้าและสถานะดาวน์โหลด | เช่นเดียวกัน |
+| 14 | ยกเลิกและดาวน์โหลดใหม่ | เช่นเดียวกัน |
+| 15 | ดาวน์โหลดเบื้องหลัง | เช่นเดียวกัน |
+| 16 | กู้คืนเครือข่ายและ Resume อย่างปลอดภัย | เช่นเดียวกัน |
+| 17 | กู้คืน Process และตรวจสอบสถานะงาน | เช่นเดียวกัน |
+| 18 | Notifications | ยังไม่เริ่ม |
+| 19 | สร้าง Video Library | ยังไม่เริ่ม |
+| 20 | บันทึกข้อมูลวิดีโอใน Library (Schema v2 → v3 แบบเพิ่มอย่างเดียว) | ยังไม่เริ่ม |
+| 21 | แสดงรายการวิดีโอและรายละเอียด | ยังไม่เริ่ม |
+| 22 | เล่นวิดีโอแบบ Offline | ยังไม่เริ่ม |
+| 23 | จัดการสถานะและการเล่นวิดีโอ | ยังไม่เริ่ม |
+| 24 | ระบบ Like | ยังไม่เริ่ม |
+| 25 | ระบบ Unlike | ยังไม่เริ่ม |
+| 26 | ลบวิดีโอเก่าอัตโนมัติ 30 วัน | ยังไม่เริ่ม |
+| 27 | ตรวจสอบความสมบูรณ์ของไฟล์ | ยังไม่เริ่ม |
+| 28 | ตรวจสอบความปลอดภัยของไฟล์และ Source | ยังไม่เริ่ม |
+| 29 | จัดการพื้นที่จัดเก็บ | ยังไม่เริ่ม |
+| 30 | กู้คืนข้อมูลและ Storage Recovery | ยังไม่เริ่ม |
+| 31–32 | Integration + Regression Test (รอบเดียวรวมกัน) | ยังไม่เริ่ม |
+| 33 | แก้ไขปัญหาที่พบและทดสอบซ้ำเฉพาะส่วนที่แก้ | ยังไม่เริ่ม |
+| 34 | Pre-Acceptance CI และตรวจหลักฐาน | ยังไม่เริ่ม |
+| 35 | ทดสอบบนโทรศัพท์ Android 16 เครื่องจริงและ Final Acceptance | รอทดสอบ |
+
+## 3. Day 8 — เงื่อนไขปิด Gate (ฉบับปรับปรุง)
+
+Day 8 ผ่านเมื่อครบทั้งสองข้อ:
+
+1. ลอจิกตรวจจับผ่านการทดสอบด้วยหน้าทดสอบที่ควบคุมได้ (`Html5VideoDetectionProbeTest` และ CI Run #337 ผ่านแล้ว)
+2. บันทึกข้อจำกัดจากการตรวจเว็บจริงไว้ในเอกสาร:
+   - `037-hdd.com` และ `nunghd4k.com`: ไม่พบ Video DOM ในสถานะเริ่มต้น
+   - `fwip-tv.com/visionquest`: พบ Cloudflare Challenge จึงตรวจสอบไม่ได้ (ไม่พยายามข้าม)
+
+การตรวจเว็บจริงเป็นหลักฐานประกอบ ไม่ใช่เงื่อนไขผ่าน/ไม่ผ่านอีกต่อไป ระบบต้องไม่รับประกันว่าสื่อทุกชนิดจากทุกเว็บไซต์จะตรวจจับหรือดาวน์โหลดได้ และให้ Fail-closed เมื่อข้อมูลกำกวม
+
+## 4. กติกาด้านระบบและข้อมูลเดิม
+
+| รายการ | ข้อกำหนด |
+|---|---|
+| Application ID | `com.rain.browser` |
+| Version ปัจจุบัน | `0.1.4` (Version Code `5`) |
+| Version Code รุ่นถัดไป | อย่างน้อย `6` |
+| Database | SQLite Schema Version `2` ปัจจุบัน |
+| ตารางเดิม | `bookmarks`, `history`, `resume`, `settings` |
+| Download เดิม | WebView `DownloadListener` → `DownloadPolicy` → Android `DownloadManager` |
+
+ข้อบังคับ:
+
+- ห้ามล้างข้อมูลผู้ใช้ ห้ามลบหรือสร้างตารางเดิมใหม่
+- Database Migration ต้องเป็นแบบเพิ่มส่วนใหม่เท่านั้น
+- ต้องรักษา Signing Certificate เดิม
+- ต้องไม่ทำให้ระบบดาวน์โหลดไฟล์ทั่วไปและ APK เดิมเสีย
+
+SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 
 `d1b9587fd636c1e0e92a5718576381aadbc72190f5c927f45e7d4ebe0eadb592`
 
-The current release workflow also pins `versionName=0.1.4` and `versionCode=5`. When the next application release is authorized, update the Gradle version metadata and the workflow's expected metadata together, with `versionCode >= 6`, while keeping the certificate pin unchanged. A test-only PR must not increment the app version or produce a new release APK.
+## 5. กฎการทดสอบ (ฉบับปรับปรุง)
 
-### 1.3 Existing data must remain intact
+- Day 9–30: เขียนฟีเจอร์ต่อเนื่อง ไม่เพิ่มเทสต์รายวัน ใช้เฉพาะ CI Build และ Lint ที่รันอัตโนมัติ ต้องเขียวก่อน Merge
+- Day 31–32: Integration + Regression รอบเดียว ครอบคลุมเส้นทางหลัก: ดาวน์โหลด → แสดงความคืบหน้า → ยกเลิก → Resume หลังเครือข่ายขาด → กู้คืนหลังปิดแอป → Library → เล่นออฟไลน์ → Like/Unlike → ลบวิดีโอเก่า
+- Day 33: แก้บั๊ก รันซ้ำเฉพาะส่วนที่แก้
+- Day 34: Pre-Acceptance CI 1 รอบ ตรวจติดตั้งทับรุ่นเดิม ข้อมูลเดิมต้องอยู่ครบ และ Signing Certificate ตรงกับที่กำหนด
+- ห้ามทดสอบโทรศัพท์จริงก่อน Day 35
+- Day 35: ทดสอบบนโทรศัพท์ Android 16 ของเจ้าของเครื่อง ได้แก่ ติดตั้งทับ รักษาข้อมูล ดาวน์โหลด ทำงานเบื้องหลัง (รวมข้อจำกัดแบตเตอรี่) สิทธิ์การแจ้งเตือน เล่นออฟไลน์ และลบไฟล์เก่า
+- สื่อที่ใช้ทดสอบควรเป็นไฟล์ที่ได้รับอนุญาต เช่น วิดีโอโอเพนซอร์สหรือไฟล์ที่เจ้าของเป็นผู้สร้างเอง
 
-Source audit baseline:
+ความเสี่ยงที่ยอมรับ: บั๊กอาจสะสมจนพบพร้อมกันใน Day 31–33 ลดความเสี่ยงโดยแยกโค้ดแต่ละฟีเจอร์ให้เล็กและชัดเจน และไม่ Merge เมื่อ CI Build ไม่เขียว
 
-- SQLite database: `rain_browser.db`
-- Current schema version: `2`
-- Existing tables: `bookmarks`, `history`, `resume`, `settings`
-- Existing download flow: WebView `DownloadListener` → `DownloadPolicy` → Android `DownloadManager`
-- Existing normal file downloads and APK downloads must continue to work.
+## 6. สถานะงานจริง ณ 28 พ.ย. 2026
 
-If Video Library metadata is added later, migration must preserve every existing table and row. Any schema bump must have explicit upgrade tests from the current version 2 database. A migration failure must not silently wipe user data.
+- Day 1–7: เสร็จแล้ว
+- Day 8: ปิดตามเงื่อนไขในหัวข้อ 3 (CI Run #337 ผ่าน)
+- Day 9–17: มีโค้ดใน PR #40 แต่ยังไม่ผ่าน Acceptance
+- Day 18–34: ยังไม่เริ่ม
+- Day 35: รอทดสอบเครื่องจริง
 
-## 2. Thirty-five-day work plan
+### หลักฐาน CI สำหรับ Day 8
 
-| Day | Work | Current status |
-|---:|---|---|
-| 1 | Audit WebView and media callbacks | Done — existing WebView has a DownloadListener; no media interception implementation was found in the factory |
-| 2 | Audit download policy and DownloadManager | Done — existing generic file download path identified; no video library integration found |
-| 3 | Audit storage, dependencies and release identity | Done — SQLite v2 and current signing/version constraints recorded |
-| 4 | HTML5 video DOM feasibility probe | Done — WebView can expose source and player metadata when present |
-| 5 | Multiple video and no-source cases | Done — multiple elements are reported; missing source remains empty rather than being invented |
-| 6 | Explicit ad UI signal probe | Done for exposed DOM markers only; not a universal ad classifier |
-| 7 | Direct MP4 resource visibility | Done for one public MP4 sample on Android 16 emulator; WebViewClient observed the resource request |
-| 8 | Detection feasibility acceptance gate | Partial / blocked — Runs #240 and #241 passed Android 16 emulator CI. Run #240 artifact reports 12 instrumentation tests + 96 unit tests; Run #241 reran the same test code after a documentation-only commit. Real-site ad classification and source-permission evidence remain unproven |
-| 9 | Download core foundation | Blocked by Day 8 gate |
-| 10 | Direct MP4 download integration | Blocked by Day 8 gate |
-| 11 | Direct WebM download integration | Blocked by Day 8 gate |
-| 12 | Real source quality options | Blocked by Day 8 gate |
-| 13 | Download progress and status | Blocked by Day 8 gate |
-| 14 | Cancel and retry behavior | Blocked by Day 8 gate |
-| 15 | Background download lifecycle | Blocked by Day 8 gate |
-| 16 | Network recovery and safe resume | Blocked by Day 8 gate |
-| 17 | Process recovery and reconciliation | Blocked by Day 8 gate |
-| 18 | Notifications | Not started |
-| 19–23 | Video Library and offline playback | Not started |
-| 24–26 | Like, Unlike and 30-day cleanup | Not started |
-| 27–30 | Integrity, security and storage recovery | Not started |
-| 31–33 | Integration, regression and fixes | Not started |
-| 34 | Pre-acceptance CI and test evidence review | Not started; no physical-device test |
-| 35 | All physical-device testing and final acceptance | Reserved exclusively for the owner's Android 16 device |
+- Run #337: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46079735506
+- CI workflow สำเร็จ รวม Lint, Unit Tests, Android 16 Emulator Instrumentation, Real-site Probe, install/launch smoke test และ artifact upload
+- Real-site probe บันทึกว่า 037-hdd.com และ nunghd4k.com โหลดหน้าเริ่มต้นได้แต่ไม่พบ Video DOM; fwip-tv.com/visionquest แสดง Cloudflare Challenge
+- ผลดังกล่าวเป็นข้อจำกัดของการตรวจเว็บจริงในสถานะเริ่มต้น ไม่ใช่ข้อสรุปว่าเว็บไซต์ไม่มีวิดีโอ และไม่มีการพยายามข้าม Challenge
+- CI ผ่านตามเกณฑ์ทดสอบที่ควบคุมได้และบันทึกข้อจำกัดครบตามเงื่อนไขใหม่ ไม่ใช่การรับประกันการตรวจจับหรือดาวน์โหลดสื่อทุกประเภทจากทุกเว็บไซต์
 
-## 3. Source audit findings
+## 7. เงื่อนไขการปิดโครงการ
 
-### Existing download path
+- Day 8 ปิดตามเงื่อนไขหัวข้อ 3
+- Day 9–30 พัฒนาครบ และ CI Build ผ่าน
+- Day 31–33 Integration/Regression ผ่าน
+- Day 34 Pre-Acceptance ผ่าน
+- Day 35 ทดสอบบนเครื่องจริงและ Final Acceptance ผ่าน
 
-- `MainActivity.onDownloadRequested` obtains a safe filename through Android `URLUtil`.
-- `DownloadPolicy.evaluate` checks URL scheme/host, credentials, executable types, MIME/extension mismatches and filename safety.
-- Accepted files are queued through the existing Android `DownloadManager`.
-- The current path saves normal files to the public Downloads directory and displays the Android download notification.
-- This is a generic file-download path, not a Video Library, retention manager or media detector.
+## 8. ประวัติการปรับแผน
 
-### Existing WebView path
+### 2026-11-28 — Revised execution plan
 
-- `WebViewFactory` configures the existing Android WebView and its navigation/security callbacks.
-- It installs a `DownloadListener`.
-- No production `shouldInterceptRequest` media observer or video-detection bridge was found in the audited factory.
-- The new probe uses an isolated test WebView. It does not alter production WebView behavior.
-
-### Storage and dependencies
-
-- Existing storage is `SqliteStorage`, database version 2.
-- No video metadata table or WorkManager integration was found in the audited source.
-- Existing dependencies include AndroidX Activity and AndroidX WebKit; WorkManager is not currently declared.
-- Do not add a second download manager or introduce new dependencies before the approved architecture gap is demonstrated.
-
-## 4. Detection PoC evidence
-
-The Android 16 emulator CI runs:
-
-- Run #241: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46013946186 (head `a9926216aaec1eaaafec6b8e74003e7bf29ae5a0`); all workflow steps completed successfully, including lint/unit/build, Android 16 instrumentation, install-launch smoke test and artifact upload.
-- Run #240: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46012304095 (head `a331fea24d9c6ca731088a343e19a3a83ee62a3e`); this is the run whose downloaded XML reports were inspected for exact test counts.
-- Test artifact: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46012304095/artifacts/15204458462
-- Run #241 result: lint, unit tests, Android 16 emulator instrumentation, install/launch smoke test and artifact upload all passed.
-- Run #240 parsed artifact reports: 96 unit tests across 10 test classes and 12 Android 16 emulator instrumentation tests; 0 failures, 0 errors and 0 skipped tests. Run #241 used the same application/test sources; its commit changed documentation only. Its artifact has been retained, but exact XML counts are not separately asserted here.
-- Instrumentation cases cover exposed HTML5 metadata, missing sources, explicit ad markers, fail-closed payload semantics, one public direct MP4 request, synthetic WebM request visibility, dynamic source changes, Blob URL opacity, iframe document boundary, and synthetic pre-roll/mid-roll marker transitions.
-- Artifact contents were inspected directly. This is emulator CI evidence only, not a physical-device result or proof of real-site ad classification/download permission.
-
-The four PoC cases are:
-
-1. Read multiple HTML5 video elements and exposed MP4/WebM URLs, poster and player state.
-2. Return an empty source when a video element exposes no source.
-3. Observe one direct MP4 resource request through a test WebViewClient on Android 16 emulator.
-4. Collect explicit `Advertisement` and `Skip Ad` DOM markers when the player exposes them.
-
-These results establish limited feasibility only. Follow-up instrumentation probes cover dynamic source changes, Blob URL handling and the current document/iframe boundary. A synthetic WebM request-visibility test has now been added; it must pass CI before being counted as verified. The synthetic response is intentionally not a playable asset and proves neither real-site media visibility nor permission to download. The existing evidence does not prove that all websites expose media URLs, that all media requests are visible, or that absence of an ad marker proves a video is main content. The PoC deliberately does not classify a video as safe to download and does not show a popup.
-
-## 5. Gate before Days 9–17
-
-The approved addendum requires A1 detection feasibility evidence before full product implementation. The current PoC has not yet established:
-
-- Reliable ad/main-content distinction on real websites, including pre-roll and mid-roll transitions.
-- Behavior for cross-origin iframes, MSE/Blob sources and source changes.
-- WebM request visibility on Android WebView from a synthetic fixture (verified by Run #240); real-site WebM visibility remains unproven.
-- A defensible fail-closed decision for ambiguous pages.
-- That the observed resource is legitimately downloadable and not DRM-, token-, authentication- or site-restricted.
-
-Therefore Days 9–17 remain blocked. Do not create a production popup, mark a video downloadable merely because it plays, or build the Video Library around an unverified media source. Continue with targeted feasibility tests and source evidence first. If the gate cannot be satisfied for a media class, mark that class unsupported/partially supported rather than bypassing restrictions.
-
-## 6. Change log
-
-### 2026-11-27
-
-- Consolidated all physical-device testing into Day 35.
-- Recorded source audit findings and Android 16 emulator PoC evidence.
-- Added Android 16 emulator probes for a synthetic WebM request, fail-closed ad-signal semantics, and synthetic pre-roll-to-main-source / mid-roll-marker transitions. Run #240's inspected reports show 12 instrumentation tests and 96 unit tests with no failures, errors or skips; Run #241 also completed successfully after a documentation-only update. These tests verify probe behavior and signal changes only; they do not establish real-site ad classification or download permission.
-- Added mandatory update-over-install invariants: stable application ID, signing certificate, strictly increasing versionCode and non-destructive data migrations.
-- Kept Days 9–17 gated until real-site detection and ad-classification feasibility is demonstrated.
+- ฉบับนี้แทนที่แผนเดิมทั้งหมด
+- เปลี่ยน Day 8 ให้ปิดได้จาก controlled detection test + การบันทึกข้อจำกัด real-site probe ตามเกณฑ์ใหม่
+- ปรับ Day 9–30 ให้พัฒนาต่อเนื่อง โดยใช้ CI Build และ Lint อัตโนมัติ ไม่เพิ่มการทดสอบรายวัน
+- รวม Integration/Regression ไว้ที่ Day 31–32, targeted fixes ที่ Day 33, Pre-Acceptance ที่ Day 34 และ physical-device acceptance ที่ Day 35
+- คงข้อจำกัดด้านความปลอดภัย การรักษาข้อมูลเดิม และการรักษา Signing Certificate
