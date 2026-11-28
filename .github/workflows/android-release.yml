@@ -11,10 +11,13 @@ on:
       - 'settings.gradle.kts'
       - 'gradle.properties'
       - '.github/workflows/android-release.yml'
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-signed-release
@@ -112,8 +115,8 @@ jobs:
           )
 
           EXPECTED_APPLICATION_ID="com.rain.browser"
-          EXPECTED_VERSION_CODE="5"
-          EXPECTED_VERSION_NAME="0.1.4"
+          EXPECTED_VERSION_CODE="6"
+          EXPECTED_VERSION_NAME="0.1.5"
 
           test "$ACTUAL_APPLICATION_ID" = "$EXPECTED_APPLICATION_ID"
           test "$ACTUAL_VERSION_CODE" = "$EXPECTED_VERSION_CODE"
@@ -122,6 +125,40 @@ jobs:
           echo "Verified applicationId: $ACTUAL_APPLICATION_ID"
           echo "Verified versionCode: $ACTUAL_VERSION_CODE"
           echo "Verified versionName: $ACTUAL_VERSION_NAME"
+
+      - name: Prepare GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          BADGING="$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK_PATH")"
+          PACKAGE_LINE="$(printf '%s\\n' "$BADGING" | grep -m1 "^package:")"
+          read -r APP_ID VERSION_CODE VERSION_NAME < <(printf '%s\\n' "$PACKAGE_LINE" | awk -F"'" '{print $2, $4, $6}')
+          test "$APP_ID" = "com.rain.browser"
+          test "$VERSION_CODE" = "6"
+          test "$VERSION_NAME" = "0.1.5"
+          test "$GITHUB_REF_NAME" = "v$VERSION_NAME"
+          APK_NAME="rain-$VERSION_NAME.apk"
+          cp "$APK_PATH" "$APK_NAME"
+          APK_SHA256="$(sha256sum "$APK_NAME" | awk '{print $1}')"
+          printf '%s  %s\\n' "$APK_SHA256" "$APK_NAME" > "$APK_NAME.sha256"
+          jq -n --arg versionName "$VERSION_NAME" --argjson versionCode "$VERSION_CODE" --arg apkAssetName "$APK_NAME" --arg sha256 "$APK_SHA256" --arg releaseNotes "RAIN $VERSION_NAME: verified signed app update." '{versionName:$versionName,versionCode:$versionCode,apkAssetName:$apkAssetName,sha256:$sha256,releaseNotes:$releaseNotes}' > rain-update.json
+          echo "Prepared signed APK and update metadata for $GITHUB_REF_NAME"
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \\
+            "rain-0.1.5.apk" \\
+            "rain-0.1.5.apk.sha256" \\
+            "rain-update.json" \\
+            --title "RAIN 0.1.5" \\
+            --notes "RAIN 0.1.5 signed release. The in-app updater verifies package identity, version, SHA-256 and signing certificate before opening Android Package Installer."
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
