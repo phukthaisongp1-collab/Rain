@@ -388,8 +388,8 @@ class VideoDownloadCoordinator(
             }
             results += result
         }
-        removeOrphanedManagedRequests(knownRequestIds)
-        removeOrphanedManagedFiles()
+        val unresolvedOrphanRequest = removeOrphanedManagedRequests(knownRequestIds)
+        if (!unresolvedOrphanRequest) removeOrphanedManagedFiles()
         return results
     }
 
@@ -422,13 +422,15 @@ class VideoDownloadCoordinator(
      * Removes only app-owned DownloadManager requests whose resolved local file
      * is proven to be inside RAIN storage. Unknown locations are left untouched.
      */
-    private fun removeOrphanedManagedRequests(knownRequestIds: Set<Long>) {
-        val cursor = runCatching { downloadManager.query(DownloadManager.Query()) }.getOrNull() ?: return
+    private fun removeOrphanedManagedRequests(knownRequestIds: Set<Long>): Boolean {
+        val cursor = runCatching { downloadManager.query(DownloadManager.Query()) }.getOrNull()
+            ?: return true
+        var unresolvedOrphanRequest = false
         cursor.use {
             val idColumn = it.getColumnIndex(DownloadManager.COLUMN_ID)
             val fileColumn = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_FILENAME)
             val uriColumn = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-            if (idColumn < 0) return
+            if (idColumn < 0) return true
             while (it.moveToNext()) {
                 val requestId = it.getLong(idColumn)
                 if (requestId in knownRequestIds) continue
@@ -439,13 +441,21 @@ class VideoDownloadCoordinator(
                     localUri.path.takeIf { localUri.scheme.equals("file", true) }
                 } else {
                     null
-                } ?: continue
+                }
+                if (localPath.isNullOrBlank()) {
+                    unresolvedOrphanRequest = true
+                    continue
+                }
                 val candidate = File(localPath)
-                if (ManagedVideoPathPolicy.isManagedFile(managedDirectory, candidate)) {
+                val managed = runCatching {
+                    ManagedVideoPathPolicy.isManagedFile(managedDirectory, candidate)
+                }.getOrDefault(false)
+                if (managed) {
                     downloadManager.remove(requestId)
                 }
             }
         }
+        return unresolvedOrphanRequest
     }
 
     private fun query(requestId: Long): DownloadSnapshot? {
