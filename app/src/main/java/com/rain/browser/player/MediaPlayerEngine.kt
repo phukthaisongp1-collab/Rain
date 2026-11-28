@@ -37,7 +37,7 @@ class MediaPlayerEngine(
 
     override fun seekTo(positionMs: Long) {
         mediaPlayer?.let {
-            it.seekTo(positionMs.coerceIn(0L, it.duration.toLong()).toInt(), MediaPlayer.SEEK_CLOSEST)
+            it.seekTo(positionMs.coerceIn(0L, it.duration.toLong()), MediaPlayer.SEEK_CLOSEST)
         }
     }
 
