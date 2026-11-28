@@ -6,6 +6,8 @@ import java.io.File
 import java.net.URI
 import java.util.UUID
 
+const val HLS_MEDIA_MIME_TYPE = "application/vnd.apple.mpegurl"
+
 enum class VideoStatus {
     QUEUED,
     DOWNLOADING,
@@ -127,6 +129,36 @@ class VideoRepository(
         )
         persist(updated)
         return updated
+    }
+
+    /** Starts or resumes a persisted HLS transfer without a DownloadManager request ID. */
+    fun startHlsTransfer(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.mimeType != HLS_MEDIA_MIME_TYPE ||
+            current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING)
+        ) return null
+        return current.copy(
+            downloadId = null,
+            status = VideoStatus.DOWNLOADING,
+            lastError = "",
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    /** Persists HLS progress while keeping the byte total unknown until remux completes. */
+    fun updateHlsProgress(
+        id: String,
+        bytesDownloaded: Long,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (bytesDownloaded < 0L || bytesDownloaded > 4L * 1024L * 1024L * 1024L || now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.mimeType != HLS_MEDIA_MIME_TYPE || current.status != VideoStatus.DOWNLOADING) return null
+        return current.copy(
+            bytesDownloaded = bytesDownloaded,
+            updatedAt = now
+        ).also(::persist)
     }
 
     fun markVerifying(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
