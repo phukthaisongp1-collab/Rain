@@ -247,3 +247,12 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - DownloadManager requests absent from the database are removed only when the provider exposes a local file path/`file://` URI that can be confirmed inside RAIN-managed storage. If the path is unavailable, non-file, or cannot be resolved safely, the request is left untouched; RAIN does not guess ownership from request IDs or titles.
 - `ERROR_INSUFFICIENT_SPACE` is converted to a Thai user-facing storage message, the transfer is marked `FAILED`, and any partial file is deleted only through the managed-path containment check.
 - The Library runs recovery on open; the browser also performs startup recovery. Duplicate startup reconciliation calls were removed.
+
+### Day 32 — HLS playlist discovery and selected fetch
+
+- WebView `shouldInterceptRequest` inspects only the requested URL and always returns `null`. It never modifies, blocks, delays, or replaces the page request and never sends a separate HEAD/GET request before user selection.
+- A candidate is recorded when the HTTP(S) URL path or a decoded query-parameter value contains `.m3u8`, case-insensitively. Candidate URLs are deduplicated and held in a thread-safe per-WebView registry capped at 200 entries. The registry is cleared on each main-frame page start and when the tab/WebView is destroyed.
+- Only URL strings are retained; Cookie, Authorization, Referer, and request headers are not stored.
+- The existing direct MP4/WebM DOM scan and intercepted HLS candidates appear in one user selection list. HLS is fetched only after the user selects it and confirms authorization.
+- The selected playlist is fetched by RAIN using a separate `HttpURLConnection` request with only a generic User-Agent, no page credentials, no automatic redirects, and a 1 MiB response limit. The content must begin with `#EXTM3U`; Content-Type is not used as a substitute for playlist validation.
+- **Accepted discovery limitation:** HLS playlists whose URL path and query-parameter values do not contain `.m3u8` are not detected. The selected-fetch implementation currently rejects redirects; controlled redirect handling is added in the later HLS network-hardening day.
