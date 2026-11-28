@@ -2157,7 +2157,7 @@ class MainActivity : Activity(), WebViewCallbacks {
                 }
 
                 return JSON.stringify(Array.from(document.querySelectorAll('video')).flatMap(function (video, videoIndex) {
-                    if (video.srcObject !== null) return [];
+                    if (video.srcObject) return [];
 
                     var rect = video.getBoundingClientRect();
                     var style = window.getComputedStyle(video);
