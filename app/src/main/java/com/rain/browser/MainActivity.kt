@@ -642,7 +642,9 @@ class MainActivity : Activity(), WebViewCallbacks {
                 return
             }
 
-            records.forEach { record ->
+            records.sortedByDescending { record ->
+                if (record.downloadedAt > 0L) record.downloadedAt else record.createdAt
+            }.forEach { record ->
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
@@ -804,21 +806,33 @@ class MainActivity : Activity(), WebViewCallbacks {
             com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
             com.rain.browser.data.VideoStatus.DOWNLOADING -> "กำลังดาวน์โหลด"
             com.rain.browser.data.VideoStatus.VERIFYING -> "กำลังตรวจสอบไฟล์"
-            com.rain.browser.data.VideoStatus.READY -> "ดาวน์โหลดเสร็จแล้ว"
+            com.rain.browser.data.VideoStatus.READY -> "พร้อมเล่นออฟไลน์"
             com.rain.browser.data.VideoStatus.FAILED -> "ดาวน์โหลดไม่สำเร็จ"
             com.rain.browser.data.VideoStatus.FAILED_CORRUPTED -> "ไฟล์ไม่สมบูรณ์"
             com.rain.browser.data.VideoStatus.CANCELED -> "ยกเลิกแล้ว"
         }
+        val sourceDomain = runCatching { java.net.URI(record.url).host }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: "ไม่ทราบ"
+        val downloadedDate = if (record.downloadedAt > 0L) {
+            java.util.Date(record.downloadedAt).toString()
+        } else {
+            "ยังไม่เสร็จ"
+        }
+        val expiryDate = when {
+            record.isLiked -> "ไม่หมดอายุ (ถูกใจแล้ว)"
+            record.expiresAt != null -> java.util.Date(record.expiresAt).toString()
+            else -> "ยังไม่กำหนด"
+        }
         val details = buildString {
             append("สถานะ: ").append(statusLabel)
-            append("\\nประเภทไฟล์: ").append(record.mimeType.ifBlank { "ไม่ทราบ" })
-            append("\\nขนาด: ").append(record.sizeBytes.coerceAtLeast(0L) / 1_048_576).append(" MB")
-            append("\\nดาวน์โหลดแล้ว: ").append(record.bytesDownloaded.coerceAtLeast(0L) / 1_048_576).append(" MB")
-            append("\\nระยะเวลา: ").append(record.durationMs.coerceAtLeast(0L) / 1000).append(" วินาที")
-            append("\\nวันที่ดาวน์โหลด: ").append(
-                if (record.downloadedAt > 0L) java.util.Date(record.downloadedAt).toString() else "ยังไม่เสร็จ"
-            )
-            if (record.lastError.isNotBlank()) append("\\nรายละเอียดข้อผิดพลาด: ").append(record.lastError)
+            append("\nโดเมนต้นทาง: ").append(sourceDomain)
+            append("\nขนาด: ").append(record.sizeBytes.coerceAtLeast(0L) / 1_048_576).append(" MB")
+            append("\nระยะเวลา: ").append(record.durationMs.coerceAtLeast(0L) / 1000).append(" วินาที")
+            append("\nวันที่ดาวน์โหลด: ").append(downloadedDate)
+            append("\nวันหมดอายุ: ").append(expiryDate)
+            if (record.lastError.isNotBlank()) append("\nรายละเอียดข้อผิดพลาด: ").append(record.lastError)
         }
         AlertDialog.Builder(this)
             .setTitle(record.title)
