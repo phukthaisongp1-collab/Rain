@@ -273,3 +273,12 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 - Playlist fetches now use this transport. Segment and AES key requests in the next day must use the same `HlsHttpClient` entry point so each actual socket destination is checked.
 - Requests contain only a generic RAIN User-Agent, Accept, identity encoding, and Connection headers. No WebView Cookie, Authorization, Referer, or other page headers are copied; no cookie jar is configured.
 - HTTP 401/403 fails with the exact user message: `เว็บนี้จำกัดการดาวน์โหลด ไม่รองรับ`.
+
+### Day 35 — HLS segment transfer, AES-128, and resumable chunks
+
+- Added a streaming-to-file HLS transport entry point on the Day 34 HlsHttpClient. It reuses DNS screening, actual connected-socket IP checks, manual redirect validation, HTTPS downgrade rejection, credential-free request headers, and the exact HTTP 401/403 failure message. Media bodies are streamed to temporary files instead of being buffered in memory.
+- Media segments are downloaded with a bounded four-worker executor (configurable only from 3–4 workers). Each segment receives up to three attempts with exponential backoff. A cancellation token stops queued work and is checked during streaming; an in-flight socket is also bounded by the transport timeout.
+- Identity AES-128 keys are fetched through HlsHttpClient, must be exactly 16 bytes, and are cached only in memory. Segments and encrypted initialization maps are decrypted with AES-CBC/PKCS padding. An explicit IV is used when supplied; otherwise the media sequence number is encoded as a 128-bit big-endian IV.
+- Segment and initialization-map chunks are written under Movies/RAIN/hls-<record-id>. A per-playlist fingerprint and per-chunk SHA-256/byte-count metadata allow verified completed chunks to be skipped on retry. The metadata stores hashes and counts, not source URLs, cookies, keys, or authorization values. Incomplete .part files are discarded on retry.
+- The existing shared VideoDownloadCoordinator.MAX_VIDEO_SIZE_BYTES constant enforces the aggregate 4 GiB cap across downloaded segment and initialization-map bytes, including concurrent workers. Unknown aggregate size uses the approved 500 MiB minimum free-space precheck. Progress reports completed segments and transferred bytes.
+- This day provides the HLS segment-transfer engine and resumable chunk output. Integration with the videos record lifecycle, foreground service, notifications, Library and playback is reserved for Day 37; final concatenation/remux and container verification are Day 36.
