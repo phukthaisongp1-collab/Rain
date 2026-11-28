@@ -432,9 +432,6 @@ class VideoLibraryActivity : Activity() {
                     check(latest.status !in ACTIVE_STATUSES) {
                         "การยกเลิก HLS ยังไม่เสร็จ กรุณาลองอีกครั้ง"
                     }
-                    check(HlsSegmentDownloader(managedDirectory()).deleteTemporaryFiles(current.id)) {
-                        "ไม่สามารถลบไฟล์ชั่วคราว HLS ได้อย่างปลอดภัย"
-                    }
                 } else if (current.status in ACTIVE_STATUSES && !coordinator.cancel(current.id)) {
                     throw IllegalStateException("ไม่สามารถยกเลิกการดาวน์โหลดได้")
                 }
