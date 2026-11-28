@@ -197,8 +197,8 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 ## 10. Revised execution schedule — 44 days
 
 - Day 29: revalidate direct MP4/WebM source before enqueue; shared 4 GB cap; enforce Content-Length preflight and cancel/delete managed partials when observed bytes exceed the cap. Android DownloadManager remains in use. DNS rebinding and redirects after preflight remain accepted, unresolved limitations for the direct path.
-- Day 30: storage capacity preflight and Library aggregate size.
-- Day 31: database/filesystem recovery and safe orphan handling.
+- Day 30: storage capacity preflight and Library aggregate size. Known Content-Length requires the reported size plus 100 MiB; unknown size requires at least 500 MiB free.
+- Day 31: database/filesystem recovery, DownloadManager insufficient-space handling, and safe orphan handling.
 - Day 32: capture HLS playlist URLs through WebView network interception per page; do not alter page requests or retain cookies/authorization/headers.
 - Day 33: parse master/media playlists, EXT-X-MAP and NONE/AES-128; reject DRM/SAMPLE-AES/live/unsupported byte ranges and cap segments at 20,000.
 - Day 34: RAIN HLS downloader; validate each request and connected destination IP, manually handle up to five redirects without HTTPS downgrade, no page credentials.
@@ -234,9 +234,16 @@ Day 28 playback correction: SHA-256 is computed and persisted when a download be
 
 ### Day 30 — Storage capacity and recurring 4 GB enforcement
 
-- Before enqueue, RAIN checks usable space in the RAIN-managed Movies directory. A known Content-Length requires that amount plus a 100 MiB safety margin; an unknown Content-Length reserves the full 4 GiB cap plus the same margin.
+- Before enqueue, RAIN checks usable space in the RAIN-managed Movies directory. A known Content-Length requires that amount plus a 100 MiB safety margin; an unknown Content-Length requires at least 500 MiB free, using the single `UNKNOWN_SIZE_MINIMUM_FREE_BYTES` constant. This unknown-size threshold is not the file-size cap.
 - The same 4 GiB constant remains shared with HLS. The storage preflight is a disk-space guard, not a guarantee that Android DownloadManager cannot temporarily exceed the limit.
 - On app startup, the coordinator reconciles all active direct downloads and checks the latest DownloadManager byte count and reported total against 4 GiB. The Library refresh loop repeats the check for every active record, including records whose Preflight did not report a size.
 - When an active request is observed above the cap, RAIN removes the DownloadManager request, deletes the partial file only after ManagedVideoPathPolicy confirms it is inside RAIN storage, and marks the record FAILED.
 - The Library displays the aggregate size of all READY local videos.
 - **Accepted limitation:** Direct DownloadManager enforcement depends on RAIN's app refresh/recovery cycles. While the app is closed, Android DownloadManager can continue transferring independently, so a file may temporarily exceed 4 GiB before RAIN next runs and observes the excess. This is not a hard byte-level network cutoff.
+### Day 31 — Filesystem and DownloadManager recovery
+
+- Recovery compares READY database records with their local file. A missing file or a path that is no longer inside RAIN-managed storage changes the record status to `MISSING`; the record remains visible in the Library for review/deletion.
+- Files directly inside the RAIN-managed directory that are not referenced by any database record are treated as orphan files and deleted only after `ManagedVideoPathPolicy.isManagedFile` confirms containment. Directory entries are not recursively removed.
+- DownloadManager requests absent from the database are removed only when the provider exposes a local file path/`file://` URI that can be confirmed inside RAIN-managed storage. If the path is unavailable, non-file, or cannot be resolved safely, the request is left untouched; RAIN does not guess ownership from request IDs or titles.
+- `ERROR_INSUFFICIENT_SPACE` is converted to a Thai user-facing storage message, the transfer is marked `FAILED`, and any partial file is deleted only through the managed-path containment check.
+- The Library runs recovery on open; the browser also performs startup recovery. Duplicate startup reconciliation calls were removed.
