@@ -422,9 +422,9 @@ class VideoLibraryActivity : Activity() {
                     current.status in ACTIVE_STATUSES
                 ) {
                     HlsDownloadService.cancel(this@VideoLibraryActivity, current.id)
-                    repeat(CANCEL_WAIT_ATTEMPTS) {
-                        val latest = repository.get(current.id) ?: return@repeat
-                        if (latest.status !in ACTIVE_STATUSES) return@repeat
+                    for (attempt in 0 until CANCEL_WAIT_ATTEMPTS) {
+                        val latest = repository.get(current.id) ?: break
+                        if (latest.status !in ACTIVE_STATUSES) break
                         Thread.sleep(CANCEL_WAIT_INTERVAL_MS)
                     }
                     val latest = repository.get(current.id)
@@ -551,8 +551,8 @@ class VideoLibraryActivity : Activity() {
         const val THUMBNAIL_HEIGHT = 180
         const val MAX_THUMBNAIL_CACHE_BYTES = 4 * 1024 * 1024
         val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
-        val VISIBLE_STATUSES = ACTIVE_STATUSES + RETRY_STATUSES + setOf(VideoStatus.READY, VideoStatus.MISSING)
         val RETRY_STATUSES = setOf(VideoStatus.FAILED, VideoStatus.FAILED_CORRUPTED, VideoStatus.CANCELED)
+        val VISIBLE_STATUSES = ACTIVE_STATUSES + RETRY_STATUSES + setOf(VideoStatus.READY, VideoStatus.MISSING)
         const val CANCEL_WAIT_ATTEMPTS = 100
         const val CANCEL_WAIT_INTERVAL_MS = 100L
     }
