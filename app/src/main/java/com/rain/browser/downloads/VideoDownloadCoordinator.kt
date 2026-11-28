@@ -68,10 +68,17 @@ class VideoDownloadCoordinator(
             throw IllegalStateException("Unable to create RAIN video storage.")
         }
         check(managedDirectory.isDirectory) { "RAIN video storage is not a directory." }
-        val requiredStorageBytes = (if (preflightSize >= 0L) preflightSize else MAX_VIDEO_SIZE_BYTES) +
-            STORAGE_SAFETY_MARGIN_BYTES
+        val requiredStorageBytes = if (preflightSize >= 0L) {
+            preflightSize + STORAGE_SAFETY_MARGIN_BYTES
+        } else {
+            UNKNOWN_SIZE_MINIMUM_FREE_BYTES
+        }
         if (managedDirectory.usableSpace < requiredStorageBytes) {
-            val message = "พื้นที่จัดเก็บไม่เพียงพอสำหรับดาวน์โหลดวิดีโอ (ต้องเผื่อพื้นที่อย่างน้อย 100 MB)"
+            val message = if (preflightSize >= 0L) {
+                "พื้นที่จัดเก็บไม่เพียงพอ ต้องมีพื้นที่ว่างมากกว่าขนาดวิดีโออย่างน้อย 100 MiB"
+            } else {
+                "พื้นที่จัดเก็บไม่เพียงพอ ต้องมีพื้นที่ว่างอย่างน้อย 500 MiB"
+            }
             repository.markFailed(record.id, message)
             throw IllegalStateException(message)
         }
@@ -211,15 +218,22 @@ class VideoDownloadCoordinator(
             }
 
             DownloadManager.STATUS_FAILED -> {
-                repository.markFailed(
-                    recordId,
-                    "Android DownloadManager failed (" + snapshot.reason + ")."
-                )
+                val insufficientSpace = snapshot.reason == DownloadManager.ERROR_INSUFFICIENT_SPACE
+                val failureMessage = if (insufficientSpace) {
+                    "พื้นที่จัดเก็บไม่เพียงพอ กรุณาเพิ่มพื้นที่ว่างแล้วลองดาวน์โหลดอีกครั้ง"
+                } else {
+                    "ดาวน์โหลดไม่สำเร็จ (รหัสข้อผิดพลาด: ${snapshot.reason})"
+                }
+                if (insufficientSpace) {
+                    downloadManager.remove(requestId)
+                    deleteManagedPartial(record.filePath)
+                }
+                repository.markFailed(recordId, failureMessage)
                 return TransferSnapshot(
                     VideoStatus.FAILED,
                     snapshot.bytesDownloaded,
                     snapshot.totalBytes,
-                    "Android DownloadManager failed (reason: ${snapshot.reason})."
+                    failureMessage
                 )
             }
 
@@ -347,9 +361,19 @@ class VideoDownloadCoordinator(
     /** Reconciles persisted records with Android's durable DownloadManager queue. */
     @Synchronized
     fun reconcileAll(): List<TransferSnapshot> {
+        val initialRecords = repository.list()
+        val results = mutableListOf<TransferSnapshot>()
+        initialRecords.filter { it.status == VideoStatus.READY }.forEach { record ->
+            val file = record.filePath.takeIf { it.isNotBlank() }?.let(::File)
+            if (file == null || !file.isFile) {
+                repository.markMissing(record.id, "ไม่พบไฟล์วิดีโอในพื้นที่จัดเก็บของ RAIN")
+            } else if (!ManagedVideoPathPolicy.isManagedFile(managedDirectory, file)) {
+                repository.markMissing(record.id, "ตำแหน่งไฟล์วิดีโอไม่อยู่ในพื้นที่จัดเก็บของ RAIN")
+            }
+        }
+
         val records = repository.list()
         val knownRequestIds = records.mapNotNull { it.downloadId }.toSet()
-        val results = mutableListOf<TransferSnapshot>()
         records.filter { it.status in ACTIVE_STATUSES }.forEach { record ->
             val result = if (record.downloadId == null) {
                 repository.markFailed(record.id, "Video transfer has no persisted system request ID.")
@@ -365,7 +389,33 @@ class VideoDownloadCoordinator(
             results += result
         }
         removeOrphanedManagedRequests(knownRequestIds)
+        removeOrphanedManagedFiles()
         return results
+    }
+
+    private fun removeOrphanedManagedFiles() {
+        val knownPaths = repository.list()
+            .mapNotNull { record ->
+                record.filePath.takeIf { it.isNotBlank() }?.let { path ->
+                    runCatching { File(path).canonicalPath }.getOrNull()
+                }
+            }
+            .toSet()
+        val children = managedDirectory.listFiles() ?: return
+        children.filter { it.isFile }.forEach { candidate ->
+            if (!ManagedVideoPathPolicy.isManagedFile(managedDirectory, candidate)) return@forEach
+            val canonicalPath = runCatching { candidate.canonicalPath }.getOrNull() ?: return@forEach
+            if (canonicalPath in knownPaths) return@forEach
+            runCatching { candidate.delete() }
+        }
+    }
+
+    private fun deleteManagedPartial(path: String) {
+        if (path.isBlank()) return
+        val partial = runCatching { File(path) }.getOrNull() ?: return
+        if (partial.exists() && ManagedVideoPathPolicy.isManagedFile(managedDirectory, partial)) {
+            runCatching { partial.delete() }
+        }
     }
 
     /**
@@ -469,6 +519,7 @@ class VideoDownloadCoordinator(
     companion object {
         const val MAX_VIDEO_SIZE_BYTES = 4L * 1024L * 1024L * 1024L
         const val STORAGE_SAFETY_MARGIN_BYTES = 100L * 1024L * 1024L
+        const val UNKNOWN_SIZE_MINIMUM_FREE_BYTES = 500L * 1024L * 1024L
         private const val WAITING_FOR_NETWORK = "WAITING_FOR_NETWORK"
         const val MAX_USER_AGENT_LENGTH = 512
         const val MAX_VALIDATOR_HEADER_LENGTH = 1_024
