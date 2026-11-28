@@ -60,6 +60,13 @@ class VideoDownloadCoordinator(
             repository.markFailed(record.id, "วิดีโอมีขนาดเกินขีดจำกัด 4 GB")
             throw IllegalArgumentException("Video exceeds the 4 GB download limit.")
         }
+        val requiredStorageBytes = (if (preflightSize >= 0L) preflightSize else MAX_VIDEO_SIZE_BYTES) +
+            STORAGE_SAFETY_MARGIN_BYTES
+        if (managedDirectory.usableSpace < requiredStorageBytes) {
+            val message = "พื้นที่จัดเก็บไม่เพียงพอสำหรับดาวน์โหลดวิดีโอ (ต้องเผื่อพื้นที่อย่างน้อย 100 MB)"
+            repository.markFailed(record.id, message)
+            throw IllegalStateException(message)
+        }
         val extension = if (mime == "video/webm") "webm" else "mp4"
         val fileName = "rain-video-${record.id}.$extension"
 
@@ -145,7 +152,12 @@ class VideoDownloadCoordinator(
     @Synchronized
     fun refresh(recordId: String): TransferSnapshot? {
         val record = repository.get(recordId) ?: return null
-        val requestId = record.downloadId ?: return null
+        val requestId = record.downloadId ?: run {
+            if (record.status in ACTIVE_STATUSES) {
+                repository.markFailed(recordId, "Video transfer has no persisted system request ID.")
+            }
+            return null
+        }
         val snapshot = query(requestId) ?: run {
             if (record.status in ACTIVE_STATUSES) {
                 val staleFile = record.filePath.takeIf { it.isNotBlank() }?.let(::File)
@@ -456,6 +468,7 @@ class VideoDownloadCoordinator(
 
     companion object {
         const val MAX_VIDEO_SIZE_BYTES = 4L * 1024L * 1024L * 1024L
+        const val STORAGE_SAFETY_MARGIN_BYTES = 100L * 1024L * 1024L
         private const val WAITING_FOR_NETWORK = "WAITING_FOR_NETWORK"
         const val MAX_USER_AGENT_LENGTH = 512
         const val MAX_VALIDATOR_HEADER_LENGTH = 1_024
