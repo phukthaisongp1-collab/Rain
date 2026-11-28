@@ -342,7 +342,7 @@ class UpdateGateActivity : Activity() {
     }
 
     companion object {
-        private const val RELEASES_API = "https://api.github.com/repos/phukthaisongp1-collab/Rain/releases/latest"
+        private const val RELEASES_API = "https://api.github.com/repos/phukthaisongp1-collab/Rain/releases"
         private const val UPDATE_METADATA_ASSET = "rain-update.json"
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
         private const val MAX_APK_BYTES = 512L * 1024L * 1024L
