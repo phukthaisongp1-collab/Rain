@@ -24,6 +24,8 @@ class HlsDownloadCancellation {
         cancelled.set(true)
     }
 
+    fun isCancelled(): Boolean = cancelled.get()
+
     internal fun throwIfCancelled() {
         if (cancelled.get() || Thread.currentThread().isInterrupted) {
             throw CancellationException("ยกเลิกการดาวน์โหลด HLS แล้ว")
