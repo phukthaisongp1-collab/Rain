@@ -188,7 +188,9 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
                     }
                 }
                 override fun onStopTrackingTouch(bar: SeekBar?) {
-                    engine?.seekTo((engine?.duration() ?: 0L) * (bar?.progress ?: 0) / 1000L)
+                    val targetPosition = (engine?.duration() ?: 0L) * (bar?.progress ?: 0) / 1000L
+                    engine?.seekTo(targetPosition)
+                    persistPlaybackPosition(targetPosition)
                     seeking = false
                     preview.visibility = View.GONE
                     previewTime.visibility = View.GONE
@@ -237,6 +239,7 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
                 val delta = if (e.x < surface.width / 2f) -accumulatedSeek else accumulatedSeek
                 val target = ((engine?.position() ?: 0L) + delta).coerceIn(0L, engine?.duration() ?: Long.MAX_VALUE)
                 engine?.seekTo(target)
+                persistPlaybackPosition(target)
                 showMessage(if (delta < 0) "ย้อนกลับ ${accumulatedSeek / 1000}s" else "ไปข้างหน้า ${accumulatedSeek / 1000}s")
                 return true
             }
@@ -471,10 +474,10 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
         main.postDelayed(messageTask, 900L)
     }
 
-    private fun persistPlaybackPosition() {
+    private fun persistPlaybackPosition(positionOverrideMs: Long? = null) {
         val id = videoId
-        val position = engine?.position() ?: return
-        if (id.isBlank() || !ready) return
+        val position = positionOverrideMs ?: engine?.position() ?: return
+        if (id.isBlank() || !ready || position < 0L) return
         persistenceWorker.execute {
             repository?.updatePlaybackState(id, position)
         }
