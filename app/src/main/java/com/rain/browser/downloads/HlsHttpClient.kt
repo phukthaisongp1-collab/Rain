@@ -10,6 +10,7 @@ import java.io.FileOutputStream
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
+import java.net.Proxy
 import java.net.URI
 import java.util.concurrent.TimeUnit
 
@@ -27,6 +28,7 @@ object HlsHttpClient {
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .proxy(Proxy.NO_PROXY)
             .dns(object : Dns {
                 override fun lookup(hostname: String): List<InetAddress> {
                     return Dns.SYSTEM.lookup(hostname).also { addresses ->
