@@ -41,7 +41,6 @@ import com.rain.browser.data.SqliteStorage
 import com.rain.browser.data.VideoRepository
 import java.util.concurrent.Executors
 import java.util.Locale
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 
