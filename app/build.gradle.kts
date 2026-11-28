@@ -80,6 +80,7 @@ tasks.withType<Test>().configureEach {
 dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.webkit)
+    implementation(libs.okhttp)
     testImplementation(libs.junit)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)
