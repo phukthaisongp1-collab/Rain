@@ -579,6 +579,64 @@ class MainActivity : Activity(), WebViewCallbacks {
                         com.rain.browser.data.VideoStatus.DOWNLOADING
                     )
                 })
+
+                val actionRow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                }
+                when (record.status) {
+                    com.rain.browser.data.VideoStatus.QUEUED,
+                    com.rain.browser.data.VideoStatus.DOWNLOADING -> {
+                        actionRow.addView(Button(this).apply {
+                            text = "ยกเลิก"
+                            setOnClickListener { button ->
+                                button.isEnabled = false
+                                storageExecutor.execute {
+                                    val canceled = runCatching { coordinator.cancel(record.id) }.getOrDefault(false)
+                                    runOnUiThread {
+                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                if (canceled) "ยกเลิกการดาวน์โหลดแล้ว" else "ไม่สามารถยกเลิกการดาวน์โหลดได้",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                }
+                            }
+                        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                    }
+                    com.rain.browser.data.VideoStatus.FAILED,
+                    com.rain.browser.data.VideoStatus.FAILED_CORRUPTED,
+                    com.rain.browser.data.VideoStatus.CANCELED -> {
+                        actionRow.addView(Button(this).apply {
+                            text = "ดาวน์โหลดใหม่"
+                            setOnClickListener { button ->
+                                button.isEnabled = false
+                                val userAgent = runCatching {
+                                    tabManager.activeTab?.webView?.settings?.userAgentString.orEmpty()
+                                }.getOrDefault("")
+                                storageExecutor.execute {
+                                    val retryResult = runCatching {
+                                        coordinator.retry(record.id, userAgent)
+                                    }
+                                    runOnUiThread {
+                                        if (dialog.isShowing && !isFinishing && !isDestroyed) {
+                                            val message = if (retryResult.isSuccess) {
+                                                "เริ่มดาวน์โหลดวิดีโอใหม่แล้ว"
+                                            } else {
+                                                retryResult.exceptionOrNull()?.message
+                                                    ?: "ไม่สามารถเริ่มดาวน์โหลดใหม่ได้"
+                                            }
+                                            Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            }
+                        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                    }
+                    else -> Unit
+                }
+                if (actionRow.childCount > 0) row.addView(actionRow)
                 content.addView(row)
                 content.addView(View(this).apply {
                     setBackgroundColor(Color.LTGRAY)
