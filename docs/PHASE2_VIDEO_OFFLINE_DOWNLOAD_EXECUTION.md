@@ -165,11 +165,11 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 
 ### 6.2 หลักฐาน CI ล่าสุด
 
-- Day 39 commit: `1bd01a05fecc639b73d1216de0913dd425ea552d`
-- Push #46133968431: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46133968431 — **Success**
-- PR #46133974894: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46133974894 — **In progress ณ เวลาปรับปรุงเอกสาร**
+- Day 39 progress-tracker commit: `da9006935bcba6282fc4db0f8988c960e6af1e39`
+- Push #46134189635: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134189635 — **Queued ณ เวลาปรับปรุงเอกสาร**
+- PR #46134193747: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134193747 — **In progress ณ เวลาปรับปรุงเอกสาร**
 - PR #45: Draft, ยังไม่ Merge
-- Day 39 จะถือว่าปิดได้ต่อเมื่อ Push และ PR CI ของ commit นี้ผ่านทั้งคู่เท่านั้น
+- Day 39 จะถือว่าปิดได้ต่อเมื่อ Push และ PR CI ของ commit ล่าสุดผ่านทั้งคู่เท่านั้น
 
 ### หลักฐาน CI สำหรับ Day 8
 
