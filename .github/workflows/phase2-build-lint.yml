@@ -39,4 +39,4 @@ jobs:
       - name: Make Gradle Wrapper executable
         run: chmod +x ./gradlew
       - name: Run Android lint and assemble debug APK
-        run: ./gradlew --no-daemon --stacktrace lint assembleDebug
+        run: ./gradlew --no-daemon --stacktrace lint testDebugUnitTest assembleDebug
