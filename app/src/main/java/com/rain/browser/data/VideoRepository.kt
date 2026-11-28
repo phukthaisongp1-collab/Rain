@@ -2,7 +2,6 @@ package com.rain.browser.data
 
 import com.rain.browser.downloads.ManagedVideoPathPolicy
 import com.rain.browser.downloads.VideoContainerValidator
-import com.rain.browser.downloads.VideoRetentionPolicy
 import java.io.File
 import java.net.URI
 import java.util.UUID
@@ -154,11 +153,6 @@ class VideoRepository(
             return failCorrupted(current, "Unrecognized or corrupted video container.", now, file)
         }
 
-        val metadata = VideoRetentionPolicy.Metadata(
-            downloadedAtMillis = now,
-            isLiked = current.isLiked,
-            unlikedAtMillis = current.unlikedAt
-        )
         val updated = current.copy(
             filePath = file.canonicalPath,
             durationMs = durationMs,
@@ -166,7 +160,7 @@ class VideoRepository(
             bytesDownloaded = file.length(),
             status = VideoStatus.READY,
             downloadedAt = now,
-            expiresAt = VideoRetentionPolicy.expiresAtMillis(metadata),
+            expiresAt = null,
             lastError = "",
             updatedAt = now
         )
@@ -232,33 +226,6 @@ class VideoRepository(
             lastModified = "",
             updatedAt = now
         ).also(::persist)
-    }
-
-    fun setLiked(id: String, liked: Boolean, now: Long = System.currentTimeMillis()): VideoRecord? {
-        val current = get(id) ?: return null
-        if (current.status != VideoStatus.READY || now < 0L) return null
-        val metadata = VideoRetentionPolicy.onLikeChanged(
-            VideoRetentionPolicy.Metadata(
-                downloadedAtMillis = current.downloadedAt,
-                isLiked = current.isLiked,
-                unlikedAtMillis = current.unlikedAt
-            ),
-            liked,
-            now
-        )
-        return current.copy(
-            isLiked = metadata.isLiked,
-            unlikedAt = metadata.unlikedAtMillis,
-            expiresAt = VideoRetentionPolicy.expiresAtMillis(metadata),
-            updatedAt = now
-        ).also(::persist)
-    }
-
-    fun findExpired(now: Long = System.currentTimeMillis()): List<VideoRecord> {
-        require(now >= 0L) { "Timestamp must not be negative." }
-        return list(VideoStatus.READY).filter { record ->
-            !record.isLiked && record.expiresAt?.let { now >= it } == true
-        }
     }
 
     /** Removes metadata only. The managed file must be deleted by a path-validated owner. */
