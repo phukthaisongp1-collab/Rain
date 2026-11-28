@@ -29,7 +29,7 @@
                 <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
             </intent-filter>
         </receiver>
-        <activity android:name=".library.VideoLibraryActivity" android:exported="false" />
+        <activity android:name=".library.VideoLibraryActivity" android:exported="false" />\n        <activity android:name=".player.VideoPlayerActivity" android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden" android:exported="false" android:resizeableActivity="true" android:supportsPictureInPicture="true" />
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden"
