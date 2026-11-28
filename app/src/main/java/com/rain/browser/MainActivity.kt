@@ -2143,34 +2143,65 @@ class MainActivity : Activity(), WebViewCallbacks {
 
         val VIDEO_SOURCE_SCAN_SCRIPT = """
             (function () {
+                function isResolvedHttpUrl(value) {
+                    if (typeof value !== 'string' || !value.trim()) return false;
+                    var candidate = value.trim();
+                    if (/^(blob:|data:|mediastream:)/i.test(candidate)) return false;
+                    try {
+                        var parsed = new URL(candidate, document.baseURI);
+                        return (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+                            !!parsed.hostname;
+                    } catch (error) {
+                        return false;
+                    }
+                }
+
                 return JSON.stringify(Array.from(document.querySelectorAll('video')).flatMap(function (video, videoIndex) {
+                    if (video.srcObject !== null) return [];
+
                     var rect = video.getBoundingClientRect();
                     var style = window.getComputedStyle(video);
                     var visible = !!(rect.width && rect.height) &&
                         style.display !== 'none' && style.visibility !== 'hidden';
+                    if (!visible) return [];
+
                     var sources = [];
-                    var directSource = video.getAttribute('src');
-                    if (directSource) {
+                    function addSource(url, type, width, height, quality) {
+                        if (!isResolvedHttpUrl(url)) return;
                         sources.push({
-                            src: video.src || directSource,
-                            type: video.getAttribute('type') || '',
-                            width: String(video.videoWidth || video.getAttribute('width') || ''),
-                            height: String(video.videoHeight || video.getAttribute('height') || ''),
-                            quality: video.getAttribute('data-quality') || ''
+                            src: url.trim(),
+                            type: type || '',
+                            width: width || '',
+                            height: height || '',
+                            quality: quality || ''
                         });
                     }
+
+                    addSource(
+                        video.currentSrc,
+                        video.getAttribute('type'),
+                        String(video.videoWidth || video.getAttribute('width') || ''),
+                        String(video.videoHeight || video.getAttribute('height') || ''),
+                        video.getAttribute('data-quality') || ''
+                    );
+                    addSource(
+                        video.src,
+                        video.getAttribute('type'),
+                        String(video.videoWidth || video.getAttribute('width') || ''),
+                        String(video.videoHeight || video.getAttribute('height') || ''),
+                        video.getAttribute('data-quality') || ''
+                    );
                     video.querySelectorAll('source[src]').forEach(function (source) {
-                        sources.push({
-                            src: source.src || source.getAttribute('src'),
-                            type: source.getAttribute('type') || '',
-                            width: source.getAttribute('data-width') || source.getAttribute('width') || '',
-                            height: source.getAttribute('data-height') || source.getAttribute('height') || '',
-                            quality: source.getAttribute('label') || source.getAttribute('data-quality') || ''
-                        });
+                        addSource(
+                            source.src,
+                            source.getAttribute('type'),
+                            source.getAttribute('data-width') || source.getAttribute('width') || '',
+                            source.getAttribute('data-height') || source.getAttribute('height') || '',
+                            source.getAttribute('label') || source.getAttribute('data-quality') || ''
+                        );
                     });
-                    return sources.filter(function (source) {
-                        return visible && !!source.src;
-                    }).map(function (source) {
+
+                    return sources.map(function (source) {
                         return {
                             src: source.src,
                             type: source.type,
