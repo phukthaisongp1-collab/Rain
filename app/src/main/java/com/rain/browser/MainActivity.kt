@@ -173,6 +173,11 @@ class MainActivity : Activity(), WebViewCallbacks {
                 managedVideoDirectory
             )
         }
+        videoDownloadCoordinator?.let { coordinator ->
+            storageExecutor.execute {
+                runCatching { coordinator.reconcileAll() }
+            }
+        }
         videoFitMode = runCatching {
             VideoFitMode.valueOf(
                 getSharedPreferences(VIDEO_DISPLAY_PREFS, MODE_PRIVATE)
