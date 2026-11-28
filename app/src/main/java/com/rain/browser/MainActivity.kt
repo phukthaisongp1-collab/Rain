@@ -122,7 +122,11 @@ class MainActivity : Activity(), WebViewCallbacks {
     private data class DetectedVideoSource(
         val url: String,
         val title: String,
-        val mimeType: String
+        val mimeType: String,
+        val videoIndex: Int,
+        val width: Int,
+        val height: Int,
+        val qualityLabel: String
     )
 
     private enum class VideoFitMode { FIT, CROP }
@@ -288,11 +292,17 @@ class MainActivity : Activity(), WebViewCallbacks {
                             .trim()
                             .lowercase()
                         val detectedMime = directVideoMime(url, declaredMime) ?: continue
+                        val videoIndex = item.optInt("videoIndex", -1)
+                        if (videoIndex < 0) continue
                         add(
                             DetectedVideoSource(
                                 url = url,
                                 title = item.optString("title").trim().ifBlank { pageTitle },
-                                mimeType = detectedMime
+                                mimeType = detectedMime,
+                                videoIndex = videoIndex,
+                                width = item.optString("width").toIntOrNull()?.takeIf { it > 0 } ?: 0,
+                                height = item.optString("height").toIntOrNull()?.takeIf { it > 0 } ?: 0,
+                                qualityLabel = item.optString("quality").trim().take(80)
                             )
                         )
                     }
@@ -311,23 +321,62 @@ class MainActivity : Activity(), WebViewCallbacks {
                 return@evaluateJavascript
             }
 
-            if (sources.size == 1) {
-                showVideoDownloadConfirmation(sources.first(), webView)
+            val videoGroups = sources.groupBy { it.videoIndex }.values.toList()
+            if (videoGroups.size == 1) {
+                showVideoSourceOptions(videoGroups.first(), webView)
             } else {
-                val labels = sources.mapIndexed { index, source ->
-                    "${index + 1}. ${source.title}\n${source.url}"
+                val labels = videoGroups.mapIndexed { index, group ->
+                    val first = group.first()
+                    "${index + 1}. ${first.title} (${group.size} source)"
                 }.toTypedArray()
                 AlertDialog.Builder(this)
                     .setTitle("เลือกวิดีโอที่ต้องการดาวน์โหลด")
                     .setItems(labels) { _, which ->
-                        sources.getOrNull(which)?.let {
-                            showVideoDownloadConfirmation(it, webView)
+                        videoGroups.getOrNull(which)?.let { group ->
+                            showVideoSourceOptions(group, webView)
                         }
                     }
                     .setNegativeButton(R.string.dialog_cancel, null)
                     .show()
             }
         }
+    }
+
+    private fun showVideoSourceOptions(
+        candidates: List<DetectedVideoSource>,
+        webView: WebView
+    ) {
+        val sources = candidates.distinctBy { it.url }
+        if (sources.size == 1) {
+            showVideoDownloadConfirmation(sources.first(), webView)
+            return
+        }
+
+        val hasDistinctQualityVariants =
+            sources.map { it.qualityLabel.lowercase() }.filter { it.isNotBlank() }.distinct().size > 1 ||
+                sources.map { it.width to it.height }.filter { it.first > 0 && it.second > 0 }.distinct().size > 1
+        val labels = sources.mapIndexed { index, source ->
+            val dimensions = if (source.width > 0 && source.height > 0) {
+                "${source.width}×${source.height}"
+            } else {
+                "ไม่ทราบความละเอียด"
+            }
+            val quality = source.qualityLabel.ifBlank { dimensions }
+            "${index + 1}. ${quality} · ${source.mimeType.removePrefix("video/")}\n${source.url}"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(
+                if (hasDistinctQualityVariants) "เลือกคุณภาพวิดีโอ"
+                else "เลือกแหล่งวิดีโอ"
+            )
+            .setItems(labels) { _, which ->
+                sources.getOrNull(which)?.let {
+                    showVideoDownloadConfirmation(it, webView)
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
     }
 
     private fun directVideoMime(rawUrl: String, declaredMime: String): String? {
@@ -1841,7 +1890,7 @@ class MainActivity : Activity(), WebViewCallbacks {
 
         val VIDEO_SOURCE_SCAN_SCRIPT = """
             (function () {
-                return JSON.stringify(Array.from(document.querySelectorAll('video')).flatMap(function (video) {
+                return JSON.stringify(Array.from(document.querySelectorAll('video')).flatMap(function (video, videoIndex) {
                     var rect = video.getBoundingClientRect();
                     var style = window.getComputedStyle(video);
                     var visible = !!(rect.width && rect.height) &&
@@ -1851,13 +1900,19 @@ class MainActivity : Activity(), WebViewCallbacks {
                     if (directSource) {
                         sources.push({
                             src: video.src || directSource,
-                            type: video.getAttribute('type') || ''
+                            type: video.getAttribute('type') || '',
+                            width: String(video.videoWidth || video.getAttribute('width') || ''),
+                            height: String(video.videoHeight || video.getAttribute('height') || ''),
+                            quality: video.getAttribute('data-quality') || ''
                         });
                     }
                     video.querySelectorAll('source[src]').forEach(function (source) {
                         sources.push({
                             src: source.src || source.getAttribute('src'),
-                            type: source.getAttribute('type') || ''
+                            type: source.getAttribute('type') || '',
+                            width: source.getAttribute('data-width') || source.getAttribute('width') || '',
+                            height: source.getAttribute('data-height') || source.getAttribute('height') || '',
+                            quality: source.getAttribute('label') || source.getAttribute('data-quality') || ''
                         });
                     });
                     return sources.filter(function (source) {
@@ -1867,13 +1922,10 @@ class MainActivity : Activity(), WebViewCallbacks {
                             src: source.src,
                             type: source.type,
                             title: document.title || '',
-                            poster: video.poster || '',
-                            width: String(video.videoWidth || video.getAttribute('width') || ''),
-                            height: String(video.videoHeight || video.getAttribute('height') || ''),
-                            duration: Number.isFinite(video.duration) ? video.duration : null,
-                            paused: video.paused,
-                            readyState: video.readyState,
-                            networkState: video.networkState
+                            videoIndex: videoIndex,
+                            width: source.width,
+                            height: source.height,
+                            quality: source.quality
                         };
                     });
                 }));
