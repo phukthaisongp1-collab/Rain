@@ -42,10 +42,10 @@
 | 36 | ประกอบ TS/fMP4, remux MP4 และตรวจสอบ output | ปิดแล้ว — CI Push/PR ผ่าน |
 | 37 | HLS lifecycle, foreground service, Library, notifications และ process recovery | ปิดแล้ว — CI Push/PR ผ่าน |
 | 38 | Security review และ unsupported-source behavior | ปิดแล้ว — CI Push/PR ผ่าน |
-| 39 | Stabilization, ตรวจความสอดคล้องของเอกสาร และ Pre-Regression handoff | แก้เอกสารแล้ว; Push CI ผ่าน, PR CI กำลังทำงาน — ยังไม่ปิด Day |
-| 40–41 | Integration + Regression รอบเดียว ครอบคลุม Direct/HLS, lifecycle, recovery, security และ regression ของ browser/download เดิม | ยังไม่เริ่ม |
-| 42 | แก้ไขเฉพาะปัญหาที่พบจาก Day 40–41 และรันทดสอบซ้ำเฉพาะส่วนที่แก้ | ยังไม่เริ่ม |
-| 43 | Pre-Acceptance CI, ตรวจหลักฐาน build/lint, manifest, schema, signing และเอกสารข้อจำกัด | ยังไม่เริ่ม |
+| 39 | Stabilization, ตรวจความสอดคล้องของเอกสาร และ Pre-Regression handoff | เสร็จ — Push/PR CI ผ่าน |
+| 40–41 | Integration + Regression รอบเดียว ครอบคลุม Direct/HLS, lifecycle, recovery, security และ regression ของ browser/download เดิม | เสร็จ — Regression suite ผ่านใน CI รอบรวมเดียว (Push/PR) |
+| 42 | แก้ไขเฉพาะปัญหาที่พบจาก Day 40–41 และรันทดสอบซ้ำเฉพาะส่วนที่แก้ | เสร็จ — ตรวจผล regression แล้วไม่พบ defect ที่ยืนยันได้ จึงไม่มี targeted code fix เพิ่ม |
+| 43 | Pre-Acceptance CI, ตรวจหลักฐาน build/lint, manifest, schema, signing และเอกสารข้อจำกัด | เสร็จ — Static audit และ CI รอบรวม Push/PR ผ่าน; ตรวจ signing APK จริงใน Day44 |
 | 44 | ทดสอบบนโทรศัพท์ Android 16 เครื่องจริงและ Final Acceptance | รอทดสอบ |
 
 กติกา CI: ทุกวันต้องให้ Push และ PR CI ผ่านทั้งคู่ก่อนเริ่มวันถัดไป; จำกัดรอบซ่อม CI ไม่เกิน 2 รอบต่อวัน; PR #45 คงสถานะ Draft และห้าม Merge จนกว่าจะได้รับอนุมัติอย่างชัดเจน
@@ -158,18 +158,19 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 | Day 37 | HLS repository lifecycle, dataSync Foreground Service, Library, notifications และ recovery | เสร็จ; Push/PR CI ผ่าน |
 | Day 38 | HLS security review และข้อความปฏิเสธ DRM/token/login/Cloudflare/DASH/live | เสร็จ; Push/PR CI ผ่าน |
 | Day 39 | Stabilization และปรับ execution plan/ข้อจำกัดให้ตรงโค้ดจริง | เสร็จ — Push/PR CI ผ่าน |
-| Day 40–41 | Integration + Regression รอบเดียว รวม Direct/HLS และ browser/download regression | เพิ่ม regression suite ครอบคลุม HLS parser/URL registry, managed paths, media container และ VideoRepository lifecycle; รอ CI รอบรวม |
-| Day 42 | Targeted fixes จากผล Day 40–41 เท่านั้น | ตรวจทานเส้นทางหลักและข้อจำกัดแล้ว; ยังไม่พบ defect ที่ยืนยันได้จาก static review; รอผล regression CI |
-| Day 43 | Pre-Acceptance CI, manifest/schema/signing/docs audit | ตรวจ static audit และอัปเดต checklist แล้ว; รอ CI รอบรวม; ลายเซ็น APK จริงคงตรวจใน Day44 |
+| Day 40–41 | Integration + Regression รอบเดียว รวม Direct/HLS และ browser/download regression | เสร็จ — เพิ่ม HlsOfflineRegressionTest ครอบคลุม parser, URL policy/registry, managed paths, container signature และ VideoRepository lifecycle; CI รอบเดียวผ่านทั้ง Push/PR |
+| Day 42 | Targeted fixes จากผล Day 40–41 เท่านั้น | เสร็จ — ผล Regression ไม่พบ defect ที่ต้องแก้ จึงไม่มีการเปลี่ยน production code เพิ่ม |
+| Day 43 | Pre-Acceptance CI, manifest/schema/signing/docs audit | เสร็จ — Static audit, lint, unit tests และ debug build ผ่าน; Release APK signing fingerprint ยังต้องตรวจใน Day44 |
 | Day 44 | ทดสอบบนโทรศัพท์ Android 16 เครื่องจริงและ Final Acceptance | ยังไม่เริ่ม |
 
 ### 6.2 หลักฐาน CI ล่าสุด
 
-- Day 39 progress-tracker commit: `b3caac4bccb502ac9204b4a7cb3ae64dd037fe1e`
-- Push #46134224256: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134224256 — **Success**
-- PR #46134229190: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46134229190 — **Success**
+- Day 40–43 combined commit: `86caccda01f42261e3487bdb24bded52b31e898d`
+- Push #46135264509: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46135264509 — **Success**
+- PR #46135269278: https://github.com/phukthaisongp1-collab/Rain/actions/runs/46135269278 — **Success**
+- Job `Android Lint and Debug Build`: Success; `lint`, `testDebugUnitTest`, `assembleDebug` ผ่าน และอัปโหลด Unit Test Reports แล้ว
 - PR #45: Draft, ยังไม่ Merge
-- Day 39 ปิดแล้ว
+- Day 40–43 ปิดแล้วตามขอบเขต CI/Static Pre-Acceptance; ยังไม่ใช่ Final Acceptance บนอุปกรณ์จริง
 
 ### หลักฐาน CI สำหรับ Day 8
 
@@ -181,7 +182,7 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 
 ### 6.3 งานรวม Day 40–43 และ Pre-Acceptance Checklist
 
-ดำเนิน Day 40–43 เป็นชุดงานเดียวและใช้ CI รอบรวมเพียงครั้งเดียวตามคำสั่งเจ้าของโครงการ โดยยังต้องให้ Push และ PR workflow ของ commit เดียวกันผ่านทั้งคู่ก่อนปิดช่วงงาน
+ดำเนิน Day 40–43 เป็นชุดงานเดียวและใช้ CI รอบรวมเพียงครั้งเดียวตามคำสั่งเจ้าของโครงการ ผล Push และ PR ของ commit เดียวกันผ่านทั้งคู่แล้ว จึงปิดช่วงงานนี้ได้ตามขอบเขตที่อนุมัติ
 
 **Regression suite ที่เพิ่ม:** `app/src/test/java/com/rain/browser/downloads/HlsOfflineRegressionTest.kt`
 
@@ -204,7 +205,7 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 - ไม่มีการทดสอบบนโทรศัพท์จริงในช่วงนี้; การทำงานเบื้องหลัง, codec/device compatibility, notification behavior และการติดตั้งทับบนเครื่องจริงยังเป็น Day44
 - ไม่เพิ่ม dependency, permission, Media3, schema migration, network credential forwarding หรือ DRM/token bypass
 
-**สถานะก่อน CI:** เพิ่ม tests และ checklist แล้ว; ยังไม่ถือว่า Day 40–43 ปิดจนกว่า CI รอบรวม Push และ PR จะผ่านทั้งคู่
+**ผลปิดงาน:** CI รอบรวมผ่านทั้ง Push และ PR แล้วทั้งคู่; Day 40–43 ปิดตามขอบเขตงานที่อนุมัติ โดย Day44 ยังต้องตรวจ Release APK signing จริงและทดสอบบนโทรศัพท์ Android 16
 
 ## 7. เงื่อนไขการปิดโครงการ
 
