@@ -164,7 +164,7 @@ class VideoRepository(
             bytesDownloaded = file.length(),
             status = VideoStatus.READY,
             downloadedAt = now,
-            expiresAt = null,
+            expiresAt = if (current.isLiked) null else expiryFrom(now),
             lastError = "",
             updatedAt = now
         )
@@ -254,6 +254,10 @@ class VideoRepository(
         ).also(::persist)
     }
 
+    private fun expiryFrom(now: Long): Long =
+        if (now > Long.MAX_VALUE - RETENTION_PERIOD_MS) Long.MAX_VALUE
+        else now + RETENTION_PERIOD_MS
+
     private fun persist(record: VideoRecord) {
         storage.set(TABLE, record.id, mapOf(
             "url" to record.url,
@@ -319,6 +323,7 @@ class VideoRepository(
 
     private companion object {
         const val TABLE = "videos"
+        const val RETENTION_PERIOD_MS = 30L * 24L * 60L * 60L * 1_000L
         const val MAX_TITLE_LENGTH = 512
         const val MAX_MIME_LENGTH = 128
         const val MAX_HEADER_LENGTH = 1024
