@@ -46,6 +46,9 @@ import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.VideoView
+import android.widget.MediaController
+import android.app.Dialog
 import android.widget.Toast
 import com.rain.browser.browser.BrowserTab
 import com.rain.browser.browser.NavigationGuardPolicy
@@ -65,6 +68,7 @@ import com.rain.browser.data.SettingsRepository
 import com.rain.browser.data.ResumeRepository
 import com.rain.browser.data.VideoRepository
 import com.rain.browser.downloads.VideoDownloadCoordinator
+import com.rain.browser.downloads.ManagedVideoPathPolicy
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
 import androidx.core.view.WindowCompat
@@ -834,11 +838,84 @@ class MainActivity : Activity(), WebViewCallbacks {
             append("\nวันหมดอายุ: ").append(expiryDate)
             if (record.lastError.isNotBlank()) append("\nรายละเอียดข้อผิดพลาด: ").append(record.lastError)
         }
-        AlertDialog.Builder(this)
+        val detailsDialog = AlertDialog.Builder(this)
             .setTitle(record.title)
             .setMessage(details)
             .setPositiveButton(R.string.dialog_close, null)
-            .show()
+        if (record.status == com.rain.browser.data.VideoStatus.READY) {
+            detailsDialog.setNeutralButton("เล่น") { _, _ ->
+                showOfflineVideoPlayer(record)
+            }
+        }
+        detailsDialog.show()
+    }
+
+    private fun showOfflineVideoPlayer(record: com.rain.browser.data.VideoRecord) {
+        if (record.status != com.rain.browser.data.VideoStatus.READY) {
+            Toast.makeText(this, "วิดีโอนี้ยังไม่พร้อมเล่น", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val managedDirectory = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+            ?.let { File(it, "RAIN") }
+        val videoFile = runCatching { File(record.filePath).canonicalFile }.getOrNull()
+        if (managedDirectory == null || videoFile == null ||
+            !videoFile.isFile ||
+            !ManagedVideoPathPolicy.isManagedFile(managedDirectory, videoFile)
+        ) {
+            Toast.makeText(this, "ไม่พบไฟล์วิดีโอในพื้นที่จัดเก็บของ RAIN", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val playerDialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val playerRoot = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+        }
+        val videoView = VideoView(this)
+        playerRoot.addView(videoView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        playerRoot.addView(Button(this).apply {
+            text = "ปิด"
+            setOnClickListener { playerDialog.dismiss() }
+        }, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            android.view.Gravity.TOP or android.view.Gravity.END
+        ))
+
+        val mediaController = MediaController(this).apply {
+            setAnchorView(videoView)
+        }
+        videoView.setMediaController(mediaController)
+        videoView.setOnPreparedListener { mediaPlayer ->
+            mediaPlayer.isLooping = false
+            videoView.start()
+        }
+        videoView.setOnErrorListener { _, _, _ ->
+            Toast.makeText(
+                this,
+                "อุปกรณ์ไม่สามารถเล่นรูปแบบวิดีโอนี้ได้",
+                Toast.LENGTH_LONG
+            ).show()
+            playerDialog.dismiss()
+            true
+        }
+        playerDialog.setOnDismissListener {
+            if (videoView.isPlaying) videoView.pause()
+            videoView.stopPlayback()
+        }
+        playerDialog.setContentView(playerRoot)
+        playerDialog.show()
+        playerDialog.window?.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        playerDialog.window?.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+        videoView.setVideoPath(videoFile.path)
     }
 
     private fun restoreTabs(savedInstanceState: Bundle?) {
