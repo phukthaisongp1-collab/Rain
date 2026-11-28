@@ -137,11 +137,11 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 ## 5. กฎการทดสอบ (ฉบับปรับปรุง)
 
 - Day 9–30: เขียนฟีเจอร์ต่อเนื่อง ไม่เพิ่มเทสต์รายวัน ใช้เฉพาะ CI Build และ Lint ที่รันอัตโนมัติ ต้องเขียวก่อน Merge
-- Day 31–32: Integration + Regression รอบเดียว ครอบคลุมเส้นทางหลัก: ดาวน์โหลด → แสดงความคืบหน้า → ยกเลิก → Resume หลังเครือข่ายขาด → กู้คืนหลังปิดแอป → Library → เล่นออฟไลน์ → Like/Unlike → ลบวิดีโอเก่า
+- Day 40–41: Integration + Regression รอบเดียว ครอบคลุมเส้นทางหลัก: ดาวน์โหลด → แสดงความคืบหน้า → ยกเลิก → Resume หลังเครือข่ายขาด → กู้คืนหลังปิดแอป → Library → เล่นออฟไลน์ → Like/Unlike → ลบวิดีโอเก่า
 - Day 33: แก้บั๊ก รันซ้ำเฉพาะส่วนที่แก้
 - Day 34: Pre-Acceptance CI 1 รอบ ตรวจติดตั้งทับรุ่นเดิม ข้อมูลเดิมต้องอยู่ครบ และ Signing Certificate ตรงกับที่กำหนด
-- ห้ามทดสอบโทรศัพท์จริงก่อน Day 35
-- Day 35: ทดสอบบนโทรศัพท์ Android 16 ของเจ้าของเครื่อง ได้แก่ ติดตั้งทับ รักษาข้อมูล ดาวน์โหลด ทำงานเบื้องหลัง (รวมข้อจำกัดแบตเตอรี่) สิทธิ์การแจ้งเตือน เล่นออฟไลน์ และลบไฟล์เก่า
+- ห้ามทดสอบโทรศัพท์จริงก่อน Day 44
+- Day 44: ทดสอบบนโทรศัพท์ Android 16 ของเจ้าของเครื่อง ได้แก่ ติดตั้งทับ รักษาข้อมูล ดาวน์โหลด ทำงานเบื้องหลัง (รวมข้อจำกัดแบตเตอรี่) สิทธิ์การแจ้งเตือน เล่นออฟไลน์ และลบไฟล์เก่า
 - สื่อที่ใช้ทดสอบควรเป็นไฟล์ที่ได้รับอนุญาต เช่น วิดีโอโอเพนซอร์สหรือไฟล์ที่เจ้าของเป็นผู้สร้างเอง
 
 ความเสี่ยงที่ยอมรับ: บั๊กอาจสะสมจนพบพร้อมกันใน Day 31–33 ลดความเสี่ยงโดยแยกโค้ดแต่ละฟีเจอร์ให้เล็กและชัดเจน และไม่ Merge เมื่อ CI Build ไม่เขียว
@@ -154,7 +154,7 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 - PR #40: มีโค้ดสำหรับงานหลายวัน แต่ยังไม่ผ่าน Acceptance และจะใช้เป็นแหล่งคัดเลือกโค้ดเท่านั้น ไม่ Merge ทั้ง PR
 - Day 10–17: ยังไม่ถือว่าผ่าน Acceptance; ทำตามลำดับหลัง Day 9
 - Day 18–34: ยังไม่เริ่ม
-- Day 35: รอทดสอบเครื่องจริง
+- Day 44: รอทดสอบเครื่องจริง
 
 ### หลักฐาน CI สำหรับ Day 8
 
@@ -170,7 +170,7 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 - Day 9–30 พัฒนาครบ และ CI Build ผ่าน
 - Day 31–33 Integration/Regression ผ่าน
 - Day 34 Pre-Acceptance ผ่าน
-- Day 35 ทดสอบบนเครื่องจริงและ Final Acceptance ผ่าน
+- Day 44 ทดสอบบนเครื่องจริงและ Final Acceptance ผ่าน
 
 ## 8. ประวัติการปรับแผน
 
@@ -179,7 +179,7 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 - ฉบับนี้แทนที่แผนเดิมทั้งหมด
 - เปลี่ยน Day 8 ให้ปิดได้จาก controlled detection test + การบันทึกข้อจำกัด real-site probe ตามเกณฑ์ใหม่
 - ปรับ Day 9–30 ให้พัฒนาต่อเนื่อง โดยใช้ CI Build และ Lint อัตโนมัติ ไม่เพิ่มการทดสอบรายวัน
-- รวม Integration/Regression ไว้ที่ Day 31–32, targeted fixes ที่ Day 33, Pre-Acceptance ที่ Day 34 และ physical-device acceptance ที่ Day 35
+- รวม Integration/Regression ไว้ที่ Day 40–41, targeted fixes ที่ Day 33, Pre-Acceptance ที่ Day 34 และ physical-device acceptance ที่ Day 44
 - ย้าย SQLite Schema v2 → v3 จาก Day 20 มา Day 9 เพื่อให้ Download Core ใช้ Video Repository ได้ตั้งแต่ต้น
 - กำหนดให้ตาราง `videos` รองรับข้อมูลที่จำเป็นต่อ Day 9 และ Day 19–30 ใน Migration ครั้งเดียว; Day 20 เป็นการบันทึกข้อมูล Library เท่านั้น
 - กำหนดให้คัดเฉพาะไฟล์ที่จำเป็นจาก PR #40 ลง Branch ใหม่ที่แตกจาก `phase2/video-detection-poc`; ห้าม Merge PR #40 ทั้งก้อน
@@ -192,3 +192,43 @@ SHA-256 ของ Signing Certificate ที่ต้องรักษา:
 - **Day 28 — DNS Rebinding / Redirect:** Source Preflight ตรวจ URL, DNS และ Redirect ก่อนส่งงานให้ Android DownloadManager เท่านั้น ยังไม่สามารถยืนยันปลายทาง DNS หรือควบคุม Redirect ที่ DownloadManager ติดตามหลัง Preflight ได้ ความเสี่ยง DNS Rebinding และ Post-Preflight Redirect ยังเปิดอยู่และต้องประเมิน/แก้ไขใน Day 28
 
 ห้ามอ้างว่า RAIN ป้องกัน DNS Rebinding หรือ Redirect หลัง Preflight ได้แล้ว และห้ามอ้างว่ามีการคำนวณ/ตรวจ SHA-256 จริงจนกว่าจะมี Implementation และหลักฐานทดสอบใน Day 27/28 ตามลำดับ
+
+ 
+## 10. Revised execution schedule — 44 days
+
+- Day 29: revalidate direct MP4/WebM source before enqueue; shared 4 GB cap; enforce Content-Length preflight and cancel/delete managed partials when observed bytes exceed the cap. Android DownloadManager remains in use. DNS rebinding and redirects after preflight remain accepted, unresolved limitations for the direct path.
+- Day 30: storage capacity preflight and Library aggregate size.
+- Day 31: database/filesystem recovery and safe orphan handling.
+- Day 32: capture HLS playlist URLs through WebView network interception per page; do not alter page requests or retain cookies/authorization/headers.
+- Day 33: parse master/media playlists, EXT-X-MAP and NONE/AES-128; reject DRM/SAMPLE-AES/live/unsupported byte ranges and cap segments at 20,000.
+- Day 34: RAIN HLS downloader; validate each request and connected destination IP, manually handle up to five redirects without HTTPS downgrade, no page credentials.
+- Day 35: bounded parallel segment transfer, retries, AES-128 decryption, resumable managed temporary storage, aggregate 4 GB cap and storage preflight.
+- Day 36: remux TS/fMP4 to MP4 using MediaExtractor/MediaMuxer; reject unsupported codecs and clean temporary files.
+- Day 37: integrate HLS jobs with existing videos table, Library/player, notifications, cancellation/retry and dataSync Foreground Service; recover after process death.
+- Day 38: security review and explicit unsupported-stream messages; remove DNS-rebinding limitation only for HLS, retain it for DownloadManager direct media.
+- Day 39: stabilization and documentation.
+- Day 40–41: HLS integration/regression tests, including clear HLS, AES-128, DRM/live rejection, blob/data/MSE DOM rejection and 403 fail-closed.
+- Day 42: targeted bug fixes.
+- Day 43: Pre-Acceptance.
+- Day 44: Android 16 physical-device acceptance.
+
+Day 29 shared size constant: 4 GB (4 × 1024³ bytes) for both direct MP4/WebM and HLS. The direct DownloadManager path is polled by RAIN; on observed bytes or reported total above the cap it removes the system request, deletes only a ManagedVideoPathPolicy-approved partial file, and marks the record FAILED. The Content-Length preflight check rejects known oversized sources before enqueue. Because DownloadManager runs independently, enforcement is bounded by polling latency and cannot prevent every transient overrun before RAIN observes it.
+
+Day 28 playback correction: SHA-256 is computed and persisted when a download becomes READY. On each playback start, RAIN checks that the local file exists and its size matches the database record; it does not hash the entire file again.
+
+### Day 22 custom player implementation audit
+
+- MediaPlayer + SurfaceView through the player engine: implemented.
+- Red draggable seek bar and elapsed/total time: implemented.
+- Center play/pause: implemented.
+- Double-tap seek ±10 seconds with accumulated repeated taps: implemented.
+- Playback speeds 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x: implemented through MediaPlayer playback parameters; runtime support depends on device/codec.
+- Hold for 2x and restore prior speed on release: implemented.
+- Vertical swipe brightness on left and volume on right with indicators: implemented.
+- Local scrub preview from file on background executor, downscaled to 256×144, throttled/cancelled by request token and cached; frames taking over 500 ms are not displayed.
+- Immersive system bars, control auto-hide after 3 seconds, tap to show: implemented.
+- Picture-in-Picture with play/pause action: implemented; platform/device support applies.
+- Audio focus loss and headphone unplug pause: implemented.
+- Captions, HLS playback and quality selection: intentionally not implemented.
+- Runtime acceptance/performance on physical Android 16 device remains pending Day 44.
+
