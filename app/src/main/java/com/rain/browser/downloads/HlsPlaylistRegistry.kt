@@ -72,14 +72,19 @@ object HlsPlaylistUrlPolicy {
     private fun containsSensitiveQueryParameter(uri: URI): Boolean {
         val blocked = setOf(
             "token", "access_token", "auth", "authorization", "key",
-            "signature", "sig", "policy", "credential", "session", "cookie"
+            "signature", "sig", "policy", "credential", "session", "cookie",
+            "jwt", "api_key", "apikey", "hdnea", "hdnts", "sessionid",
+            "password", "pass", "key_pair_id", "x_amz_signature",
+            "x_amz_credential", "x_amz_security_token"
         )
         return uri.rawQuery.orEmpty().split('&').any { component ->
             val rawName = component.substringBefore('=')
             val decodedName = runCatching {
                 java.net.URLDecoder.decode(rawName, java.nio.charset.StandardCharsets.UTF_8.name())
             }.getOrDefault(rawName)
-            decodedName.lowercase(Locale.ROOT) in blocked
+            val normalizedName = decodedName.lowercase(Locale.ROOT).replace('-', '_')
+            normalizedName in blocked || normalizedName.endsWith("_token") ||
+                normalizedName.endsWith("token") || normalizedName.contains("signature")
         }
     }
 
