@@ -71,6 +71,12 @@ kotlin {
     jvmToolchain(17)
 }
 
+tasks.withType<Test>().configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.webkit)
