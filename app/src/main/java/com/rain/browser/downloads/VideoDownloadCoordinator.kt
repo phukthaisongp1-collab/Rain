@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Environment
 import android.database.Cursor
 import com.rain.browser.data.VideoRecord
+import com.rain.browser.data.HLS_MEDIA_MIME_TYPE
 import com.rain.browser.data.VideoRepository
 import com.rain.browser.data.VideoStatus
 import java.io.File
@@ -374,7 +375,7 @@ class VideoDownloadCoordinator(
 
         val records = repository.list()
         val knownRequestIds = records.mapNotNull { it.downloadId }.toSet()
-        records.filter { it.status in ACTIVE_STATUSES }.forEach { record ->
+        records.filter { it.status in ACTIVE_STATUSES && it.mimeType != HLS_MEDIA_MIME_TYPE }.forEach { record ->
             val result = if (record.downloadId == null) {
                 repository.markFailed(record.id, "Video transfer has no persisted system request ID.")
                 TransferSnapshot(VideoStatus.FAILED, record.bytesDownloaded, record.sizeBytes)
