@@ -604,6 +604,9 @@ class MainActivity : Activity(), WebViewCallbacks {
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { showVideoRecordDetails(record) }
                 }
                 row.addView(TextView(this).apply {
                     text = record.title
@@ -746,6 +749,34 @@ class MainActivity : Activity(), WebViewCallbacks {
         )
         handler.post(pollRunnable)
     }
+    private fun showVideoRecordDetails(record: com.rain.browser.data.VideoRecord) {
+        val statusLabel = when (record.status) {
+            com.rain.browser.data.VideoStatus.QUEUED -> "รอเริ่มดาวน์โหลด"
+            com.rain.browser.data.VideoStatus.DOWNLOADING -> "กำลังดาวน์โหลด"
+            com.rain.browser.data.VideoStatus.VERIFYING -> "กำลังตรวจสอบไฟล์"
+            com.rain.browser.data.VideoStatus.READY -> "ดาวน์โหลดเสร็จแล้ว"
+            com.rain.browser.data.VideoStatus.FAILED -> "ดาวน์โหลดไม่สำเร็จ"
+            com.rain.browser.data.VideoStatus.FAILED_CORRUPTED -> "ไฟล์ไม่สมบูรณ์"
+            com.rain.browser.data.VideoStatus.CANCELED -> "ยกเลิกแล้ว"
+        }
+        val details = buildString {
+            append("สถานะ: ").append(statusLabel)
+            append("\\nประเภทไฟล์: ").append(record.mimeType.ifBlank { "ไม่ทราบ" })
+            append("\\nขนาด: ").append(record.sizeBytes.coerceAtLeast(0L) / 1_048_576).append(" MB")
+            append("\\nดาวน์โหลดแล้ว: ").append(record.bytesDownloaded.coerceAtLeast(0L) / 1_048_576).append(" MB")
+            append("\\nระยะเวลา: ").append(record.durationMs.coerceAtLeast(0L) / 1000).append(" วินาที")
+            append("\\nวันที่ดาวน์โหลด: ").append(
+                if (record.downloadedAt > 0L) java.util.Date(record.downloadedAt).toString() else "ยังไม่เสร็จ"
+            )
+            if (record.lastError.isNotBlank()) append("\\nรายละเอียดข้อผิดพลาด: ").append(record.lastError)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(record.title)
+            .setMessage(details)
+            .setPositiveButton(R.string.dialog_close, null)
+            .show()
+    }
+
     private fun restoreTabs(savedInstanceState: Bundle?) {
         val savedTabs = savedInstanceState?.getParcelableArrayList<Bundle>(STATE_TABS)
         if (savedTabs.isNullOrEmpty()) {
