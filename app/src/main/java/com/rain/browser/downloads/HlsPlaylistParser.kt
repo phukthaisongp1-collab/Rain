@@ -277,21 +277,11 @@ object HlsPlaylistParser {
 
     private fun parseIv(value: String): ByteArray {
         require(IV_PATTERN.matches(value)) { "HLS AES-128 IV ต้องเป็นเลขฐานสิบหก 128 บิต" }
-        return value.removePrefix("0x").chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        return value.substring(2).chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
 
-    private fun resolveHttpUrl(baseUrl: String, reference: String): String {
-        val resolved = URI(baseUrl).resolve(URI(reference))
-        val scheme = resolved.scheme?.lowercase(Locale.ROOT)
-        require((scheme == "http" || scheme == "https") &&
-            !resolved.host.isNullOrBlank() &&
-            resolved.rawUserInfo == null &&
-            resolved.rawFragment == null
-        ) {
-            "HLS playlist contains a non-HTTP(S) or unsafe media URL."
-        }
-        return resolved.toString()
-    }
+    private fun resolveHttpUrl(baseUrl: String, reference: String): String =
+        HlsPlaylistUrlPolicy.resolveHttpUrl(baseUrl, reference)
 
     private val RESOLUTION = Regex("([1-9][0-9]*)x([1-9][0-9]*)", RegexOption.IGNORE_CASE)
     private val IV_PATTERN = Regex("0x[0-9a-fA-F]{32}", RegexOption.IGNORE_CASE)
