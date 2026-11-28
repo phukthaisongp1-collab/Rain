@@ -122,6 +122,13 @@ class HlsSegmentDownloader(
         require(byteCount.get() <= VideoDownloadCoordinator.MAX_VIDEO_SIZE_BYTES) {
             "วิดีโอมีขนาดเกินขีดจำกัด 4 GB"
         }
+        onProgress(
+            Progress(
+                completedSegments = completedSegments.get().toInt(),
+                totalSegments = playlist.segments.size,
+                bytesDownloaded = byteCount.get()
+            )
+        )
 
         val maps = playlist.segments.mapNotNull { it.initializationMap }
             .distinctBy(::mapFingerprint)
@@ -141,7 +148,9 @@ class HlsSegmentDownloader(
                 mapFile.delete()
                 properties.remove(mapHashProperty(mapId))
                 properties.remove(mapBytesProperty(mapId))
-                val firstSegment = playlist.segments.first { it.initializationMap == map }
+                val firstSegment = playlist.segments.first {
+                    it.initializationMap?.let(::mapFingerprint) == mapId
+                }
                 val downloadedBytes = downloadResourceWithRetry(
                     url = map.url,
                     destination = mapFile,
