@@ -141,7 +141,10 @@ class VideoLibraryActivity : Activity() {
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
         ))
         setContentView(root)
-        worker.execute { cleanupExpiredVideos() }
+        worker.execute {
+            runCatching { coordinator.reconcileAll() }
+            cleanupExpiredVideos()
+        }
         handler.post(refreshTask)
     }
 
@@ -435,6 +438,7 @@ class VideoLibraryActivity : Activity() {
         VideoStatus.FAILED -> "ดาวน์โหลดไม่สำเร็จ"
         VideoStatus.FAILED_CORRUPTED -> "ไฟล์เสียหาย"
         VideoStatus.CANCELED -> "ยกเลิกแล้ว"
+        VideoStatus.MISSING -> "ไม่พบไฟล์ในเครื่อง"
     }
 
     private fun formatDate(timestamp: Long): String =
@@ -481,6 +485,6 @@ class VideoLibraryActivity : Activity() {
         const val THUMBNAIL_HEIGHT = 180
         const val MAX_THUMBNAIL_CACHE_BYTES = 4 * 1024 * 1024
         val ACTIVE_STATUSES = setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
-        val VISIBLE_STATUSES = ACTIVE_STATUSES + VideoStatus.READY
+        val VISIBLE_STATUSES = ACTIVE_STATUSES + setOf(VideoStatus.READY, VideoStatus.MISSING)
     }
 }
