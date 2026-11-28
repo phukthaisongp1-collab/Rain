@@ -91,6 +91,7 @@ class MainActivity : Activity(), WebViewCallbacks {
     private lateinit var resumeRepository: ResumeRepository
     private var videoRepository: VideoRepository? = null
     private var videoDownloadCoordinator: VideoDownloadCoordinator? = null
+    private var pendingVideoDownload: PendingVideoDownload? = null
     private val storageExecutor = Executors.newSingleThreadExecutor()
     private val systemBackCallback = OnBackInvokedCallback { handleSystemBack() }
     private var fullscreenCustomView: View? = null
@@ -120,6 +121,13 @@ class MainActivity : Activity(), WebViewCallbacks {
     private var searchEngine = SearchEngine.DUCKDUCKGO
 
     private data class HomeShortcut(val name: String, val url: String)
+
+    private data class PendingVideoDownload(
+        val url: String,
+        val title: String,
+        val mimeType: String,
+        val userAgent: String
+    )
 
     private data class DetectedVideoSource(
         val url: String,
@@ -177,6 +185,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         bindViews()
         bindActions()
         restoreTabs(savedInstanceState)
+        handleVideoNotificationIntent(intent)
         // Day 19 replaces the temporary download dialog; keep startup recovery in the Download Core.
         videoDownloadCoordinator?.let { coordinator ->
             storageExecutor.execute {
@@ -424,39 +433,83 @@ class MainActivity : Activity(), WebViewCallbacks {
                 }
 
                 val userAgent = runCatching { webView.settings.userAgentString }.getOrDefault("")
-                storageExecutor.execute {
-                    try {
-                        val record = repository.enqueue(
-                            url = source.url,
-                            title = source.title,
-                            mimeType = source.mimeType,
-                            userConfirmedPermission = true
-                        )
-                        coordinator.enqueue(record, userAgent)
-                        runOnUiThread {
-                            if (!isFinishing && !isDestroyed) {
-                                Toast.makeText(
-                                    this,
-                                    "เพิ่มวิดีโอลงในรายการดาวน์โหลดแล้ว",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                    } catch (error: Exception) {
-                        runOnUiThread {
-                            if (!isFinishing && !isDestroyed) {
-                                AlertDialog.Builder(this)
-                                    .setTitle("ไม่สามารถเริ่มดาวน์โหลดได้")
-                                    .setMessage(error.message ?: "แหล่งวิดีโอไม่ผ่านการตรวจสอบ")
-                                    .setPositiveButton(R.string.dialog_close, null)
-                                    .show()
-                            }
-                        }
-                    }
+                val pending = PendingVideoDownload(
+                    url = source.url,
+                    title = source.title,
+                    mimeType = source.mimeType,
+                    userAgent = userAgent
+                )
+                val notificationPermissionAsked = getSharedPreferences(
+                    VIDEO_NOTIFICATION_PREFS,
+                    MODE_PRIVATE
+                ).getBoolean(VIDEO_NOTIFICATION_PERMISSION_ASKED, false)
+                if (!isRuntimePermissionGranted(Manifest.permission.POST_NOTIFICATIONS) &&
+                    !notificationPermissionAsked
+                ) {
+                    pendingVideoDownload = pending
+                    getSharedPreferences(VIDEO_NOTIFICATION_PREFS, MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(VIDEO_NOTIFICATION_PERMISSION_ASKED, true)
+                        .apply()
+                    requestPermissions(
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        REQUEST_VIDEO_NOTIFICATION
+                    )
+                } else {
+                    startConfirmedVideoDownload(pending)
                 }
             }
             .setNegativeButton(R.string.dialog_cancel, null)
             .show()
+    }
+
+    private fun startConfirmedVideoDownload(pending: PendingVideoDownload) {
+        val repository = videoRepository ?: return
+        val coordinator = videoDownloadCoordinator ?: return
+        storageExecutor.execute {
+            try {
+                val record = repository.enqueue(
+                    url = pending.url,
+                    title = pending.title,
+                    mimeType = pending.mimeType,
+                    userConfirmedPermission = true
+                )
+                coordinator.enqueue(record, pending.userAgent)
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(
+                            this,
+                            "เพิ่มวิดีโอลงในรายการดาวน์โหลดแล้ว",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        AlertDialog.Builder(this)
+                            .setTitle("ไม่สามารถเริ่มดาวน์โหลดได้")
+                            .setMessage(error.message ?: "แหล่งวิดีโอไม่ผ่านการตรวจสอบ")
+                            .setPositiveButton(R.string.dialog_close, null)
+                            .show()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleVideoNotificationIntent(source: Intent?) {
+        if (source?.getBooleanExtra(EXTRA_SHOW_VIDEO_DOWNLOADS, false) != true) return
+        source.removeExtra(EXTRA_SHOW_VIDEO_DOWNLOADS)
+        if (this::tabManager.isInitialized && !isFinishing && !isDestroyed) {
+            showVideoDownloadsDialog()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleVideoNotificationIntent(intent)
     }
 
     private fun showBrowserMenu() {
@@ -1765,6 +1818,11 @@ class MainActivity : Activity(), WebViewCallbacks {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
+            REQUEST_VIDEO_NOTIFICATION -> {
+                val pending = pendingVideoDownload
+                pendingVideoDownload = null
+                pending?.let(::startConfirmedVideoDownload)
+            }
             REQUEST_SITE_PERMISSION -> completeWebPermissionRequest(
                 permissions.isNotEmpty() && permissions.all(::isRuntimePermissionGranted)
             )
@@ -2069,10 +2127,14 @@ class MainActivity : Activity(), WebViewCallbacks {
         const val REQUEST_GEOLOCATION = 4102
         const val REQUEST_VOICE_SEARCH = 4103
         const val REQUEST_IMAGE_PICKER = 4104
+        const val REQUEST_VIDEO_NOTIFICATION = 4105
+        const val EXTRA_SHOW_VIDEO_DOWNLOADS = "rain_extra_show_video_downloads"
         const val HISTORY_DAY_MILLIS = 24L * 60 * 60 * 1000
         const val GOOGLE_HOME_URL = "https://www.google.com/"
         const val HOME_SHORTCUTS_PREFS = "rain_home_shortcuts"
         const val VIDEO_DISPLAY_PREFS = "rain_video_display_preferences"
+        const val VIDEO_NOTIFICATION_PREFS = "rain_video_notification_preferences"
+        const val VIDEO_NOTIFICATION_PERMISSION_ASKED = "permission_asked"
         const val VIDEO_DISPLAY_KEY = "video_fit_mode"
         const val HOME_SHORTCUTS_KEY = "items"
         const val MENU_DETECT_VIDEO = 5_201

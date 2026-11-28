@@ -88,7 +88,8 @@ class VideoDownloadCoordinator(
             setTitle(record.title.take(120))
             setDescription("RAIN offline video")
             setMimeType(mime)
-            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            // DownloadManager shows transfer progress; RAIN posts the single completion/failure notification.
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             setAllowedOverRoaming(false)
             setAllowedOverMetered(true)
             setDestinationInExternalFilesDir(
