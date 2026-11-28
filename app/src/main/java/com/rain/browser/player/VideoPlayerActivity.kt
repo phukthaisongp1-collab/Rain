@@ -39,6 +39,7 @@ import android.widget.Toast
 import java.io.File
 import com.rain.browser.data.SqliteStorage
 import com.rain.browser.data.VideoRepository
+import com.rain.browser.downloads.VideoChecksum
 import java.util.concurrent.Executors
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
@@ -61,6 +62,9 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
     private var videoId = ""
     private var resumePositionMs = 0L
     private var repository: VideoRepository? = null
+    private var surfaceAvailable = false
+    private var integrityVerified = false
+    private var integrityCheckStarted = false
     private val persistenceWorker = Executors.newSingleThreadExecutor()
     private var title = "วิดีโอ"
     private var ready = false
@@ -115,16 +119,54 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
         title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "วิดีโอ" }
         videoId = intent.getStringExtra(EXTRA_VIDEO_ID).orEmpty()
         val file = File(path)
-        if (!file.isFile || file.length() <= 0L) {
-            Toast.makeText(this, "ไม่พบไฟล์วิดีโอในเครื่อง", Toast.LENGTH_LONG).show()
+        val moviesDirectory = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+        if (!file.isFile || file.length() <= 0L || videoId.isBlank() || moviesDirectory == null) {
+            Toast.makeText(this, "ไม่พบไฟล์หรือข้อมูลวิดีโอที่ตรวจสอบได้", Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        val moviesDirectory = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-        if (videoId.isNotBlank() && moviesDirectory != null) {
-            repository = VideoRepository(SqliteStorage(this), File(moviesDirectory, "RAIN"))
-            resumePositionMs = runCatching { repository?.get(videoId)?.playbackPositionMs ?: 0L }
-                .getOrDefault(0L)
+        val managedDirectory = File(moviesDirectory, "RAIN")
+        repository = VideoRepository(SqliteStorage(this), managedDirectory)
+        val record = runCatching { repository?.get(videoId) }.getOrNull()
+        val fileMatchesRecord = record != null &&
+            record.status == com.rain.browser.data.VideoStatus.READY &&
+            record.sizeBytes == file.length() &&
+            runCatching { File(record.filePath).canonicalFile == file.canonicalFile }.getOrDefault(false)
+        if (!fileMatchesRecord) {
+            repository?.markReadyCorrupted(videoId, "Video file is missing or its size/path does not match the saved record.")
+            Toast.makeText(this, "ไฟล์วิดีโอเสียหายหรือข้อมูลไฟล์ไม่ตรงกัน", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        resumePositionMs = record?.playbackPositionMs ?: 0L
+        integrityCheckStarted = true
+        persistenceWorker.execute {
+            val checksumResult = runCatching { VideoChecksum.sha256(file) }
+            val currentSizeMatches = file.isFile && file.length() == record?.sizeBytes
+            val expectedChecksum = record?.checksumSha256.orEmpty()
+            val checksum = checksumResult.getOrNull()
+            val checksumMatches = checksum != null && currentSizeMatches &&
+                (expectedChecksum.isBlank() || expectedChecksum.equals(checksum, ignoreCase = true))
+            if (checksumMatches && expectedChecksum.isBlank()) {
+                repository?.updateChecksumSha256(videoId, checksum.orEmpty())
+            }
+            if (!checksumMatches) {
+                repository?.markReadyCorrupted(
+                    videoId,
+                    if (!currentSizeMatches) "Video file size changed after download."
+                    else "Video SHA-256 verification failed."
+                )
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (checksumMatches) {
+                    integrityVerified = true
+                    startPlayerIfReady()
+                } else {
+                    Toast.makeText(this, "ตรวจสอบความถูกต้องของวิดีโอไม่ผ่าน จึงไม่สามารถเล่นได้", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
         }
         audio = getSystemService(AUDIO_SERVICE) as AudioManager
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -289,9 +331,14 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        if (engine != null) return
+        surfaceAvailable = true
+        startPlayerIfReady()
+    }
+
+    private fun startPlayerIfReady() {
+        if (!surfaceAvailable || !integrityVerified || engine != null || isFinishing) return
         engine = MediaPlayerEngine(
-            holder.surface, path,
+            surface.holder.surface, path,
             onPrepared = {
                 ready = true
                 runOnUiThread {
@@ -326,7 +373,10 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
-    override fun surfaceDestroyed(holder: SurfaceHolder) { engine?.pause() }
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        surfaceAvailable = false
+        engine?.pause()
+    }
 
     private fun toggleVideo() {
         if (!ready) return

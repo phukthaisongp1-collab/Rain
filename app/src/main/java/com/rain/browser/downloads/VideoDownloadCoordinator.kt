@@ -242,6 +242,30 @@ class VideoDownloadCoordinator(
                         ready.lastError
                     )
                 }
+                val checksum = runCatching { VideoChecksum.sha256(completedFile) }.getOrElse { error ->
+                    val corrupted = repository.markReadyCorrupted(
+                        recordId,
+                        "Unable to calculate video SHA-256: ${safeError(error)}"
+                    )
+                    return TransferSnapshot(
+                        VideoStatus.FAILED_CORRUPTED,
+                        snapshot.bytesDownloaded,
+                        snapshot.totalBytes,
+                        corrupted?.lastError ?: "Unable to calculate video SHA-256."
+                    )
+                }
+                if (repository.updateChecksumSha256(recordId, checksum) == null) {
+                    val corrupted = repository.markReadyCorrupted(
+                        recordId,
+                        "Unable to persist video SHA-256."
+                    )
+                    return TransferSnapshot(
+                        VideoStatus.FAILED_CORRUPTED,
+                        snapshot.bytesDownloaded,
+                        snapshot.totalBytes,
+                        corrupted?.lastError ?: "Unable to persist video SHA-256."
+                    )
+                }
                 return TransferSnapshot(
                     VideoStatus.READY,
                     snapshot.bytesDownloaded,

@@ -230,6 +230,35 @@ class VideoRepository(
         ).also(::persist)
     }
 
+    fun updateChecksumSha256(
+        id: String,
+        checksumSha256: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L || !checksumSha256.matches(SHA256_PATTERN)) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            checksumSha256 = checksumSha256.lowercase(),
+            updatedAt = now
+        ).also(::persist)
+    }
+
+    fun markReadyCorrupted(
+        id: String,
+        reason: String,
+        now: Long = System.currentTimeMillis()
+    ): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.status != VideoStatus.READY) return null
+        return current.copy(
+            status = VideoStatus.FAILED_CORRUPTED,
+            lastError = reason.trim().take(MAX_ERROR_LENGTH),
+            updatedAt = now
+        ).also(::persist)
+    }
+
     fun markCorrupted(
         id: String,
         file: File,
@@ -383,5 +412,6 @@ class VideoRepository(
         const val MAX_ERROR_LENGTH = 512
         const val CONTAINER_PREFIX_BYTES = 32
         const val VIDEO_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1000L
+        val SHA256_PATTERN = Regex("^[a-fA-F0-9]{64}$")
     }
 }
