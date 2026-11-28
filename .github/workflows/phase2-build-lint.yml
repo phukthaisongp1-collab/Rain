@@ -30,6 +30,11 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
+      - name: Set up JDK 21 for unit tests
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
       - name: Install pinned Android SDK packages
@@ -39,4 +44,4 @@ jobs:
       - name: Make Gradle Wrapper executable
         run: chmod +x ./gradlew
       - name: Run Android lint and assemble debug APK
-        run: ./gradlew --no-daemon --stacktrace lint testDebugUnitTest assembleDebug
+        run: JAVA_HOME="$JAVA_HOME_17_X64" ./gradlew --no-daemon --stacktrace -Dorg.gradle.java.installations.paths="$JAVA_HOME_17_X64,$JAVA_HOME_21_X64" lint testDebugUnitTest assembleDebug
