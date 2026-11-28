@@ -353,6 +353,7 @@ class VideoRepository(
         ).also(::persist)
     }
 
+    @Synchronized
     fun markHlsCanceled(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
         if (now < 0L) return null
         val current = get(id) ?: return null
