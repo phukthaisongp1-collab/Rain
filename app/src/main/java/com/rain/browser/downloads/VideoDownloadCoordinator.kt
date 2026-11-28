@@ -60,13 +60,6 @@ class VideoDownloadCoordinator(
             repository.markFailed(record.id, "วิดีโอมีขนาดเกินขีดจำกัด 4 GB")
             throw IllegalArgumentException("Video exceeds the 4 GB download limit.")
         }
-        val requiredStorageBytes = (if (preflightSize >= 0L) preflightSize else MAX_VIDEO_SIZE_BYTES) +
-            STORAGE_SAFETY_MARGIN_BYTES
-        if (managedDirectory.usableSpace < requiredStorageBytes) {
-            val message = "พื้นที่จัดเก็บไม่เพียงพอสำหรับดาวน์โหลดวิดีโอ (ต้องเผื่อพื้นที่อย่างน้อย 100 MB)"
-            repository.markFailed(record.id, message)
-            throw IllegalStateException(message)
-        }
         val extension = if (mime == "video/webm") "webm" else "mp4"
         val fileName = "rain-video-${record.id}.$extension"
 
@@ -75,6 +68,13 @@ class VideoDownloadCoordinator(
             throw IllegalStateException("Unable to create RAIN video storage.")
         }
         check(managedDirectory.isDirectory) { "RAIN video storage is not a directory." }
+        val requiredStorageBytes = (if (preflightSize >= 0L) preflightSize else MAX_VIDEO_SIZE_BYTES) +
+            STORAGE_SAFETY_MARGIN_BYTES
+        if (managedDirectory.usableSpace < requiredStorageBytes) {
+            val message = "พื้นที่จัดเก็บไม่เพียงพอสำหรับดาวน์โหลดวิดีโอ (ต้องเผื่อพื้นที่อย่างน้อย 100 MB)"
+            repository.markFailed(record.id, message)
+            throw IllegalStateException(message)
+        }
 
         val externalMoviesDirectory = appContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
             ?: run {
