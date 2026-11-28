@@ -221,6 +221,28 @@ class VideoLibraryActivity : Activity() {
             row.addView(details)
             row.addView(info)
             if (record.status == VideoStatus.READY) {
+                val heart = Button(this).apply {
+                    text = if (record.isLiked) "♥" else "♡"
+                    textSize = 20f
+                    isEnabled = !record.isLiked
+                    contentDescription = if (record.isLiked) "ถูกใจแล้ว" else "เพิ่มรายการถูกใจ"
+                    setOnClickListener {
+                        isEnabled = false
+                        worker.execute {
+                            val liked = runCatching { repository.like(record.id) }.getOrNull()
+                            runOnUiThread {
+                                if (!isFinishing && !isDestroyed) {
+                                    if (liked == null) isEnabled = true
+                                    handler.removeCallbacks(refreshTask)
+                                    handler.post(refreshTask)
+                                }
+                            }
+                        }
+                    }
+                }
+                row.addView(heart)
+            }
+            if (record.status == VideoStatus.READY) {
                 row.isClickable = true
                 row.setOnClickListener { openReadyVideo(record) }
             }
