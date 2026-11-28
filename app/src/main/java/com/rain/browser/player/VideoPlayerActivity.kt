@@ -147,10 +147,12 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
             val checksum = checksumResult.getOrNull()
             val checksumMatches = checksum != null && currentSizeMatches &&
                 (expectedChecksum.isBlank() || expectedChecksum.equals(checksum, ignoreCase = true))
-            if (checksumMatches && expectedChecksum.isBlank()) {
-                repository?.updateChecksumSha256(videoId, checksum.orEmpty())
+            val checksumPersisted = if (checksumMatches && expectedChecksum.isBlank()) {
+                repository?.updateChecksumSha256(videoId, checksum.orEmpty()) != null
+            } else {
+                checksumMatches
             }
-            if (!checksumMatches) {
+            if (!checksumPersisted) {
                 repository?.markReadyCorrupted(
                     videoId,
                     if (!currentSizeMatches) "Video file size changed after download."
@@ -159,7 +161,7 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
-                if (checksumMatches) {
+                if (checksumPersisted) {
                     integrityVerified = true
                     startPlayerIfReady()
                 } else {
