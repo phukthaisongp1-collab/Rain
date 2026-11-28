@@ -438,6 +438,11 @@ class VideoLibraryActivity : Activity() {
                 } else if (current.status in ACTIVE_STATUSES && !coordinator.cancel(current.id)) {
                     throw IllegalStateException("ไม่สามารถยกเลิกการดาวน์โหลดได้")
                 }
+                if (current.mimeType == HLS_MEDIA_MIME_TYPE) {
+                    check(HlsSegmentDownloader(managedDirectory()).deleteTemporaryFiles(current.id)) {
+                        "ไม่สามารถลบไฟล์ชั่วคราว HLS ได้อย่างปลอดภัย"
+                    }
+                }
                 val latest = repository.get(record.id)
                     ?: throw IllegalStateException("ไม่พบรายการวิดีโอ")
                 if (latest.filePath.isNotBlank()) {
