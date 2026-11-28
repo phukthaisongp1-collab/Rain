@@ -352,6 +352,20 @@ class VideoRepository(
         ).also(::persist)
     }
 
+    fun markHlsCanceled(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
+        if (now < 0L) return null
+        val current = get(id) ?: return null
+        if (current.mimeType != HLS_MEDIA_MIME_TYPE ||
+            current.status !in setOf(VideoStatus.QUEUED, VideoStatus.DOWNLOADING, VideoStatus.VERIFYING)
+        ) return null
+        return current.copy(
+            status = VideoStatus.CANCELED,
+            downloadId = null,
+            lastError = "",
+            updatedAt = now
+        ).also(::persist)
+    }
+
     fun resetForRetry(id: String, now: Long = System.currentTimeMillis()): VideoRecord? {
         val current = get(id) ?: return null
         if (current.status !in setOf(VideoStatus.FAILED, VideoStatus.FAILED_CORRUPTED, VideoStatus.CANCELED) || now < 0L) return null
