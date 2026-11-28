@@ -64,8 +64,10 @@ import com.rain.browser.data.HistoryRepository
 import com.rain.browser.data.SettingsRepository
 import com.rain.browser.data.ResumeRepository
 import com.rain.browser.data.VideoRepository
+import com.rain.browser.data.HLS_MEDIA_MIME_TYPE
 import com.rain.browser.library.VideoLibraryActivity
 import com.rain.browser.downloads.VideoDownloadCoordinator
+import com.rain.browser.downloads.HlsDownloadService
 import com.rain.browser.downloads.HlsPlaylistRegistry
 import com.rain.browser.downloads.HlsPlaylistFetcher
 import com.rain.browser.downloads.HlsPlaylistParser
@@ -190,6 +192,15 @@ class MainActivity : Activity(), WebViewCallbacks {
         videoDownloadCoordinator?.let { coordinator ->
             storageExecutor.execute {
                 runCatching { coordinator.reconcileAll() }
+                val hasRecoverableHls = videoRepository?.list()?.any {
+                    it.mimeType == HLS_MEDIA_MIME_TYPE &&
+                        it.status in setOf(
+                            com.rain.browser.data.VideoStatus.QUEUED,
+                            com.rain.browser.data.VideoStatus.DOWNLOADING,
+                            com.rain.browser.data.VideoStatus.VERIFYING
+                        )
+                } == true
+                if (hasRecoverableHls) runCatching { HlsDownloadService.recover(this@MainActivity) }
             }
         }
         videoFitMode = runCatching {
@@ -469,12 +480,49 @@ class MainActivity : Activity(), WebViewCallbacks {
             appendLine("AES-128: $encryptedSegments segments")
             appendLine("fMP4 initialization map: $initializationSegments segments")
             appendLine()
-            append("ตรวจสอบโครงสร้าง HLS สำเร็จ ยังไม่เริ่มดาวน์โหลดสื่อ")
+            append("ตรวจสอบโครงสร้าง HLS สำเร็จ พร้อมเริ่มดาวน์โหลดหลังยืนยัน")
         }
         AlertDialog.Builder(this)
-            .setTitle("HLS Playlist พร้อมประมวลผล")
+            .setTitle("HLS Playlist พร้อมดาวน์โหลด")
             .setMessage(details)
-            .setPositiveButton(R.string.dialog_close, null)
+            .setPositiveButton("ยืนยันและดาวน์โหลด") { _, _ ->
+                val repository = videoRepository
+                if (repository == null) {
+                    Toast.makeText(this, "พื้นที่จัดเก็บวิดีโอของแอปยังไม่พร้อมใช้งาน", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                storageExecutor.execute {
+                    val created = runCatching {
+                        repository.enqueue(
+                            url = playlistUrl,
+                            title = pageTitle.ifBlank { "HLS Video" },
+                            mimeType = HLS_MEDIA_MIME_TYPE,
+                            userConfirmedPermission = true
+                        )
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        created.onSuccess { record ->
+                            runCatching { HlsDownloadService.start(this, record.id) }
+                                .onSuccess {
+                                    Toast.makeText(this, "เพิ่ม HLS ลงในคิวดาวน์โหลดแล้ว", Toast.LENGTH_LONG).show()
+                                    launchVideoLibrary()
+                                }
+                                .onFailure { error ->
+                                    repository.markFailed(record.id, error.message ?: "ไม่สามารถเริ่ม HLS download service ได้")
+                                    Toast.makeText(this, "เริ่มดาวน์โหลด HLS ไม่สำเร็จ", Toast.LENGTH_LONG).show()
+                                }
+                        }.onFailure { error ->
+                            Toast.makeText(
+                                this,
+                                error.message ?: "ไม่สามารถเพิ่ม HLS ลงในคิวดาวน์โหลดได้",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
             .show()
     }
 
