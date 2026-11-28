@@ -68,6 +68,9 @@ import com.rain.browser.library.VideoLibraryActivity
 import com.rain.browser.downloads.VideoDownloadCoordinator
 import com.rain.browser.downloads.HlsPlaylistRegistry
 import com.rain.browser.downloads.HlsPlaylistFetcher
+import com.rain.browser.downloads.HlsPlaylistParser
+import com.rain.browser.downloads.HlsParsedPlaylist
+import com.rain.browser.downloads.HlsVariant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import com.rain.browser.data.SqliteStorage
@@ -396,40 +399,82 @@ class MainActivity : Activity(), WebViewCallbacks {
                     "โดยไม่ส่ง Cookie, Authorization หรือ Referer จากเว็บไซต์"
             )
             .setPositiveButton("ยืนยันและตรวจสอบ Playlist") { _, _ ->
-                val progress = AlertDialog.Builder(this)
-                    .setTitle("กำลังตรวจสอบ HLS Playlist")
-                    .setMessage("กำลังดึง Playlist โดยไม่ใช้ข้อมูลเข้าสู่ระบบจากเว็บไซต์")
-                    .setCancelable(false)
-                    .create()
-                progress.show()
-                hlsExecutor.execute {
-                    val result = runCatching { HlsPlaylistFetcher.fetch(url) }
-                    runOnUiThread {
-                        progress.dismiss()
-                        if (isFinishing || isDestroyed) return@runOnUiThread
-                        result.onSuccess { playlist ->
-                            val lineCount = playlist.content.lineSequence().count()
-                            AlertDialog.Builder(this)
-                                .setTitle("ตรวจพบ HLS Playlist แล้ว")
-                                .setMessage(
-                                    "หน้า: $pageTitle\n" +
-                                        "Playlist: ${playlist.finalUrl}\n" +
-                                        "จำนวนบรรทัด: $lineCount\n\n" +
-                                        "ตรวจสอบ #EXTM3U สำเร็จ ขั้นตอนดาวน์โหลดและประมวลผล Playlist จะเชื่อมต่อในงาน HLS ถัดไป"
-                                )
-                                .setPositiveButton(R.string.dialog_close, null)
-                                .show()
-                        }.onFailure { error ->
-                            AlertDialog.Builder(this)
-                                .setTitle("ไม่สามารถอ่าน HLS Playlist ได้")
-                                .setMessage(error.message ?: "ไม่สามารถตรวจสอบ Playlist นี้ได้")
-                                .setPositiveButton(R.string.dialog_close, null)
-                                .show()
-                        }
-                    }
-                }
+                fetchAndParseHlsPlaylist(url, pageTitle)
             }
             .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun fetchAndParseHlsPlaylist(url: String, pageTitle: String) {
+        val progress = AlertDialog.Builder(this)
+            .setTitle("กำลังตรวจสอบ HLS Playlist")
+            .setMessage("กำลังดึง Playlist โดยไม่ใช้ข้อมูลเข้าสู่ระบบจากเว็บไซต์")
+            .setCancelable(false)
+            .create()
+        progress.show()
+        hlsExecutor.execute {
+            val result = runCatching {
+                val playlist = HlsPlaylistFetcher.fetch(url)
+                playlist to HlsPlaylistParser.parse(playlist.finalUrl, playlist.content)
+            }
+            runOnUiThread {
+                progress.dismiss()
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (playlist, parsed) ->
+                    when (parsed) {
+                        is HlsParsedPlaylist.Master -> showHlsVariantOptions(parsed.variants, pageTitle)
+                        is HlsParsedPlaylist.Media -> showHlsMediaPlaylistSummary(
+                            playlist.finalUrl,
+                            pageTitle,
+                            parsed
+                        )
+                    }
+                }.onFailure { error ->
+                    AlertDialog.Builder(this)
+                        .setTitle("ไม่สามารถอ่าน HLS Playlist ได้")
+                        .setMessage(error.message ?: "ไม่สามารถตรวจสอบ Playlist นี้ได้")
+                        .setPositiveButton(R.string.dialog_close, null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun showHlsVariantOptions(variants: List<HlsVariant>, pageTitle: String) {
+        val labels = variants.mapIndexed { index, variant ->
+            "${index + 1}. ${variant.label}\n${variant.url}"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("เลือกคุณภาพ HLS")
+            .setItems(labels) { _, which ->
+                variants.getOrNull(which)?.let { fetchAndParseHlsPlaylist(it.url, pageTitle) }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun showHlsMediaPlaylistSummary(
+        playlistUrl: String,
+        pageTitle: String,
+        playlist: HlsParsedPlaylist.Media
+    ) {
+        val totalDuration = playlist.segments.sumOf { it.durationSeconds }
+        val encryptedSegments = playlist.segments.count { it.key?.method == "AES-128" }
+        val initializationSegments = playlist.segments.count { it.initializationMap != null }
+        val details = buildString {
+            appendLine("หน้า: $pageTitle")
+            appendLine("Playlist: $playlistUrl")
+            appendLine("Segments: ${playlist.segments.size}")
+            appendLine("ระยะเวลารวม: ${String.format(java.util.Locale.ROOT, "%.1f", totalDuration)} วินาที")
+            appendLine("AES-128: $encryptedSegments segments")
+            appendLine("fMP4 initialization map: $initializationSegments segments")
+            appendLine()
+            append("ตรวจสอบโครงสร้าง HLS สำเร็จ ยังไม่เริ่มดาวน์โหลดสื่อ")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("HLS Playlist พร้อมประมวลผล")
+            .setMessage(details)
+            .setPositiveButton(R.string.dialog_close, null)
             .show()
     }
 
