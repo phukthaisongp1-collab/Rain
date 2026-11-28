@@ -583,7 +583,7 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
         val scrollView = android.widget.ScrollView(this).apply { addView(content) }
         val dialog = AlertDialog.Builder(this)
-            .setTitle("รายการดาวน์โหลดวิดีโอ")
+            .setTitle("คลังวิดีโอออฟไลน์")
             .setView(scrollView)
             .setPositiveButton(R.string.dialog_close, null)
             .create()
@@ -595,7 +595,7 @@ class MainActivity : Activity(), WebViewCallbacks {
             content.removeAllViews()
             if (records.isEmpty()) {
                 content.addView(TextView(this).apply {
-                    text = "ยังไม่มีรายการดาวน์โหลดวิดีโอ"
+                    text = "ยังไม่มีวิดีโอในคลังออฟไลน์"
                     setPadding(0, (16 * density).toInt(), 0, (16 * density).toInt())
                 })
                 return
@@ -740,6 +740,10 @@ class MainActivity : Activity(), WebViewCallbacks {
         }
         dialog.setOnDismissListener { handler.removeCallbacks(pollRunnable) }
         dialog.show()
+        dialog.window?.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
         handler.post(pollRunnable)
     }
     private fun restoreTabs(savedInstanceState: Bundle?) {
