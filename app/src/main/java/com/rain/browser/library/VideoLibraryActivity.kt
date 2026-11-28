@@ -53,7 +53,7 @@ class VideoLibraryActivity : Activity() {
             if (isFinishing || isDestroyed) return
             worker.execute {
                 val initial = runCatching { repository.list() }.getOrDefault(emptyList())
-                initial.filter { it.status in ACTIVE_STATUSES && it.downloadId != null }
+                initial.filter { it.status in ACTIVE_STATUSES }
                     .forEach { record -> runCatching { coordinator.refresh(record.id) } }
                 val visible = runCatching {
                     repository.list()
@@ -175,6 +175,15 @@ class VideoLibraryActivity : Activity() {
     private fun render() {
         if (!::content.isInitialized) return
         content.removeAllViews()
+        val totalLibraryBytes = latestRecords.asSequence()
+            .filter { it.status == VideoStatus.READY }
+            .sumOf { it.sizeBytes.coerceAtLeast(0L) }
+        content.addView(TextView(this).apply {
+            text = "พื้นที่วิดีโอที่ใช้: ${formatBytes(totalLibraryBytes)}"
+            textSize = 13f
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 0, 0, dp(12))
+        })
         val query = searchQuery.trim()
         val records = latestRecords.filter {
             query.isEmpty() || it.title.contains(query, ignoreCase = true)
@@ -445,7 +454,8 @@ class VideoLibraryActivity : Activity() {
     private fun formatBytes(bytes: Long): String {
         if (bytes <= 0L) return "0 KB"
         if (bytes < 1_048_576L) return "${bytes / 1024L} KB"
-        return String.format(Locale.ROOT, "%.1f MB", bytes / 1_048_576.0)
+        if (bytes < 1_073_741_824L) return String.format(Locale.ROOT, "%.1f MB", bytes / 1_048_576.0)
+        return String.format(Locale.ROOT, "%.2f GB", bytes / 1_073_741_824.0)
     }
 
     private fun showStorageUnavailable() {
