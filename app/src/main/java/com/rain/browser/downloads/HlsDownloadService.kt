@@ -59,6 +59,16 @@ class HlsDownloadService : Service() {
                 worker.execute { stopWhenIdle(startId) }
             }
 
+            ACTION_CANCEL_ALL -> {
+                repository.list()
+                    .filter { it.mimeType == HLS_MEDIA_MIME_TYPE && it.status in ACTIVE_STATUSES }
+                    .forEach { record ->
+                        cancellations[record.id]?.cancel() ?: repository.markCanceled(record.id)
+                        publishRecordState(record.id)
+                    }
+                worker.execute { stopWhenIdle(startId) }
+            }
+
             ACTION_START -> {
                 val recordId = intent.getStringExtra(EXTRA_RECORD_ID).orEmpty()
                 if (recordId.isNotBlank()) worker.execute {
