@@ -39,7 +39,6 @@ import android.widget.Toast
 import java.io.File
 import com.rain.browser.data.SqliteStorage
 import com.rain.browser.data.VideoRepository
-import com.rain.browser.downloads.VideoChecksum
 import java.util.concurrent.Executors
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
@@ -139,37 +138,11 @@ class VideoPlayerActivity : Activity(), SurfaceHolder.Callback {
             return
         }
         resumePositionMs = record?.playbackPositionMs ?: 0L
+        // SHA-256 is persisted when the download becomes READY.
+        // Playback performs only the required existence and recorded-size checks.
         integrityCheckStarted = true
-        persistenceWorker.execute {
-            val checksumResult = runCatching { VideoChecksum.sha256(file) }
-            val currentSizeMatches = file.isFile && file.length() == record?.sizeBytes
-            val expectedChecksum = record?.checksumSha256.orEmpty()
-            val checksum = checksumResult.getOrNull()
-            val checksumMatches = checksum != null && currentSizeMatches &&
-                (expectedChecksum.isBlank() || expectedChecksum.equals(checksum, ignoreCase = true))
-            val checksumPersisted = if (checksumMatches && expectedChecksum.isBlank()) {
-                repository?.updateChecksumSha256(videoId, checksum.orEmpty()) != null
-            } else {
-                checksumMatches
-            }
-            if (!checksumPersisted) {
-                repository?.markReadyCorrupted(
-                    videoId,
-                    if (!currentSizeMatches) "Video file size changed after download."
-                    else "Video SHA-256 verification failed."
-                )
-            }
-            runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
-                if (checksumPersisted) {
-                    integrityVerified = true
-                    startPlayerIfReady()
-                } else {
-                    Toast.makeText(this, "ตรวจสอบความถูกต้องของวิดีโอไม่ผ่าน จึงไม่สามารถเล่นได้", Toast.LENGTH_LONG).show()
-                    finish()
-                }
-            }
-        }
+        integrityVerified = true
+        startPlayerIfReady()
         audio = getSystemService(AUDIO_SERVICE) as AudioManager
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         immersive()
